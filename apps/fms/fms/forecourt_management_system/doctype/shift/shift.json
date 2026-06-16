@@ -1,0 +1,220 @@
+{
+ "actions": [],
+ "autoname": "naming_series:",
+ "creation": "2026-06-16 00:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "company",
+  "branch",
+  "shift_date",
+  "shift_number",
+  "status",
+  "supervisor",
+  "col_break1",
+  "opening_at",
+  "closing_at",
+  "previous_shift",
+  "gl_journal",
+  "shift_reconciliation",
+  "section_rates",
+  "fuel_rates",
+  "section_meta",
+  "dispute_reason",
+  "disputed_by"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "options": "SHIFT-.YYYY.-.MM.-.###"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_filter": 1
+  },
+  {
+   "fieldname": "branch",
+   "fieldtype": "Link",
+   "label": "Branch",
+   "options": "Branch",
+   "reqd": 1
+  },
+  {
+   "fieldname": "shift_date",
+   "fieldtype": "Date",
+   "label": "Shift Date",
+   "reqd": 1,
+   "default": "Today",
+   "in_list_view": 1,
+   "in_filter": 1
+  },
+  {
+   "fieldname": "shift_number",
+   "fieldtype": "Select",
+   "label": "Shift Number",
+   "options": "\n1\n2\n3",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Draft\nOpen\nReadings Captured\nClosing\nClosed\nDisputed",
+   "default": "Draft",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_filter": 1
+  },
+  {
+   "fieldname": "supervisor",
+   "fieldtype": "Link",
+   "label": "Supervisor",
+   "options": "Employee",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "col_break1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "opening_at",
+   "fieldtype": "Datetime",
+   "label": "Opened At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "closing_at",
+   "fieldtype": "Datetime",
+   "label": "Closed At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "previous_shift",
+   "fieldtype": "Link",
+   "label": "Previous Shift",
+   "options": "Shift",
+   "read_only": 1
+  },
+  {
+   "fieldname": "gl_journal",
+   "fieldtype": "Link",
+   "label": "GL Journal Entry",
+   "options": "Journal Entry",
+   "read_only": 1
+  },
+  {
+   "fieldname": "shift_reconciliation",
+   "fieldtype": "Link",
+   "label": "Shift Reconciliation",
+   "options": "Shift Reconciliation",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_rates",
+   "fieldtype": "Section Break",
+   "label": "Locked Fuel Rates (at Shift Open)"
+  },
+  {
+   "fieldname": "fuel_rates",
+   "fieldtype": "Table",
+   "label": "Fuel Rates",
+   "options": "Shift Fuel Rate",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_meta",
+   "fieldtype": "Section Break",
+   "label": "Dispute"
+  },
+  {
+   "fieldname": "dispute_reason",
+   "fieldtype": "Small Text",
+   "label": "Dispute Reason",
+   "mandatory_depends_on": "eval:doc.status == 'Disputed'"
+  },
+  {
+   "fieldname": "disputed_by",
+   "fieldtype": "Link",
+   "label": "Disputed By",
+   "options": "User",
+   "read_only": 1
+  }
+ ],
+ "links": [],
+ "modified": "2026-06-16 00:00:00",
+ "modified_by": "Administrator",
+ "module": "Forecourt Management System",
+ "name": "Shift",
+ "naming_rule": "Expression (legacy)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "submit": 0,
+   "cancel": 0,
+   "amend": 0,
+   "report": 1,
+   "export": 1,
+   "import": 0,
+   "share": 1,
+   "print": 1,
+   "email": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "FMS Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "FMS Supervisor",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "read": 1,
+   "report": 1,
+   "role": "FMS Cashier"
+  },
+  {
+   "read": 1,
+   "report": 1,
+   "role": "FMS Auditor"
+  },
+  {
+   "read": 1,
+   "report": 1,
+   "role": "FMS HQ"
+  }
+ ],
+ "sort_field": "shift_date",
+ "sort_order": "DESC",
+ "title_field": "name",
+ "track_changes": 1
+}

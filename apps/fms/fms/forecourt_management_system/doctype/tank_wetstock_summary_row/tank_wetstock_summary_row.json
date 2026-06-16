@@ -1,0 +1,38 @@
+{
+ "actions": [],
+ "creation": "2026-06-16 00:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "tank", "fuel_grade",
+  "opening_dip_l", "deliveries_l", "rtt_volumes_l", "elec_vol_sold_l",
+  "theoretical_closing_l", "actual_closing_dip_l",
+  "variance_l", "variance_pct", "wac_rate", "variance_kes", "variance_status"
+ ],
+ "fields": [
+  {"fieldname": "tank", "fieldtype": "Link", "label": "Tank", "options": "Warehouse", "in_list_view": 1},
+  {"fieldname": "fuel_grade", "fieldtype": "Link", "label": "Fuel Grade", "options": "Item", "in_list_view": 1},
+  {"fieldname": "opening_dip_l", "fieldtype": "Float", "label": "Opening Dip (L)", "precision": "1"},
+  {"fieldname": "deliveries_l", "fieldtype": "Float", "label": "Deliveries (L)", "precision": "1"},
+  {"fieldname": "rtt_volumes_l", "fieldtype": "Float", "label": "RTT (L)", "precision": "3"},
+  {"fieldname": "elec_vol_sold_l", "fieldtype": "Float", "label": "EV Sold (L)", "precision": "3"},
+  {"fieldname": "theoretical_closing_l", "fieldtype": "Float", "label": "Theoretical Closing (L)", "precision": "1"},
+  {"fieldname": "actual_closing_dip_l", "fieldtype": "Float", "label": "Actual Closing (L)", "precision": "1"},
+  {"fieldname": "variance_l", "fieldtype": "Float", "label": "Variance (L)", "precision": "3", "in_list_view": 1, "bold": 1},
+  {"fieldname": "variance_pct", "fieldtype": "Float", "label": "Variance %", "precision": "4", "in_list_view": 1},
+  {"fieldname": "wac_rate", "fieldtype": "Currency", "label": "WAC Rate"},
+  {"fieldname": "variance_kes", "fieldtype": "Currency", "label": "Variance (KES)", "in_list_view": 1},
+  {
+   "fieldname": "variance_status", "fieldtype": "Select", "label": "Status",
+   "options": "\nNormal\nElevated\nCritical\nGain", "in_list_view": 1
+  }
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-06-16 00:00:00",
+ "modified_by": "Administrator",
+ "module": "Forecourt Management System",
+ "name": "Tank Wetstock Summary Row",
+ "owner": "Administrator",
+ "permissions": []
+}

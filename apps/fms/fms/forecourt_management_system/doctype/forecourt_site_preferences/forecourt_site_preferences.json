@@ -1,0 +1,250 @@
+{
+ "actions": [],
+ "autoname": "field:company",
+ "creation": "2026-06-16 00:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "company",
+  "pos_profile",
+  "section_shift",
+  "auto_open_next_shift",
+  "shifts_per_day",
+  "shift_1_start",
+  "shift_2_start",
+  "shift_3_start",
+  "stale_shift_hours",
+  "section_thresholds",
+  "cash_variance_warn_kes",
+  "cash_variance_fail_kes",
+  "wetstock_warn_pct",
+  "wetstock_fail_pct",
+  "delivery_variance_max_pct",
+  "pdq_variance_warn_kes",
+  "pdq_variance_fail_kes",
+  "section_accounts",
+  "cash_over_account",
+  "wetstock_variance_account",
+  "safe_main_account",
+  "till_active_account",
+  "card_variance_account",
+  "pdq_clearing_account",
+  "section_recipients",
+  "report_recipients"
+ ],
+ "fields": [
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "pos_profile",
+   "fieldtype": "Link",
+   "label": "POS Profile",
+   "options": "POS Profile"
+  },
+  {
+   "fieldname": "section_shift",
+   "fieldtype": "Section Break",
+   "label": "Shift Settings"
+  },
+  {
+   "fieldname": "auto_open_next_shift",
+   "fieldtype": "Check",
+   "label": "Auto Open Next Shift",
+   "default": "1"
+  },
+  {
+   "fieldname": "shifts_per_day",
+   "fieldtype": "Select",
+   "label": "Shifts Per Day",
+   "options": "2\n3",
+   "default": "3"
+  },
+  {
+   "fieldname": "shift_1_start",
+   "fieldtype": "Time",
+   "label": "Shift 1 Start",
+   "default": "06:00:00"
+  },
+  {
+   "fieldname": "shift_2_start",
+   "fieldtype": "Time",
+   "label": "Shift 2 Start",
+   "default": "14:00:00"
+  },
+  {
+   "fieldname": "shift_3_start",
+   "fieldtype": "Time",
+   "label": "Shift 3 Start",
+   "default": "22:00:00"
+  },
+  {
+   "fieldname": "stale_shift_hours",
+   "fieldtype": "Int",
+   "label": "Stale Shift Alert (hours)",
+   "default": "10"
+  },
+  {
+   "fieldname": "section_thresholds",
+   "fieldtype": "Section Break",
+   "label": "Variance Thresholds"
+  },
+  {
+   "fieldname": "cash_variance_warn_kes",
+   "fieldtype": "Currency",
+   "label": "Cash Variance Warning (KES)",
+   "default": "50"
+  },
+  {
+   "fieldname": "cash_variance_fail_kes",
+   "fieldtype": "Currency",
+   "label": "Cash Variance Fail (KES)",
+   "default": "200"
+  },
+  {
+   "fieldname": "wetstock_warn_pct",
+   "fieldtype": "Float",
+   "label": "Wetstock Warning %",
+   "default": "0.30",
+   "precision": "4"
+  },
+  {
+   "fieldname": "wetstock_fail_pct",
+   "fieldtype": "Float",
+   "label": "Wetstock Fail %",
+   "default": "0.50",
+   "precision": "4"
+  },
+  {
+   "fieldname": "delivery_variance_max_pct",
+   "fieldtype": "Float",
+   "label": "Delivery Variance Max %",
+   "default": "0.50",
+   "precision": "4"
+  },
+  {
+   "fieldname": "pdq_variance_warn_kes",
+   "fieldtype": "Currency",
+   "label": "PDQ Variance Warning (KES)",
+   "default": "50"
+  },
+  {
+   "fieldname": "pdq_variance_fail_kes",
+   "fieldtype": "Currency",
+   "label": "PDQ Variance Fail (KES)",
+   "default": "200"
+  },
+  {
+   "fieldname": "section_accounts",
+   "fieldtype": "Section Break",
+   "label": "GL Accounts"
+  },
+  {
+   "fieldname": "cash_over_account",
+   "fieldtype": "Link",
+   "label": "Cash Short / Over Account",
+   "options": "Account"
+  },
+  {
+   "fieldname": "wetstock_variance_account",
+   "fieldtype": "Link",
+   "label": "Wetstock Variance Account (default)",
+   "options": "Account"
+  },
+  {
+   "fieldname": "safe_main_account",
+   "fieldtype": "Link",
+   "label": "Safe Main Account",
+   "options": "Account"
+  },
+  {
+   "fieldname": "till_active_account",
+   "fieldtype": "Link",
+   "label": "Till Active Account",
+   "options": "Account"
+  },
+  {
+   "fieldname": "card_variance_account",
+   "fieldtype": "Link",
+   "label": "Card Payment Variance Account",
+   "options": "Account"
+  },
+  {
+   "fieldname": "pdq_clearing_account",
+   "fieldtype": "Link",
+   "label": "PDQ Clearing Account",
+   "options": "Account"
+  },
+  {
+   "fieldname": "section_recipients",
+   "fieldtype": "Section Break",
+   "label": "Daily Report Recipients"
+  },
+  {
+   "fieldname": "report_recipients",
+   "fieldtype": "Table",
+   "label": "Report Recipients",
+   "options": "Forecourt Site Report Recipient"
+  }
+ ],
+ "links": [],
+ "modified": "2026-06-16 00:00:00",
+ "modified_by": "Administrator",
+ "module": "Forecourt Management System",
+ "name": "Forecourt Site Preferences",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "submit": 0,
+   "cancel": 0,
+   "amend": 0,
+   "report": 1,
+   "export": 1,
+   "import": 0,
+   "share": 1,
+   "print": 1,
+   "email": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "FMS Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "read": 1,
+   "role": "FMS Supervisor"
+  },
+  {
+   "read": 1,
+   "report": 1,
+   "role": "FMS Auditor"
+  },
+  {
+   "read": 1,
+   "report": 1,
+   "role": "FMS HQ"
+  }
+ ],
+ "sort_field": "company",
+ "sort_order": "ASC",
+ "title_field": "company",
+ "track_changes": 1
+}

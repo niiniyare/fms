@@ -1,0 +1,25 @@
+# Third-party Frappe apps (install via bench)
+apps/frappe/
+apps/erpnext/
+
+# Site data — contains DB credentials and private files
+sites/
+
+# Runtime config (redis, pids) — system-specific
+config/
+
+# Logs and runtime state
+logs/
+
+# Python virtualenv
+env/
+
+# Python artifacts
+*.pyc
+*.egg-info
+__pycache__/
+
+# Editor / OS
+.DS_Store
+*.swp
+tags

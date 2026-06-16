@@ -1,0 +1,158 @@
+{
+ "actions": [],
+ "autoname": "naming_series:",
+ "creation": "2026-06-16 00:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "shift",
+  "alert_type",
+  "severity",
+  "status",
+  "message",
+  "col_break1",
+  "created_at",
+  "resolved_at",
+  "resolved_by",
+  "resolution_notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "options": "ALERT-.YYYY.-.MM.-.#####"
+  },
+  {
+   "fieldname": "shift",
+   "fieldtype": "Link",
+   "label": "Shift",
+   "options": "Shift",
+   "in_list_view": 1,
+   "in_filter": 1
+  },
+  {
+   "fieldname": "alert_type",
+   "fieldtype": "Select",
+   "label": "Alert Type",
+   "options": "\nGeneral\nStale Shift\nCheck B Critical\nWater in Tank\nWetstock Critical\nDelivery Variance\nPDQ Variance\neTIMS Failure",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_filter": 1
+  },
+  {
+   "fieldname": "severity",
+   "fieldtype": "Select",
+   "label": "Severity",
+   "options": "Info\nWarning\nCritical",
+   "default": "Warning",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Open\nAcknowledged\nResolved",
+   "default": "Open",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_filter": 1
+  },
+  {
+   "fieldname": "message",
+   "fieldtype": "Small Text",
+   "label": "Message",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "col_break1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "created_at",
+   "fieldtype": "Datetime",
+   "label": "Created At",
+   "default": "Now",
+   "read_only": 1
+  },
+  {
+   "fieldname": "resolved_at",
+   "fieldtype": "Datetime",
+   "label": "Resolved At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "resolved_by",
+   "fieldtype": "Link",
+   "label": "Resolved By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "resolution_notes",
+   "fieldtype": "Small Text",
+   "label": "Resolution Notes"
+  }
+ ],
+ "links": [],
+ "modified": "2026-06-16 00:00:00",
+ "modified_by": "Administrator",
+ "module": "Forecourt Management System",
+ "name": "Forecourt Alert",
+ "naming_rule": "Expression (legacy)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "submit": 0,
+   "cancel": 0,
+   "amend": 0,
+   "report": 1,
+   "export": 1,
+   "import": 0,
+   "share": 1,
+   "print": 1,
+   "email": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "FMS Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "read": 1,
+   "report": 1,
+   "role": "FMS Supervisor",
+   "write": 1
+  },
+  {
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "role": "FMS Auditor"
+  },
+  {
+   "read": 1,
+   "report": 1,
+   "role": "FMS HQ"
+  }
+ ],
+ "sort_field": "created_at",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

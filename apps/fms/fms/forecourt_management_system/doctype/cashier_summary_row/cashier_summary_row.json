@@ -1,0 +1,41 @@
+{
+ "actions": [],
+ "creation": "2026-06-16 00:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "cashier", "cashier_session", "float_amount", "total_sales",
+  "total_invoices", "total_mpesa", "total_visa", "total_pdq",
+  "total_receipts", "total_out", "expected_cash", "actual_cash", "cash_variance", "variance_status"
+ ],
+ "fields": [
+  {"fieldname": "cashier", "fieldtype": "Link", "label": "Cashier", "options": "Employee", "in_list_view": 1},
+  {"fieldname": "cashier_session", "fieldtype": "Link", "label": "Session", "options": "Cashier Session", "in_list_view": 1},
+  {"fieldname": "float_amount", "fieldtype": "Currency", "label": "Float"},
+  {"fieldname": "total_sales", "fieldtype": "Currency", "label": "Sales"},
+  {"fieldname": "total_invoices", "fieldtype": "Currency", "label": "AR Invoices"},
+  {"fieldname": "total_mpesa", "fieldtype": "Currency", "label": "MPesa"},
+  {"fieldname": "total_visa", "fieldtype": "Currency", "label": "VISA"},
+  {"fieldname": "total_pdq", "fieldtype": "Currency", "label": "PDQ"},
+  {"fieldname": "total_receipts", "fieldtype": "Currency", "label": "Receipts"},
+  {"fieldname": "total_out", "fieldtype": "Currency", "label": "Out (Pickup/Drop)"},
+  {"fieldname": "expected_cash", "fieldtype": "Currency", "label": "Expected", "in_list_view": 1},
+  {"fieldname": "actual_cash", "fieldtype": "Currency", "label": "Actual", "in_list_view": 1},
+  {
+   "fieldname": "cash_variance", "fieldtype": "Currency", "label": "Variance",
+   "in_list_view": 1, "bold": 1
+  },
+  {
+   "fieldname": "variance_status", "fieldtype": "Select", "label": "Status",
+   "options": "\nPass\nWarning\nFail", "in_list_view": 1
+  }
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-06-16 00:00:00",
+ "modified_by": "Administrator",
+ "module": "Forecourt Management System",
+ "name": "Cashier Summary Row",
+ "owner": "Administrator",
+ "permissions": []
+}

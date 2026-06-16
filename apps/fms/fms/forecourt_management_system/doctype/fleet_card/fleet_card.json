@@ -1,0 +1,152 @@
+{
+ "actions": [],
+ "autoname": "naming_series:",
+ "creation": "2026-06-16 00:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "card_number",
+  "customer",
+  "company",
+  "is_active",
+  "col_break1",
+  "credit_limit",
+  "grade_restriction",
+  "vehicle_number",
+  "driver_name",
+  "expiry_date",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "options": "FC-.####"
+  },
+  {
+   "fieldname": "card_number",
+   "fieldtype": "Data",
+   "label": "Card Number",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "label": "Customer",
+   "options": "Customer",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "Is Active",
+   "default": "1",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "col_break1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "credit_limit",
+   "fieldtype": "Currency",
+   "label": "Credit Limit",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "grade_restriction",
+   "fieldtype": "Link",
+   "label": "Grade Restriction",
+   "options": "Item",
+   "description": "If set, card can only purchase this fuel grade"
+  },
+  {
+   "fieldname": "vehicle_number",
+   "fieldtype": "Data",
+   "label": "Vehicle Number"
+  },
+  {
+   "fieldname": "driver_name",
+   "fieldtype": "Data",
+   "label": "Driver Name"
+  },
+  {
+   "fieldname": "expiry_date",
+   "fieldtype": "Date",
+   "label": "Expiry Date"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  }
+ ],
+ "links": [],
+ "modified": "2026-06-16 00:00:00",
+ "modified_by": "Administrator",
+ "module": "Forecourt Management System",
+ "name": "Fleet Card",
+ "naming_rule": "Expression (legacy)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "submit": 0,
+   "cancel": 0,
+   "amend": 0,
+   "report": 1,
+   "export": 1,
+   "import": 0,
+   "share": 1,
+   "print": 1,
+   "email": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "FMS Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "read": 1,
+   "report": 1,
+   "role": "FMS Supervisor"
+  },
+  {
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "role": "FMS Auditor"
+  },
+  {
+   "read": 1,
+   "report": 1,
+   "role": "FMS HQ"
+  }
+ ],
+ "sort_field": "card_number",
+ "sort_order": "ASC",
+ "track_changes": 1
+}

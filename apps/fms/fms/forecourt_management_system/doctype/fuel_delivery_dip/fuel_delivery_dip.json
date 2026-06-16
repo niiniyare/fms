@@ -1,0 +1,200 @@
+{
+ "actions": [],
+ "autoname": "naming_series:",
+ "creation": "2026-06-16 00:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "shift",
+  "tank",
+  "company",
+  "status",
+  "col_break1",
+  "docket_number",
+  "truck_reg",
+  "driver_name",
+  "section_volumes",
+  "docket_volume_l",
+  "dip_measured_l",
+  "variance_l",
+  "variance_pct",
+  "section_dips",
+  "before_at",
+  "after_at",
+  "purchase_receipt"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "options": "FDD-.YYYY.-.MM.-.#####"
+  },
+  {
+   "fieldname": "shift",
+   "fieldtype": "Link",
+   "label": "Shift",
+   "options": "Shift",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "tank",
+   "fieldtype": "Link",
+   "label": "Tank",
+   "options": "Warehouse",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Pending\nComplete\nDisputed",
+   "default": "Pending",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "col_break1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "docket_number",
+   "fieldtype": "Data",
+   "label": "Docket Number",
+   "reqd": 1
+  },
+  {
+   "fieldname": "truck_reg",
+   "fieldtype": "Data",
+   "label": "Truck Reg",
+   "reqd": 1
+  },
+  {
+   "fieldname": "driver_name",
+   "fieldtype": "Data",
+   "label": "Driver Name"
+  },
+  {
+   "fieldname": "section_volumes",
+   "fieldtype": "Section Break",
+   "label": "Volumes"
+  },
+  {
+   "fieldname": "docket_volume_l",
+   "fieldtype": "Float",
+   "label": "Docket Volume (L)",
+   "reqd": 1,
+   "precision": "3"
+  },
+  {
+   "fieldname": "dip_measured_l",
+   "fieldtype": "Float",
+   "label": "Dip Measured (L)",
+   "read_only": 1,
+   "precision": "3",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "variance_l",
+   "fieldtype": "Float",
+   "label": "Variance (L)",
+   "read_only": 1,
+   "precision": "3"
+  },
+  {
+   "fieldname": "variance_pct",
+   "fieldtype": "Float",
+   "label": "Variance %",
+   "read_only": 1,
+   "precision": "4",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "section_dips",
+   "fieldtype": "Section Break",
+   "label": "Delivery Dips"
+  },
+  {
+   "fieldname": "before_at",
+   "fieldtype": "Datetime",
+   "label": "Before Dip At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "after_at",
+   "fieldtype": "Datetime",
+   "label": "After Dip At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "purchase_receipt",
+   "fieldtype": "Link",
+   "label": "Purchase Receipt",
+   "options": "Purchase Receipt",
+   "read_only": 1
+  }
+ ],
+ "links": [],
+ "modified": "2026-06-16 00:00:00",
+ "modified_by": "Administrator",
+ "module": "Forecourt Management System",
+ "name": "Fuel Delivery Dip",
+ "naming_rule": "Expression (legacy)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "submit": 0,
+   "cancel": 0,
+   "amend": 0,
+   "report": 1,
+   "export": 1,
+   "import": 0,
+   "share": 1,
+   "print": 1,
+   "email": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "FMS Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "read": 1,
+   "report": 1,
+   "role": "FMS Supervisor",
+   "write": 1
+  },
+  {
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "role": "FMS Auditor"
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}
