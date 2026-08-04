@@ -46,6 +46,10 @@ class FMSMeterLog(models.Model):
     opening_man_mech = fields.Float('Opening Manual (L)', digits=(16, 2))
     closing_man_mech = fields.Float('Closing Manual (L)', digits=(16, 2))
 
+    # RTT
+    rtt_volume = fields.Float('RTT Volume (L)', digits=(16, 2))
+    rtt_cash = fields.Float('RTT Cash (KES)', digits=(16, 2))
+
     qty_sold_elec = fields.Float(
         'Qty Sold Elec (L)', compute='_compute_qty', store=True, digits=(16, 2),
     )
@@ -66,11 +70,12 @@ class FMSMeterLog(models.Model):
         'closing_elec_volume', 'opening_elec_volume',
         'closing_elec_cash', 'opening_elec_cash',
         'closing_man_mech', 'opening_man_mech',
+        'rtt_volume', 'rtt_cash',
     )
     def _compute_qty(self):
         for log in self:
-            log.qty_sold_elec  = log.closing_elec_volume - (log.opening_elec_volume or 0.0)
-            log.elec_cash_sold = log.closing_elec_cash   - (log.opening_elec_cash   or 0.0)
+            log.qty_sold_elec  = (log.closing_elec_volume - (log.opening_elec_volume or 0.0)) - (log.rtt_volume or 0.0)
+            log.elec_cash_sold = (log.closing_elec_cash   - (log.opening_elec_cash   or 0.0)) - (log.rtt_cash   or 0.0)
             log.qty_sold_man   = log.closing_man_mech    - (log.opening_man_mech    or 0.0)
 
     @api.depends('qty_sold_elec', 'product_id', 'product_id.list_price')

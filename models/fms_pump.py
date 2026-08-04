@@ -47,6 +47,21 @@ class FMSPumpNozzle(models.Model):
     )
     active = fields.Boolean(default=True)
 
+    # Current meter positions — updated on every shift close.
+    # These become the opening readings for the next shift.
+    current_elec_volume = fields.Float(
+        'Current Elec Volume (L)', digits=(16, 2),
+        help="Latest closing electronic volume meter reading. Auto-populated from shift close.",
+    )
+    current_elec_cash = fields.Float(
+        'Current Elec Cash (KES)', digits=(16, 2),
+        help="Latest closing electronic cash meter reading. Auto-populated from shift close.",
+    )
+    current_man_mech = fields.Float(
+        'Current Manual Meter (L)', digits=(16, 2),
+        help="Latest closing manual mechanical meter reading. Auto-populated from shift close.",
+    )
+
     @api.constrains('letter', 'pump_id')
     def _check_unique_nozzle(self):
         for nozzle in self:

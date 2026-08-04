@@ -97,12 +97,13 @@
                                     <field name="pump_id"/>
                                     <field name="nozzle_id"
                                            domain="[('pump_id','=',pump_id)]"/>
-                                    <field name="product_id" readonly="1"/>
+                                    <!-- product auto-derived from nozzle — hidden -->
+                                    <field name="product_id" column_invisible="1"/>
                                     <field name="attendant_id"
                                            string="Attendant"
                                            domain="[('fms_is_attendant','=',True)]"/>
 
-                                    <!-- Closing readings only — opening stored silently -->
+                                    <!-- Closing readings only (3 meters) -->
                                     <field name="closing_elec_cash"
                                            string="Elec Cash (KES)"/>
                                     <field name="closing_elec_volume"
@@ -110,20 +111,25 @@
                                     <field name="closing_man_mech"
                                            string="Manual Meter (L)"/>
 
-                                    <!-- Hidden opening fields — carried over, not displayed -->
+                                    <!-- RTT -->
+                                    <field name="rtt_volume"
+                                           string="RTT Vol (L)" optional="show"/>
+                                    <field name="rtt_cash"
+                                           string="RTT Cash (KES)" optional="show"/>
+
+                                    <!-- Hidden opening fields — carried from nozzle, not displayed -->
                                     <field name="opening_elec_cash" column_invisible="1"/>
                                     <field name="opening_elec_volume" column_invisible="1"/>
                                     <field name="opening_man_mech" column_invisible="1"/>
 
-                                    <!-- Computed sold amounts -->
+                                    <!-- Computed net sold (after RTT) -->
                                     <field name="elec_cash_sold" readonly="1"
                                            string="Cash Sold (KES)" sum="Total Cash KES"/>
                                     <field name="qty_sold_elec" readonly="1"
                                            string="Vol Sold (L)" sum="Total L"
                                            optional="show"/>
                                     <field name="qty_sold_man" readonly="1"
-                                           string="Man Sold (L)"
-                                           optional="hide"/>
+                                           string="Man Sold (L)" optional="hide"/>
                                     <field name="notes" optional="hide"/>
                                 </list>
                             </field>

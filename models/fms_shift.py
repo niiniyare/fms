@@ -311,28 +311,20 @@ class FMSShift(models.Model):
             meter_entries = []
             for pump in pumps:
                 for nozzle in pump.nozzle_ids.filtered('active'):
-                    opening_elec      = 0.0
-                    opening_elec_cash = 0.0
-                    opening_man       = 0.0
-                    if prev:
-                        log = self.env['fms.meter_log'].search([
-                            ('shift_id', '=', prev.id),
-                            ('nozzle_id', '=', nozzle.id),
-                        ], limit=1)
-                        if log:
-                            opening_elec      = log.closing_elec_volume
-                            opening_elec_cash = log.closing_elec_cash
-                            opening_man       = log.closing_man_mech
+                    # Opening = nozzle's current meter position (set on last shift close)
+                    opening_elec_volume = nozzle.current_elec_volume
+                    opening_elec_cash   = nozzle.current_elec_cash
+                    opening_man_mech    = nozzle.current_man_mech
                     meter_entries.append({
                         'shift_id':            self.id,
                         'pump_id':             pump.id,
                         'nozzle_id':           nozzle.id,
-                        'opening_elec_volume': opening_elec,
-                        'closing_elec_volume': opening_elec,   # placeholder until close
+                        'opening_elec_volume': opening_elec_volume,
+                        'closing_elec_volume': opening_elec_volume,  # supervisor overwrites at close
                         'opening_elec_cash':   opening_elec_cash,
-                        'closing_elec_cash':   opening_elec_cash,  # placeholder until close
-                        'opening_man_mech':    opening_man,
-                        'closing_man_mech':    opening_man,
+                        'closing_elec_cash':   opening_elec_cash,    # supervisor overwrites at close
+                        'opening_man_mech':    opening_man_mech,
+                        'closing_man_mech':    opening_man_mech,     # supervisor overwrites at close
                     })
             if meter_entries:
                 self.env['fms.shift.meter.entry'].create(meter_entries)
@@ -644,7 +636,11 @@ class FMSShift(models.Model):
     # ------------------------------------------------------------------
 
     def _write_meter_logs(self):
-        """Snapshot all meter entries to immutable fms.meter_log records."""
+        """
+        Snapshot all meter entries to immutable fms.meter_log records,
+        then advance the nozzle's current meter position so the next
+        shift opens with accurate opening readings.
+        """
         self.ensure_one()
         existing_nozzle_ids = set(
             self.env['fms.meter_log'].sudo()
@@ -655,6 +651,12 @@ class FMSShift(models.Model):
         for entry in self.meter_entry_ids:
             if entry.nozzle_id.id not in existing_nozzle_ids:
                 entry._create_meter_log()
+            # Advance nozzle's current readings so next shift picks them up
+            entry.nozzle_id.sudo().write({
+                'current_elec_volume': entry.closing_elec_volume,
+                'current_elec_cash':   entry.closing_elec_cash,
+                'current_man_mech':    entry.closing_man_mech,
+            })
 
     def _write_dip_logs(self):
         """Snapshot all dip entries to immutable fms.dip_log records."""
