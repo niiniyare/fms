@@ -223,7 +223,46 @@ Always use `-u` (update) on a live database — it migrates XML records in-place
 
 ---
 
-## 7. Uninstalling
+## 7. Installing the Accounting Module (`fms_accounting`)
+
+`fms_accounting` is a separate optional module that adds credit customers, fuel deliveries, petty cash, and VAT splitting. It depends on `fms` — install `fms` first.
+
+### Copy and register
+
+```bash
+cp -r /path/to/fms_accounting /opt/odoo/custom-addons/fms_accounting
+```
+
+The `--addons-path` entry you already added covers it automatically (same parent directory).
+
+### Install
+
+```bash
+# CLI
+python /opt/odoo/odoo-bin -d production -i fms_accounting \
+    --addons-path=/opt/odoo/odoo/addons,/opt/odoo/custom-addons \
+    --stop-after-init
+
+# Or via Apps UI: search "FMS Accounting" → Install
+```
+
+### Post-install configuration
+
+| Step | Where | What to do |
+|---|---|---|
+| Delivery sequence | auto | `DEL/YYYY/NNNN` created on install |
+| Petty cash float | Forecourt → Accounting → Petty Cash Float | Create one record per company, select a cash journal |
+| Credit customers | Forecourt → Accounting → Credit Customers | Create fleet accounts, set credit limits |
+| Supplier for deliveries | Contacts | Mark fuel suppliers with `Is Supplier` |
+| Fuel product taxes | Products → Taxes | Add VAT tax to fuel products; `fms_accounting` auto-splits net + tax on shift GL posting |
+
+### Coexistence with Cybrosys accounting addon
+
+`fms_accounting` only creates `account.move` records programmatically and does **not** override `account.move` form views. Cybrosys can be installed alongside it for financial reports and bank reconciliation without view conflicts. Install order: `fms` → `fms_accounting` → Cybrosys.
+
+---
+
+## 8. Uninstalling
 
 Uninstalling FMS **permanently deletes** all shift, meter log, and dip log records. Do not uninstall on a production database with operational history.
 
