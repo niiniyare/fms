@@ -296,34 +296,43 @@
                             <field name="product_sales_ids" readonly="1">
                                 <list string="Product Sales">
                                     <field name="product_id"/>
-                                    <field name="qty_sold_elec"
-                                           string="Meter Qty (L)" sum="Total L"/>
-                                    <field name="amount_elec"
-                                           string="Meter Amt (KES)" sum="Total KES"/>
-                                    <field name="accounted_qty"
-                                           string="POS Qty (L)" sum="POS Total L"
+                                    <!-- Volume side -->
+                                    <field name="meter_volume"
+                                           string="Meter Vol (L)" sum="Total Meter L"/>
+                                    <field name="accounted_volume"
+                                           string="POS Vol (L)" sum="Total POS L"
                                            optional="show"/>
-                                    <field name="accounted_amount"
-                                           string="POS Amt (KES)" sum="POS Total KES"
+                                    <field name="volume_residual"
+                                           string="Vol Residual (L)"
+                                           decoration-success="abs(volume_residual) &lt; 0.1"
+                                           decoration-warning="abs(volume_residual) &gt;= 0.1"
                                            optional="show"/>
-                                    <field name="residual_qty"
-                                           string="Residual Qty (L)"
-                                           decoration-danger="residual_qty != 0"
+                                    <!-- Cash side -->
+                                    <field name="elec_cash_sold"
+                                           string="Cash Meter (KES)" sum="Total Cash KES"/>
+                                    <field name="pos_cash_collected"
+                                           string="POS Total (KES)" sum="Total POS KES"
                                            optional="show"/>
-                                    <field name="residual_amount"
-                                           string="Residual Amt (KES)"
-                                           decoration-success="residual_amount == 0"
-                                           decoration-warning="residual_amount &gt; 0"
-                                           decoration-danger="residual_amount &lt; 0"
+                                    <field name="cash_residual"
+                                           string="Cash Residual (KES)"
+                                           decoration-success="abs(cash_residual) &lt; 100"
+                                           decoration-warning="abs(cash_residual) &gt;= 100"
                                            optional="show"/>
+                                    <!-- Allocation result -->
+                                    <field name="allocated_volume"
+                                           string="Allocated (L)"
+                                           optional="hide"/>
+                                    <!-- Status -->
                                     <field name="residual_type"
-                                           string="Status"
+                                           string="Vol Status"
                                            decoration-success="residual_type == 'none'"
                                            decoration-warning="residual_type == 'under'"
                                            decoration-danger="residual_type == 'over'"
                                            optional="show"/>
-                                    <field name="qty_sold_man" optional="hide"
-                                           string="Manual Qty (L)"/>
+                                    <field name="price_at_close"
+                                           string="Price (KES/L)" optional="hide"/>
+                                    <field name="meter_volume_man"
+                                           string="Manual Vol (L)" optional="hide"/>
                                 </list>
                             </field>
 

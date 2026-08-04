@@ -1,12 +1,19 @@
 """
-fms_shift_reconciliation.py — Computed product sales summary and residual allocations
+fms_shift_reconciliation.py — Product sales summary and residual allocations
 
-Models:
-  - fms.shift.product.sales  — computed rollup of meter sales per product per shift
-  - fms.shift.residual.allocation — auto-calculated residual reallocation lines
+Two independent reconciliation dimensions per product per shift:
 
-fms.shift.product.sales is read-only and re-computed whenever meter entries change.
-fms.shift.residual.allocation is populated by the residual algorithm (FMS-003).
+  VOLUME SIDE (inventory):
+    meter_volume (liters dispensed per pump)  vs  accounted_volume (POS liters)
+    volume_residual = meter_volume − accounted_volume
+    Used by: Gate 1, residual allocation algorithm, wetstock reports
+
+  CASH SIDE (revenue):
+    elec_cash_sold (KES per cash meter) vs pos_cash_collected (total POS KES)
+    cash_residual = elec_cash_sold − pos_cash_collected
+    Used by: Gate 2, cash reconciliation report
+    NOTE: pos_cash_collected is total POS revenue (all payment modes combined).
+    Payment-mode breakdown (cash/mpesa/card/ar) lives at the attendant level.
 
 Reference: FMS_Complete_Specification_Technical_Guide.md, Sections 7.1 & 8.1
 """
@@ -15,97 +22,122 @@ from odoo import models, fields, api
 
 
 class FMSShiftProductSales(models.Model):
-    """
-    Per-product sales summary for a shift.
-
-    Aggregated from fms.shift.meter.entry lines.  Accounted amounts are
-    queried live from POS order lines when POS sessions are linked.
-    Residual fields are written by the residual allocation algorithm
-    (_calculate_residuals on fms.shift).
-
-    Terminology (Spec Section 7.1):
-      meter_amount   = what the pump physically dispensed (source of truth)
-      accounted_amount = what POS recorded as sold for this product
-      residual        = meter - accounted
-        < 0  → OVER-REPORTED in POS (attendant lumped other products here)
-        > 0  → UNDER-REPORTED in POS (product not credited in POS)
-        = 0  → balanced
-    """
-
     _name = 'fms.shift.product.sales'
     _description = 'Shift Product Sales Summary'
     _order = 'product_id'
 
-    shift_id = fields.Many2one('fms.shift', 'Shift', required=True, ondelete='cascade')
+    shift_id   = fields.Many2one('fms.shift', 'Shift', required=True, ondelete='cascade')
     product_id = fields.Many2one('product.product', 'Product', required=True, readonly=True)
 
-    # ── Meter (from pump readings) ────────────────────────────────────────────
-    qty_sold_elec = fields.Float(
-        'Qty Sold Elec (L)', digits=(16, 2), readonly=True,
-        help="Sum of closing − opening electronic meter readings across all nozzles.",
+    # ── VOLUME SIDE — inventory reconciliation ────────────────────────────────
+    meter_volume = fields.Float(
+        'Meter Volume (L)', digits=(16, 2), readonly=True,
+        help="Sum of qty_sold_elec across all nozzles for this product.",
     )
-    qty_sold_man = fields.Float(
-        'Qty Sold Manual (L)', digits=(16, 2), readonly=True,
+    meter_volume_man = fields.Float(
+        'Manual Meter Volume (L)', digits=(16, 2), readonly=True,
+        help="Sum of qty_sold_man across all nozzles (backup reading).",
     )
-    amount_elec = fields.Float(
-        'Meter Amount (KES)', digits=(16, 2), readonly=True,
-        help="qty_sold_elec × product list_price.",
+    price_at_close = fields.Float(
+        'Price at Close (KES/L)', digits=(16, 4), readonly=True,
+        help="Product list price at the time of refresh — used for meter_revenue.",
+    )
+    meter_revenue = fields.Float(
+        'Meter Revenue (KES)', compute='_compute_volume', store=True, digits=(16, 2),
+        help="meter_volume × price_at_close. Theoretical value if all volume was sold at list price.",
+    )
+    accounted_volume = fields.Float(
+        'POS Volume (L)', compute='_compute_accounted', digits=(16, 2),
+        help="Liters from POS order lines for this product across linked sessions.",
+    )
+    volume_residual = fields.Float(
+        'Volume Residual (L)', compute='_compute_volume', store=True, digits=(16, 2),
+        help="meter_volume − accounted_volume. "
+             "+ve = under-invoiced (meter dispensed more than POS recorded). "
+             "-ve = over-invoiced (POS recorded more than meter dispensed).",
+    )
+    allocated_volume = fields.Float(
+        'Allocated Volume (L)', digits=(16, 2), readonly=True,
+        help="Liters reallocated TO this product by the residual algorithm.",
+    )
+    allocated_amount = fields.Float(
+        'Allocated Amount (KES)', digits=(16, 2), readonly=True,
+        help="allocated_volume × price_at_close (for GL posting).",
     )
 
-    # ── Accounted (from POS order lines — live, non-stored) ──────────────────
-    accounted_qty = fields.Float(
-        'POS Qty (L)', compute='_compute_accounted', digits=(16, 2),
-        help="Quantity from POS order lines for this product across linked sessions.",
+    # ── CASH SIDE — revenue reconciliation ───────────────────────────────────
+    elec_cash_sold = fields.Float(
+        'Cash Meter (KES)', digits=(16, 2), readonly=True,
+        help="Sum of elec_cash_sold across all nozzles for this product. "
+             "What the pump's electronic cash register says was collected.",
     )
-    accounted_amount = fields.Float(
-        'POS Amount (KES)', compute='_compute_accounted', digits=(16, 2),
-        help="Revenue from POS order lines for this product across linked sessions.",
+    pos_cash_collected = fields.Float(
+        'POS Total (KES)', compute='_compute_accounted', digits=(16, 2),
+        help="Total POS revenue for this product (all payment modes). "
+             "Payment-mode breakdown lives at the attendant cash level.",
     )
+    cash_residual = fields.Float(
+        'Cash Residual (KES)', compute='_compute_cash_residual', store=True, digits=(16, 2),
+        help="elec_cash_sold − pos_cash_collected. "
+             "+ve = pump charged more than POS recorded (pump over-charged or POS missed a sale). "
+             "-ve = POS recorded more than pump charged (price mismatch or POS error).",
+    )
+
+    # ── STATUS ────────────────────────────────────────────────────────────────
+    residual_type = fields.Selection([
+        ('none',  'Balanced'),
+        ('over',  'Over-invoiced (POS > meter)'),
+        ('under', 'Under-invoiced (meter > POS)'),
+    ], string='Volume Status', readonly=True, default='none')
+
+    # ── Legacy aliases (kept for backward-compat with existing views/tests) ──
+    qty_sold_elec = fields.Float(related='meter_volume',   string='Qty Sold Elec (L)')
+    qty_sold_man  = fields.Float(related='meter_volume_man', string='Qty Sold Manual (L)')
+    amount_elec   = fields.Float(related='meter_revenue',  string='Meter Revenue (KES)')
+    residual_qty  = fields.Float(related='volume_residual', string='Residual Qty (L)')
+    residual_amount = fields.Float(related='cash_residual', string='Residual Amount (KES)')
+
+    # ------------------------------------------------------------------
+    # Compute
+    # ------------------------------------------------------------------
+
+    @api.depends('meter_volume', 'price_at_close', 'accounted_volume')
+    def _compute_volume(self):
+        for rec in self:
+            rec.meter_revenue   = rec.meter_volume * (rec.price_at_close or 0.0)
+            rec.volume_residual = rec.meter_volume - rec.accounted_volume
+
+    @api.depends('elec_cash_sold', 'pos_cash_collected')
+    def _compute_cash_residual(self):
+        for rec in self:
+            rec.cash_residual = rec.elec_cash_sold - rec.pos_cash_collected
 
     @api.depends('shift_id.pos_session_ids', 'product_id')
     def _compute_accounted(self):
         for rec in self:
             sessions = rec.shift_id.pos_session_ids
             if not sessions or not rec.product_id:
-                rec.accounted_qty    = 0.0
-                rec.accounted_amount = 0.0
+                rec.accounted_volume   = 0.0
+                rec.pos_cash_collected = 0.0
                 continue
             lines = self.env['pos.order.line'].search([
                 ('order_id.session_id', 'in', sessions.ids),
                 ('product_id', '=', rec.product_id.id),
             ])
-            rec.accounted_qty    = sum(lines.mapped('qty'))
-            rec.accounted_amount = sum(lines.mapped('price_subtotal_incl'))
-
-    # ── Residual (written by _calculate_residuals, read-only here) ───────────
-    residual_qty = fields.Float(
-        'Residual Qty (L)', digits=(16, 2), readonly=True,
-        help="meter_qty − accounted_qty. "
-             "Positive = under-reported; Negative = over-reported.",
-    )
-    residual_amount = fields.Float(
-        'Residual Amount (KES)', digits=(16, 2), readonly=True,
-        help="meter_amount − accounted_amount.",
-    )
-    residual_type = fields.Selection([
-        ('none',  'Balanced'),
-        ('over',  'Over-reported'),
-        ('under', 'Under-reported'),
-    ], string='Status', readonly=True, default='none')
+            rec.accounted_volume   = sum(lines.mapped('qty'))
+            rec.pos_cash_collected = sum(lines.mapped('price_subtotal_incl'))
 
 
 class FMSShiftResidualAllocation(models.Model):
     """
-    One line of the auto-calculated residual reallocation for a shift.
+    One line of the residual volume reallocation for a shift.
 
-    The residual algorithm (FMS-003) detects when a product shows a gap
-    between what the meter dispensed and what was reported, and allocates
-    that gap to another product (e.g., Diesel surplus → Carwash).
+    Operates on VOLUME only (liters), after both volume and cash gates pass.
+    Records how many liters moved from an over-invoiced product to an
+    under-invoiced one (e.g., attendant lumped Carwash into Diesel).
 
-    Each line records:
-      - source_product_id: the product that was over-reported
-      - target_product_id: the product that should absorb the surplus
-      - qty_litres / amount: the reallocation quantum
+    GL entry: DR to_product COGS | CR from_product COGS
+    Amount = qty_litres × to_product price_at_close
     """
 
     _name = 'fms.shift.residual.allocation'
@@ -114,21 +146,21 @@ class FMSShiftResidualAllocation(models.Model):
 
     shift_id = fields.Many2one('fms.shift', 'Shift', required=True, ondelete='cascade')
     source_product_id = fields.Many2one(
-        'product.product', 'From Product',
-        help="Product that was over-reported (e.g., Diesel).",
+        'product.product', 'From Product (Over-invoiced)',
+        help="Product that was over-invoiced in POS — meter shows less than POS claimed.",
     )
     target_product_id = fields.Many2one(
-        'product.product', 'To Product',
-        help="Product that absorbs the surplus (e.g., Carwash).",
+        'product.product', 'To Product (Under-invoiced)',
+        help="Product that absorbs the surplus — meter shows more than POS recorded.",
     )
 
-    qty_litres = fields.Float('Qty (L)', digits=(16, 2))
-    amount = fields.Float('Amount (KES)', digits=(16, 2))
+    qty_litres = fields.Float('Qty (L)', digits=(16, 2),
+                              help="Liters reallocated from source to target.")
+    amount = fields.Float('Amount (KES)', digits=(16, 2),
+                          help="qty_litres × target product price_at_close.")
 
     journal_entry_id = fields.Many2one(
-        'account.move', 'Journal Entry',
-        readonly=True,
-        help="GL entry posted on shift close (FMS-005).",
+        'account.move', 'Journal Entry', readonly=True,
+        help="GL entry posted on shift close.",
     )
-
-    notes = fields.Char('Allocation Notes')
+    notes = fields.Char('Notes')

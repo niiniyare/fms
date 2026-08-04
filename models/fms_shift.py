@@ -219,29 +219,38 @@ class FMSShift(models.Model):
         """
         Delete existing product_sales_ids and rebuild from meter_entry_ids.
         Called explicitly by the supervisor button or on shift close.
+
+        Populates both the VOLUME side (meter_volume, meter_volume_man) and
+        the CASH side (elec_cash_sold) per product. price_at_close is stored
+        at refresh time so residual allocation can convert liters → KES.
         """
         self.ensure_one()
         self.product_sales_ids.unlink()
 
-        # Group meter entries by product
         by_product = {}
         for entry in self.meter_entry_ids:
             if not entry.product_id:
                 continue
             pid = entry.product_id.id
             if pid not in by_product:
-                by_product[pid] = {'qty_elec': 0.0, 'qty_man': 0.0, 'amount': 0.0}
-            by_product[pid]['qty_elec'] += entry.qty_sold_elec
-            by_product[pid]['qty_man'] += entry.qty_sold_man
-            by_product[pid]['amount'] += entry.amount_elec
+                by_product[pid] = {
+                    'meter_volume':     0.0,
+                    'meter_volume_man': 0.0,
+                    'elec_cash_sold':   0.0,
+                }
+            by_product[pid]['meter_volume']     += entry.qty_sold_elec
+            by_product[pid]['meter_volume_man'] += entry.qty_sold_man
+            by_product[pid]['elec_cash_sold']   += entry.elec_cash_sold
 
         for product_id, totals in by_product.items():
+            product = self.env['product.product'].browse(product_id)
             self.env['fms.shift.product.sales'].create({
-                'shift_id': self.id,
-                'product_id': product_id,
-                'qty_sold_elec': totals['qty_elec'],
-                'qty_sold_man': totals['qty_man'],
-                'amount_elec': totals['amount'],
+                'shift_id':         self.id,
+                'product_id':       product_id,
+                'meter_volume':     totals['meter_volume'],
+                'meter_volume_man': totals['meter_volume_man'],
+                'elec_cash_sold':   totals['elec_cash_sold'],
+                'price_at_close':   product.list_price or 0.0,
             })
 
     # ------------------------------------------------------------------
@@ -459,78 +468,82 @@ class FMSShift(models.Model):
 
     def _calculate_residuals(self):
         """
-        Full 5-step residual allocation algorithm (Spec Section 7.1).
+        Residual allocation algorithm — VOLUME-based (Spec Section 7.1).
+
+        Operates on liters, NOT KES. Called only after both Gate 1 (volume)
+        and Gate 2 (cash) have passed, so the reconciliation is clean before
+        we attempt to reclassify lumped sales.
 
         Step 1: Rebuild product sales from meter entries.
-        Step 2: Compute accounted amounts per product from POS order lines.
-        Step 3: Residual = meter_amount − accounted_amount.
-                  < 0 → over-reported in POS (lumped non-fuel)
-                  > 0 → under-reported in POS (absorbed lumped sales)
-        Step 4: Greedy-match over-reported → under-reported products.
-        Step 5: Create fms.shift.residual.allocation records.
+        Step 2: Read volume_residual from each product_sales line (computed by ORM).
+                  volume_residual = meter_volume - accounted_volume (POS liters)
+                  > 0.1L  → under-invoiced (meter dispensed more than POS recorded)
+                  < -0.1L → over-invoiced (POS claimed more than meter dispensed)
+        Step 3: Greedy-match over-invoiced → under-invoiced products (liters).
+        Step 4: Create fms.shift.residual.allocation records.
+                  amount = qty_litres × target price_at_close
+                  Write allocated_volume / allocated_amount back to product sales lines.
 
         Returns count of allocation records created.
         """
         self.ensure_one()
-
-        # Clear existing allocations so re-runs are idempotent
         self.residual_allocation_ids.unlink()
 
-        # Step 1: rebuild product sales
+        # Step 1: rebuild product sales (also writes price_at_close)
         self._refresh_product_sales()
 
-        # Step 2: accounted amounts from POS order lines per product
-        accounted_by_product = self._get_accounted_by_product()
+        # Flush so computed fields (volume_residual, accounted_volume) are current
+        self.product_sales_ids.flush_recordset()
 
-        # Step 3: compute residuals and classify each product sales line
-        meter_by_product = {}
-        for ps in self.product_sales_ids:
-            pid = ps.product_id.id
-            meter_by_product[pid] = ps.amount_elec
-
-        over_reported  = {}   # pid → surplus amount (positive)
-        under_reported = {}   # pid → deficit amount (positive)
+        # Step 2: classify by volume residual
+        over_reported  = {}   # pid → surplus_litres (positive)
+        under_reported = {}   # pid → deficit_litres (positive)
 
         for ps in self.product_sales_ids:
             pid      = ps.product_id.id
-            meter    = ps.amount_elec
-            acc      = accounted_by_product.get(pid, 0.0)
-            residual = meter - acc   # +ve = under, -ve = over
+            residual = ps.volume_residual  # meter_volume - accounted_volume
 
-            price = ps.product_id.list_price or 1.0
-            res_qty = residual / price if price else 0.0
-
-            if residual < -0.01:
+            if residual < -0.1:
                 rtype = 'over'
                 over_reported[pid] = abs(residual)
-            elif residual > 0.01:
+            elif residual > 0.1:
                 rtype = 'under'
                 under_reported[pid] = residual
             else:
                 rtype = 'none'
 
-            ps.write({
-                'residual_amount': residual,
-                'residual_qty': res_qty,
-                'residual_type': rtype,
-            })
+            ps.write({'residual_type': rtype})
 
-        # Step 4: greedy matching (largest over-reported first)
+        # Step 3: greedy match (liters)
         allocations = self._run_greedy_allocation(over_reported, under_reported)
 
-        # Step 5: create allocation records
+        # Step 4: create records and update product sales lines
         alloc_vals = []
-        for (over_pid, under_pid, amt) in allocations:
-            under_product = self.env['product.product'].browse(under_pid)
-            price = under_product.list_price or 1.0
+        for (over_pid, under_pid, qty_litres) in allocations:
+            under_ps = self.product_sales_ids.filtered(
+                lambda r: r.product_id.id == under_pid
+            )
+            price = under_ps.price_at_close if under_ps else 0.0
+            amount = qty_litres * price
             alloc_vals.append({
                 'shift_id':          self.id,
                 'source_product_id': over_pid,
                 'target_product_id': under_pid,
-                'qty_litres':        amt / price,
-                'amount':            amt,
-                'notes':             'Auto-calculated — residual reconciliation',
+                'qty_litres':        qty_litres,
+                'amount':            amount,
+                'notes':             'Auto-calculated — volume residual reconciliation',
             })
+            # Write allocated totals back to the product sales lines
+            over_ps = self.product_sales_ids.filtered(
+                lambda r: r.product_id.id == over_pid
+            )
+            if over_ps:
+                over_ps.allocated_volume += qty_litres
+                over_ps.allocated_amount += amount
+            if under_ps:
+                under_ps.allocated_volume += qty_litres
+                under_ps.allocated_amount += amount
+
         if alloc_vals:
             self.env['fms.shift.residual.allocation'].create(alloc_vals)
 
@@ -538,8 +551,8 @@ class FMSShift(models.Model):
 
     def _get_accounted_by_product(self):
         """
-        Return {product_id: amount} from POS order lines for linked sessions.
-        Falls back to empty dict when no sessions linked (all residuals = meter).
+        Return {product_id: (qty_litres, amount_kes)} from POS order lines.
+        Falls back to empty dict when no sessions linked.
         """
         sessions = self.pos_session_ids
         if not sessions:
@@ -550,40 +563,40 @@ class FMSShift(models.Model):
         result = {}
         for line in lines:
             pid = line.product_id.id
-            result[pid] = result.get(pid, 0.0) + line.price_subtotal_incl
+            if pid not in result:
+                result[pid] = (0.0, 0.0)
+            qty, amt = result[pid]
+            result[pid] = (qty + line.qty, amt + line.price_subtotal_incl)
         return result
 
     @staticmethod
     def _run_greedy_allocation(over_reported, under_reported):
         """
-        Pure algorithm: match over-reported to under-reported using greedy approach.
+        Pure algorithm: match over-invoiced to under-invoiced products (liters).
 
         Args:
-            over_reported:  {product_id: surplus_amount}  — products POS over-credited
-            under_reported: {product_id: deficit_amount}  — products POS under-credited
+            over_reported:  {product_id: surplus_litres}  — meter < POS (POS over-counted)
+            under_reported: {product_id: deficit_litres}  — meter > POS (POS under-counted)
 
-        Returns list of (over_pid, under_pid, qty_litres, amount) tuples.
-        NOTE: qty_litres here is amount/1 — caller must scale by product price.
-              We return (over_pid, under_pid, 0.0, amount) and let the caller
-              compute qty from the under_product's price.
+        Returns list of (over_pid, under_pid, qty_litres) tuples.
+        Caller converts qty_litres → KES using target product price_at_close.
         """
-        # Work on copies, sorted largest-first so biggest gaps are matched first
         over  = {k: v for k, v in sorted(over_reported.items(),  key=lambda x: -x[1])}
         under = {k: v for k, v in sorted(under_reported.items(), key=lambda x: -x[1])}
 
         allocations = []
         for over_pid in list(over):
             for under_pid in list(under):
-                if over.get(over_pid, 0.0) < 0.01:
-                    break  # this over-product is fully allocated
-                if under.get(under_pid, 0.0) < 0.01:
-                    continue  # this under-product is fully absorbed
+                if over.get(over_pid, 0.0) < 0.1:
+                    break
+                if under.get(under_pid, 0.0) < 0.1:
+                    continue
 
-                alloc_amt = min(over[over_pid], under[under_pid])
-                allocations.append((over_pid, under_pid, alloc_amt))
+                alloc_qty = min(over[over_pid], under[under_pid])
+                allocations.append((over_pid, under_pid, alloc_qty))
 
-                over[over_pid]   -= alloc_amt
-                under[under_pid] -= alloc_amt
+                over[over_pid]   -= alloc_qty
+                under[under_pid] -= alloc_qty
 
         return allocations
 
@@ -606,9 +619,16 @@ class FMSShift(models.Model):
                 f"Cannot close a shift that is '{self.state}'. "
                 "Use 'Start Closing' first."
             )
-        # FMS-006: Hard gate validation — all must pass before shift can close
-        self._gate_check_fc_cash()
+        # FMS-006: Hard gate validation — gates run in prescribed order
+        #   Gate 1: volume reconciliation (meter liters ≈ POS liters)
+        #   Gate 2: cash reconciliation (cash meter KES ≈ POS KES)
+        #   Gate 3: attendant balances each = 0
+        #   Gate 4: FC cash total = 0
+        #   Gate 5: stock variance within meniscus
+        self._gate_check_volume_reconciliation()
+        self._gate_check_cash_reconciliation()
         self._gate_check_attendant_balances()
+        self._gate_check_fc_cash()
         self._gate_check_stock_variance()
 
         with self.env.cr.savepoint():
@@ -700,6 +720,83 @@ class FMSShift(models.Model):
                 f"±{meniscus}% variance meniscus:\n"
                 f"{lines}\n\n"
                 "Investigate the variance or post a dip adjustment before closing."
+            )
+
+    def _gate_check_volume_reconciliation(self):
+        """
+        GATE 1 (Volume): Total pump meter volume ≈ total POS-accounted volume.
+
+        Tolerance: 0.5L across all products. This confirms that the inventory
+        picture is consistent — meter litres dispensed = POS litres sold +
+        any residual (which will be reclassified, not lost).
+
+        This gate validates that the VOLUME SIDE is ready for residual allocation.
+        It does NOT require zero residual — it requires that residuals are within
+        a physically plausible range (not e.g. 5000L unaccounted for).
+
+        Threshold is configurable via meniscus_pct × total meter volume.
+        """
+        self.ensure_one()
+        # Require product_sales to be up to date
+        if not self.product_sales_ids:
+            self._refresh_product_sales()
+
+        # Force recompute of accounted_volume on all product sales lines
+        self.product_sales_ids.flush_recordset()
+        self.product_sales_ids._compute_accounted()
+
+        total_meter  = sum(self.product_sales_ids.mapped('meter_volume'))
+        total_pos    = sum(self.product_sales_ids.mapped('accounted_volume'))
+        net_residual = abs(total_meter - total_pos)
+
+        # Tolerance: larger of 0.5L or meniscus_pct × total meter volume
+        meniscus_pct = self._get_meniscus_pct()
+        tolerance_L = max(0.5, total_meter * meniscus_pct / 100.0)
+
+        if net_residual > tolerance_L:
+            raise ValidationError(
+                f"GATE 1 FAILED — Volume reconciliation gap: "
+                f"{net_residual:.2f}L (limit ±{tolerance_L:.2f}L).\n"
+                f"  Meter total:  {total_meter:.2f}L\n"
+                f"  POS total:    {total_pos:.2f}L\n\n"
+                "Check nozzle meter readings and ensure all POS sessions for "
+                "this shift are linked before closing."
+            )
+
+    def _gate_check_cash_reconciliation(self):
+        """
+        GATE 2 (Cash): Total electronic cash meter sold ≈ total POS revenue collected.
+
+        Tolerance: 100 KES across all products. This confirms that the REVENUE
+        picture is consistent — what the pump cash registers say was collected
+        matches what POS recorded as sold.
+
+        A larger gap indicates a price mismatch, missing POS session, or
+        unrecorded transactions that must be resolved before closing.
+        """
+        self.ensure_one()
+        if not self.product_sales_ids:
+            self._refresh_product_sales()
+
+        # Force recompute of pos_cash_collected on all product sales lines
+        self.product_sales_ids.flush_recordset()
+        self.product_sales_ids._compute_accounted()
+
+        total_elec_cash = sum(self.product_sales_ids.mapped('elec_cash_sold'))
+        total_pos_cash  = sum(self.product_sales_ids.mapped('pos_cash_collected'))
+        net_gap = abs(total_elec_cash - total_pos_cash)
+
+        # Tolerance: 100 KES (configurable in future)
+        tolerance_KES = 100.0
+
+        if net_gap > tolerance_KES:
+            raise ValidationError(
+                f"GATE 2 FAILED — Cash reconciliation gap: "
+                f"KES {net_gap:,.2f} (limit KES {tolerance_KES:,.2f}).\n"
+                f"  Cash meter total: KES {total_elec_cash:,.2f}\n"
+                f"  POS total:        KES {total_pos_cash:,.2f}\n\n"
+                "Link all POS sessions for this shift and verify pump price "
+                "settings match POS product prices before closing."
             )
 
     # ------------------------------------------------------------------
