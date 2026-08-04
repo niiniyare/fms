@@ -102,33 +102,28 @@
                                            string="Attendant"
                                            domain="[('fms_is_attendant','=',True)]"/>
 
-                                    <!-- Meter 1: Electronic Volume -->
-                                    <field name="opening_elec_volume" readonly="1"
-                                           string="Vol Open (L)"/>
-                                    <field name="closing_elec_volume"
-                                           string="Vol Close (L)"/>
-                                    <field name="qty_sold_elec" readonly="1"
-                                           string="Vol Sold (L)" sum="Total L"/>
-
-                                    <!-- Meter 2: Electronic Cash (KES) -->
-                                    <field name="opening_elec_cash" readonly="1"
-                                           string="Cash Open (KES)" optional="show"/>
+                                    <!-- Closing readings only — opening stored silently -->
                                     <field name="closing_elec_cash"
-                                           string="Cash Close (KES)" optional="show"/>
+                                           string="Elec Cash (KES)"/>
+                                    <field name="closing_elec_volume"
+                                           string="Elec Meter (L)"/>
+                                    <field name="closing_man_mech"
+                                           string="Manual Meter (L)"/>
+
+                                    <!-- Hidden opening fields — carried over, not displayed -->
+                                    <field name="opening_elec_cash" column_invisible="1"/>
+                                    <field name="opening_elec_volume" column_invisible="1"/>
+                                    <field name="opening_man_mech" column_invisible="1"/>
+
+                                    <!-- Computed sold amounts -->
                                     <field name="elec_cash_sold" readonly="1"
                                            string="Cash Sold (KES)" sum="Total Cash KES"/>
-
-                                    <!-- Meter 3: Manual Mechanical -->
-                                    <field name="opening_man_mech" optional="hide"
-                                           string="Man Open (L)" readonly="1"/>
-                                    <field name="closing_man_mech" optional="hide"
-                                           string="Man Close (L)"/>
-                                    <field name="qty_sold_man" optional="hide"
-                                           string="Man Sold (L)" readonly="1"/>
-
-                                    <field name="amount_elec" readonly="1"
-                                           string="Vol×Price (KES)" sum="Total Vol×Price"
+                                    <field name="qty_sold_elec" readonly="1"
+                                           string="Vol Sold (L)" sum="Total L"
                                            optional="show"/>
+                                    <field name="qty_sold_man" readonly="1"
+                                           string="Man Sold (L)"
+                                           optional="hide"/>
                                     <field name="notes" optional="hide"/>
                                 </list>
                             </field>

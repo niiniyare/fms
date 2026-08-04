@@ -317,7 +317,9 @@ class FMSShiftAttendantCash(models.Model):
             )
             rec.reported_sales = sum(nozzle_entries.mapped('elec_cash_sold'))
 
-    # ── Compute: POS payment breakdown (MPesa / Card / AR) ───────────────────
+    # ── Compute: POS payment breakdown (MPesa / Card / AR) per attendant ───────
+    # POS orders are matched by employee_id first (Odoo 18 POS carries this),
+    # falling back to cashier_id→user when employee_id is not set.
 
     @api.depends(
         'shift_id.pos_session_ids',
@@ -328,26 +330,35 @@ class FMSShiftAttendantCash(models.Model):
         PayMethod = self.env['pos.payment.method']
         mpesa_methods = PayMethod.search([('name', 'ilike', 'mpesa')])
         card_methods  = PayMethod.search([('name', 'ilike', 'card')])
-        ar_methods    = PayMethod.search([
-            ('name', 'ilike', 'account'),
-        ]) | PayMethod.search([('name', 'ilike', 'credit')])
+        ar_methods    = (
+            PayMethod.search([('name', 'ilike', 'account')])
+            | PayMethod.search([('name', 'ilike', 'credit')])
+        )
+
+        PosOrder = self.env['pos.order']
+        has_employee_field = 'employee_id' in PosOrder._fields
 
         for rec in self:
             sessions = rec.shift_id.pos_session_ids
-            user = rec.attendant_id.user_id
+            attendant = rec.attendant_id
 
-            if not sessions or not user:
-                rec.reported_sales = 0.0
-                rec.mpesa_amount   = 0.0
-                rec.card_amount    = 0.0
-                rec.ar_amount      = 0.0
+            if not sessions or not attendant:
+                rec.mpesa_amount = 0.0
+                rec.card_amount  = 0.0
+                rec.ar_amount    = 0.0
                 continue
 
-            orders = self.env['pos.order'].search([
-                ('session_id', 'in', sessions.ids),
-                ('cashier_id', '=', user.id),
-            ])
-            rec.reported_sales = sum(orders.mapped('amount_total'))
+            # Build order domain — prefer employee_id, fall back to user
+            if has_employee_field:
+                orders = PosOrder.search([
+                    ('session_id', 'in', sessions.ids),
+                    ('employee_id', '=', attendant.id),
+                ])
+            else:
+                orders = PosOrder.search([
+                    ('session_id', 'in', sessions.ids),
+                    ('cashier_id', '=', attendant.user_id.id),
+                ]) if attendant.user_id else PosOrder
 
             if orders:
                 payments = self.env['pos.payment'].search([
