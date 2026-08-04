@@ -54,9 +54,6 @@ Reference: Complete specification in FMS_Complete_Specification_Technical_Guide.
         # Data
         "data/fms_site_preferences.xml",
         
-        # Assets (CSS)
-        "views/fms_assets.xml",
-
         # Views — list/menus first so menu_fms_root exists before pump views reference it
         "views/fms_shift_list_views.xml",
         "views/fms_pump_views.xml",
@@ -73,4 +70,9 @@ Reference: Complete specification in FMS_Complete_Specification_Technical_Guide.
     "installable": True,
     "application": True,
     "auto_install": False,
+    "assets": {
+        "web.assets_backend": [
+            "fms/static/src/css/fms_responsive.css",
+        ],
+    },
 }
