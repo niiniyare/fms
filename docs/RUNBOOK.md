@@ -1,276 +1,279 @@
 # FMS Operations Runbook
 
-Daily procedures for operating FMS (Forecourt Management System).
-
-## Table of Contents
-1. Opening Shift
-2. During Shift
-3. Closing Shift
-4. Troubleshooting
-5. Contact & Support
-
-## Opening Shift
-
-### Prerequisites
-- Odoo instance running
-- FMS module installed
-- User logged in (supervisor or attendant role)
-
-### Steps
-
-1. Navigate to: **Forecourt → Shifts**
-2. Click **Create** (new shift)
-3. Fill in:
-   - **Shift Date:** Today's date
-   - **Shift Label:** Select (1_day, 2_evening, 3_night)
-   - **Supervisor:** Select supervisor
-4. Click **Save**
-5. Click **Open Shift** (button)
-   - System auto-populates opening meter/dip readings
-6. Verify opening values are correct
-7. Click **Save**
-
-### What Happens
-- Status changes: Draft → Open
-- System fetches previous shift's closing readings
-- Entry forms become editable
-- Attendants can enter sales data
+Forecourt Management System — Daily Operating Procedures  
+Audience: Shift Supervisors | Role required: FMS Shift Supervisor
 
 ---
 
-## During Shift
+## Quick Reference
 
-### Attendant Tasks
+| Task | Where | Time |
+|---|---|---|
+| Open a shift | Forecourt → Shifts → New | 2 min |
+| Enter closing meter readings | Shift → Meter Readings tab | 5 min |
+| Enter tank dips | Shift → Tank Dips tab | 3 min |
+| Link POS sessions | Shift → Attendant Cash tab | 1 min |
+| Review attendant balances | Shift → Attendant Cash tab | 3 min |
+| Close shift | Header button "Close Shift" | 1 min |
+| Print shift report | Header button "Print Shift Report" | 30 sec |
 
-1. Enter meter readings (after each nozzle close or at shift end):
-   - Navigate to opened shift
-   - Scroll to "Pump Meters" section
-   - For each pump:
-     - Select pump (auto-filled)
-     - Enter **Closing Elec Volume** (from pump display)
-     - Enter **Closing Man Mech** (manual reading, if applicable)
-   - System auto-calculates: Qty Sold, Amount
-
-2. Enter dip readings (at shift end, usually):
-   - Scroll to "Tank Dips" section
-   - For each tank:
-     - Select tank (auto-filled)
-     - Enter **Closing Volume** (from dip stick)
-     - System shows variance vs. opening
-   
-3. Track cash:
-   - Note cash dropped to safe
-   - Note AR (receivables) created
-   - Note card/MPesa transfers
-   - Note expenses paid from till
-
-### Supervisor Tasks
-
-- Monitor shift progress (optional)
-- Review reconciliation (before close)
-- Address discrepancies (if any)
+Target shift close time: **≤ 15 minutes** from last pump transaction.
 
 ---
 
-## Closing Shift
+## Daily Shift Workflow
 
-### Prerequisites
-- All meter/dip readings entered
-- All cash/AR recorded
-- No outstanding issues
+### Step 1 — Create and Open the Shift
 
-### Steps
+1. Go to **Forecourt → Shifts**.
+2. Click **New**.
+3. Set **Shift Date** and **Shift Period** (Day / Evening / Night).
+4. Set **Supervisor** to yourself.
+5. Click **Open Shift**.
 
-1. Click **Reconciliation** (read-only section)
-   - System shows:
-     - FC Cash balance (must = 0)
-     - Stock variances (must be < meniscus)
-     - Attendant balances (all must = 0)
-     - Residual allocations (if any)
+The system automatically:
+- Creates meter reading rows for every active nozzle, pre-filled with the previous shift's closing totalizers.
+- Creates tank dip rows for every fuel tank, pre-filled with the previous shift's closing dip.
 
-2. Review results:
-   - If all shows ✅: proceed to step 3
-   - If any ❌: investigate & fix before closing
-
-3. Click **Close Shift** (button)
-   - System performs hard gate checks:
-     - FC Cash = 0 (exactly)?
-     - All attendants clear?
-     - Variances < meniscus?
-   
-4. If gates pass:
-   - Logs written (meter_log, dip_log)
-   - Journals posted (GL)
-   - Status changes: Closing → Closed
-   - Success message shown
-
-5. If gates fail:
-   - Error message shows which gate failed
-   - Example: "FC Cash is +50 KES. Cannot close."
-   - Supervisor must post adjustment, retry
-
-### What Happens After Close
-- Meter/dip logs locked (immutable)
-- GL journals posted (sales, residuals, variance)
-- Stock adjustments recorded
-- Shift marked "Closed"
-- Cannot be re-opened
+> If this is the **very first shift ever**, opening readings come from the meter totalizer values entered on each nozzle in Pumps configuration. Verify they match the physical meters before proceeding.
 
 ---
 
-## Troubleshooting
+### Step 2 — Enter Closing Meter Readings (at shift end)
 
-### "FC Cash Not Zero"
+Go to the **Meter Readings** tab.
 
-**Symptom:** Close button shows error: "FC Cash is ±X KES. Cannot close."
+For each nozzle row, enter **three closing readings** from the pump display:
 
-**Cause:** Total money in doesn't equal total money out.
+| Column | What to enter |
+|---|---|
+| Elec Cash (KES) | The pump's electronic cash totalizer (KES) |
+| Elec Meter (L) | The pump's electronic volume totalizer (litres) |
+| Manual Meter (L) | The mechanical odometer reading (litres) |
 
-**Solution:**
-1. Check attendant cash reconciliation:
-   - Navigate: Shift → Attendant Cash section
-   - For each attendant, verify:
-     - Sales + Receipts = Cash + AR + Card + Expenses + Balance
-2. If one attendant is short/over:
-   - Supervisor investigates
-   - Posts adjustment entry (DR AR/Expense | CR FC Cash)
-3. Retry close
+Also:
+- **Attendant** — select the attendant who operated this nozzle this shift.
+- **RTT (L)** — if any fuel was returned to tank during the shift, enter the volume here. This reduces the net volume sold without affecting the cash meter.
 
-**Example:**
-```
-Attendant John:
-  In:  Sales 5000 + Receipts 0 = 5000
-  Out: Cash 4950 + AR 0 + Card 0 + Expenses 0 = 4950
-  Balance: -50 KES (SHORT)
-
-Fix:
-  Supervisor posts: DR Employee AR 50 | CR FC Cash 50
-  Now balance = 0 ✅
-```
+The **Cash Sold (KES)** and **Vol Sold (L)** columns compute automatically. You do not enter them.
 
 ---
 
-### "Stock Variance Exceeds Meniscus"
+### Step 3 — Enter Tank Dip Readings
 
-**Symptom:** Close button shows error: "Tank T1: variance 2.00% exceeds meniscus 0.50%"
+Go to the **Tank Dips** tab.
 
-**Cause:** Tank volume loss/gain exceeds acceptable threshold.
+For each tank, enter the **Closing Dip (L)** from the dipstick measurement.
 
-**Solution:**
-1. Re-dip the tank (physical recount)
-2. Update dip reading with new value
-3. Verify new variance is < meniscus
-4. Retry close
-
-**Example:**
-```
-Tank T1 (10,000L capacity):
-  Opening: 10,000L
-  Closing (first dip): 9,800L
-  Variance: 200L (2.0%) → EXCEEDS 0.5% meniscus ❌
-
-  Re-dip: 9,950L
-  New Variance: 50L (0.5%) → OK ✅
-```
+The **Variance %** column updates automatically. Anything above **±0.5%** is highlighted in red and will block shift close (Gate 5). Investigate before proceeding.
 
 ---
 
-### "Attendant Not Cleared"
+### Step 4 — Link POS Sessions
 
-**Symptom:** Close button shows error: "Attendant Sarah: balance -100.00 KES not cleared."
+Go to the **Attendant Cash** tab.
 
-**Cause:** One attendant's cash doesn't balance.
+In the **Linked POS Sessions** field, select the POS session(s) that ran during this shift. Sessions are filtered to the shift date for easy picking.
 
-**Solution:**
-1. Locate attendant in Attendant Cash section
-2. Check: Sales + Receipts vs. Cash + AR + Card + Expenses
-3. Possible causes:
-   - Cash short-changed a customer (enters AR instead)
-   - Forgot to record a cash drop
-   - Forgot to record an expense
-4. Attendant explains or Supervisor posts correction
-5. Retry close
+Linking a session causes the system to automatically populate:
+- MPesa amounts per attendant
+- Card amounts per attendant
+- AR/Credit amounts per attendant
+
+> If no POS session ran (cash-only operation), leave this blank.
 
 ---
 
-### "Residual Allocation Unexpected"
+### Step 5 — Click "Start Closing"
 
-**Symptom:** Reconciliation shows allocation: "Diesel -100L → Carwash +100L"
+Click the **Start Closing** button in the header.
 
-**Cause:** Attendant reported non-fuel sales under wrong category.
-
-**Solution (Informational):**
-- System detected: Carwash was lumped into Diesel reporting
-- Auto-allocated: Moved 100L (worth 22,280 KES) from Diesel to Carwash
-- GL posted automatically
-- No action needed (expected behavior)
+This:
+1. Moves the shift to **Closing** state (locks meter/dip editing).
+2. Auto-creates attendant cash reconciliation rows for every attendant assigned to a nozzle (if **Auto-sync Attendant Cash Lines** is enabled in Site Preferences).
+3. Runs the residual allocation algorithm in the background.
 
 ---
 
-## Pre-Go-Live Production Checklist
+### Step 6 — Review and Complete Attendant Cash
 
-Run through these checks before going live at a new station.
+Go to the **Attendant Cash** tab.
 
-### System Configuration
-- [ ] Odoo 18 Community installed, FMS module installed and upgraded
-- [ ] Company/currency set correctly (KES)
-- [ ] At least one Sale journal exists (type=sale)
-- [ ] At least one Receivable account with "clearing" in the name
-- [ ] Fuel products created with `fms_is_fuel = True`
-- [ ] Fuel products have `fms_revenue_account_id` and `fms_cogs_account_id` set
-- [ ] Pumps created with nozzles linked to fuel products
-- [ ] Tanks created (`fms_is_fuel_tank = True`) linked to fuel products
-- [ ] Employees created; supervisors added to `Forecourt Management / Shift Supervisor` group
-- [ ] Attendants created with `fms_is_attendant = True`
+For each attendant row:
 
-### UAT Acceptance Scenarios
+| Column | Source | Action |
+|---|---|---|
+| Meter Sales (KES) | Auto — sum of their nozzle cash meters | Read-only |
+| MPesa (KES) | Auto — from linked POS sessions | Read-only |
+| Card (KES) | Auto — from linked POS sessions | Read-only |
+| AR/Credit (KES) | Auto — from linked POS sessions | Read-only |
+| Expenses (KES) | Auto — from expense bills | Read-only |
+| Cash Dropped (KES) | **Manual entry** | Enter the cash the attendant physically dropped into the safe |
 
-Run these manually before going live:
+**Balance** = Meter Sales − (Cash Dropped + MPesa + Card + AR + Expenses)
 
-**Scenario 1 – Normal shift close:**
-1. Create shift, click Open Shift
-2. Enter closing meter readings (e.g., diesel +500L)
-3. Enter closing dip reading (variance < 0.5%)
-4. Add attendant cash line with cash_collected = 0
-5. Click Start Closing → Close Shift
-6. Confirm: state = Closed, meter/dip logs created
+Every attendant's **Balance must be 0** before the shift can close (Gate 3).
 
-**Scenario 2 – Gate 1 block and resolution:**
-1. Open a shift, start closing
-2. Add attendant cash line with cash_collected = 5,000 (no POS sales → balance = -5,000)
-3. Attempt Close Shift → must see "GATE 1 FAILED" error
-4. Set cash_collected = 0, retry Close Shift → must succeed
-
-**Scenario 3 – Gate 3 block and resolution:**
-1. Open a shift, add dip entry with 10,000L opening, 9,700L closing (3% variance)
-2. Start closing, attempt Close Shift → must see "GATE 3 FAILED" error
-3. Update dip to 9,950L (0.5% variance), retry → must succeed
-
-**Scenario 4 – Print shift report:**
-1. With a closing/closed shift, click Print Report
-2. PDF must render with meter readings, dip readings, attendant cash, and gate summary
-
-**Scenario 5 – Sequential shifts:**
-1. Close shift 1 with diesel meter at 1000L
-2. Open shift 2 the next day
-3. Confirm shift 2 opens with diesel opening = 1000L (carried over)
-
-### Go/No-Go Criteria
-- All 5 UAT scenarios pass manually
-- All automated tests pass: `make odoo-test`
-- No JS errors in browser console (F12) during shift workflow
-- Shift close time < 5 minutes (end-to-end)
-- Report renders without errors (wkhtmltopdf installed)
+If an attendant's balance is non-zero, see the [Gate Failures](#gate-failures) section.
 
 ---
 
-## Contact & Support
+### Step 7 — Click "Close Shift"
 
-- **Technical Issues:** Check logs (Odoo admin panel)
-- **Spec Reference:** FMS_Complete_Specification_Technical_Guide.md
-- **Development:** See dev-guide.py in scripts/
+When all balances are 0 and all gates are green, click **Close Shift**.
+
+The system runs five hard gate checks in sequence:
+
+| Gate | Check | Tolerance |
+|---|---|---|
+| Gate 1 | Meter volume ≈ POS volume (liters) | max(0.5L, meniscus% × total) |
+| Gate 2 | Cash meter ≈ POS revenue (KES) | 100 KES |
+| Gate 3 | Every attendant balance = 0 | Exactly 0 |
+| Gate 4 | FC Cash balance = 0 | Exactly 0 |
+| Gate 5 | Tank dip variance within meniscus | 0.5% default |
+
+If all gates pass:
+- Meter and dip logs are written (immutable audit trail).
+- Sales GL journal entry is posted (DR Cash Clearing | CR Revenue per product).
+- Residual allocation journal entries are posted.
+- Shift moves to **Closed** state.
+- Nozzle totalizer positions advance to the closing readings (becoming opening readings for the next shift).
 
 ---
 
-**Last Updated:** 2026-08-04  
-**Version:** 1.0 (Phase 1 MVP)
+### Step 8 — Print Reports
+
+From the closed shift, you can print:
+
+- **Print Shift Report** — full reconciliation summary (GL entry, residuals, dip variances).
+- **Print Meter Movement** — opening and closing readings per nozzle with attendant summary.
+
+---
+
+## Gate Failures
+
+Gates block shift close until the supervisor resolves the underlying issue. This is by design — there is no "close anyway" override.
+
+### Gate 1 Failed — Volume Reconciliation Gap
+
+**What it means:** The total liters dispensed per pump meters differs from the total liters recorded in POS by more than the tolerance.
+
+**Common causes:**
+- A POS session from this shift is not linked. Go to Attendant Cash tab → Linked POS Sessions and add it.
+- Meter reading was entered incorrectly. Go to Meter Readings tab and correct the closing value.
+- RTT volume was not recorded. If fuel was returned to tank, enter the litres in the **RTT (L)** column.
+
+**Resolution:** Fix the data, then click **Refresh Sales Summary** and try **Close Shift** again.
+
+---
+
+### Gate 2 Failed — Cash Reconciliation Gap
+
+**What it means:** The sum of electronic cash meters (KES) differs from the total POS revenue recorded by more than 100 KES.
+
+**Common causes:**
+- A POS session is missing from the linked sessions list.
+- The pump price setting differs from the POS product price (e.g. price was updated mid-shift without updating both).
+- A transaction was completed on the pump but voided or not captured in POS.
+
+**Resolution:**
+1. Link any missing POS sessions (Attendant Cash tab).
+2. If the gap is a genuine price mismatch, post a manual correction journal entry in Accounting, then confirm the gap is within tolerance before closing.
+
+---
+
+### Gate 3 Failed — Attendant Balance Not Zero
+
+**What it means:** One or more attendants have `Balance ≠ 0`.
+
+**Positive balance** (attendant owes money): Meter says they collected more than they accounted for.  
+**Negative balance** (system owes attendant): More was accounted for than the meter recorded.
+
+**Resolution options:**
+
+| Situation | Action |
+|---|---|
+| Attendant forgot to declare some cash | Increase **Cash Dropped** |
+| Attendant made an error in MPesa recording | Correct in POS, re-link session |
+| Proven petty cash expense during shift | Raise a vendor bill in Accounting (auto-populates Expenses) |
+| Unresolvable discrepancy (e.g. theft investigation) | Post a correction in Accounting and set Cash Dropped to balance |
+
+---
+
+### Gate 4 Failed — FC Cash Balance Not Zero
+
+**What it means:** The sum of all attendant balances is non-zero. This is the aggregate of Gate 3 — resolve individual attendant balances first and this gate will clear automatically.
+
+---
+
+### Gate 5 Failed — Tank Dip Variance Too High
+
+**What it means:** A tank's dip variance exceeds the meniscus percentage (default 0.5%).
+
+Formula: `variance% = |opening − closing − meter_sold| / closing × 100`
+
+**Common causes:**
+- Dip reading was misread or entered incorrectly. Re-measure and correct.
+- Delivery received during the shift was not recorded. Add a stock receipt in Inventory.
+- Genuine wetstock loss (leakage, evaporation, meter calibration drift). Requires EPRA investigation.
+
+**Resolution:**
+1. Correct the dip reading if it was a data entry error.
+2. If a delivery arrived during the shift, post a stock receipt in Inventory for the delivered volume, then re-enter the closing dip.
+3. If the variance is genuine and investigated, post a stock adjustment in Inventory and document in the shift's **Notes** tab.
+
+**To change the meniscus threshold permanently:** Forecourt → Configuration → Site Preferences → Variance Meniscus (%).
+
+---
+
+## Common Questions
+
+**Can I edit meter readings after clicking "Start Closing"?**  
+No. Meter and dip entries are locked in Closing state. Click **Open Shift** is not available — you must revert by having an Administrator reset the state via the Odoo shell. Contact your system administrator.
+
+**Can I re-run the residual allocation after changing meter readings?**  
+The allocation runs automatically on Start Closing. If you need to re-run it without closing, use the **Recalculate Residuals** button (visible in Closing state, supervisors only).
+
+**What is the Meter Movement Report?**  
+A per-nozzle report showing opening totalizer, closing totalizer, RTT, and net volume sold for all three meters (Elec Cash, Elec Volume, Manual), plus an attendant summary. Use it to verify individual nozzle figures before closing.
+
+**Opening readings were wrong on this shift — what do I do?**  
+Opening readings come directly from the nozzle's stored current meter positions (set when the previous shift closed). If they are wrong:
+1. Do not close this shift yet.
+2. Go to Forecourt → Configuration → Pumps → open the nozzle.
+3. Correct the **Current Elec Cash**, **Current Elec Volume**, or **Current Manual Meter** value.
+4. Delete this shift's meter entry rows and click **Open Shift** again to regenerate them with the corrected values.
+
+**A nozzle was replaced and the totalizer reset to zero. How do I handle this?**  
+Go to Pumps → open the nozzle → set all current meter fields to the new (reset) values. The next shift that opens will pick them up as opening readings. Document the reset in the shift's Notes tab.
+
+**Can two supervisors work on the same shift simultaneously?**  
+Yes — Odoo's standard ORM locking handles concurrent saves. However, only one person should enter closing readings to avoid overwriting each other's work.
+
+---
+
+## Audit Trail
+
+All shifts write immutable records on close:
+
+- **fms.meter_log** — one record per nozzle, capturing opening, closing, RTT, and net sold for all three meters.
+- **fms.dip_log** — one record per tank, capturing opening volume, closing dip, and variance.
+
+These records cannot be edited or deleted (the system raises an error if attempted). They form the EPRA-compliant audit trail.
+
+GL entries are posted to Odoo's `account.move` and can be viewed from the closed shift form (Sales GL Entry field) or via Accounting → Journal Entries.
+
+---
+
+## Roles Summary
+
+| Action | Attendant | Supervisor | Accountant |
+|---|---|---|---|
+| Enter meter/dip readings | ✓ | ✓ | ✓ |
+| Open shift | — | ✓ | ✓ |
+| Start closing | — | ✓ | ✓ |
+| Close shift | — | ✓ | ✓ |
+| Print reports | — | ✓ | ✓ |
+| Edit site preferences | — | — | ✓ |
+| View GL entries | — | — | ✓ |
+| Delete shifts (draft only) | — | ✓ | ✓ |
