@@ -1,22 +1,118 @@
 /* FMS Responsive Design
-
-   Mobile-first responsive styles for FMS forms.
-   Ensures forms work on desktop, tablet, and phone.
+   Mobile-first responsive styles for forecourt attendants using phones/tablets.
 */
 
-/* TODO: Add responsive CSS rules */
+/* ── Report styles ────────────────────────────────────────────────── */
 
-/* Mobile (320px - 767px) */
+.fms-report h2 {
+    color: #1f2937;
+    border-bottom: 2px solid #f97316;
+    padding-bottom: 6px;
+}
+
+.fms-report h5 {
+    color: #374151;
+    border-left: 4px solid #f97316;
+    padding-left: 8px;
+}
+
+/* ── Form: make the variance badge pop ───────────────────────────── */
+
+.o_field_widget[name="variance_pct"] .o_stat_value,
+.o_list_view .fms-variance-ok    { color: #16a34a; font-weight: 600; }
+.o_list_view .fms-variance-warn  { color: #d97706; font-weight: 600; }
+.o_list_view .fms-variance-bad   { color: #dc2626; font-weight: 600; }
+
+/* ── Highlight the FC Cash Balance field ─────────────────────────── */
+
+.o_field_widget[name="fc_cash_balance"] .o_field_number {
+    font-weight: 700;
+    font-size: 1.1em;
+}
+
+/* ── Mobile (≤ 767px) ────────────────────────────────────────────── */
+
 @media (max-width: 767px) {
-    /* Stack form fields vertically */
+
+    /* Stack the shift header groups vertically */
+    .o_form_view .o_group.o_inner_group {
+        display: block;
+        width: 100% !important;
+    }
+
+    /* Full-width list columns on phones */
+    .o_list_view table {
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* Larger tap targets for editable list cells */
+    .o_list_view .o_data_cell input,
+    .o_list_view .o_data_cell .o_field_widget {
+        min-height: 44px;
+        font-size: 1rem;
+    }
+
+    /* Notebook tabs: scroll horizontally on small screens */
+    .o_notebook > .nav-tabs {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .o_notebook > .nav-tabs .nav-link {
+        white-space: nowrap;
+    }
+
+    /* Buttons in header: full width on phone */
+    .o_form_view .o_form_statusbar .o_statusbar_buttons button {
+        width: 100%;
+        margin-bottom: 4px;
+    }
+
+    /* Hide optional columns to reduce horizontal scroll */
+    .o_optional_columns_dropdown { display: none; }
 }
 
-/* Tablet (768px - 1024px) */
+/* ── Tablet (768px – 1024px) ─────────────────────────────────────── */
+
 @media (min-width: 768px) and (max-width: 1024px) {
-    /* Two-column layout */
+
+    /* Two-column header groups */
+    .o_form_view .o_group {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0 16px;
+    }
+
+    /* Reasonable tap target size */
+    .o_list_view .o_data_cell input {
+        min-height: 40px;
+    }
+
+    /* Meter readings table: hide manual columns by default */
+    .o_column_optional[name="opening_man_mech"],
+    .o_column_optional[name="closing_man_mech"],
+    .o_column_optional[name="qty_sold_man"] {
+        display: none;
+    }
 }
 
-/* Desktop (1025px+) */
+/* ── Desktop (≥ 1025px) ──────────────────────────────────────────── */
+
 @media (min-width: 1025px) {
-    /* Three-column layout */
+
+    /* Three-column layout for the shift form groups */
+    .o_form_view .o_group.fms-three-col {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 0 24px;
+    }
+
+    /* Tighter row height in list views */
+    .o_list_view tr.o_data_row td {
+        padding-top: 4px;
+        padding-bottom: 4px;
+    }
 }

@@ -40,6 +40,12 @@
                             groups="fms.group_fms_supervisor"
                             invisible="state not in ('open', 'closing')"
                             confirm="This will clear and rebuild all residual allocations. Continue?"/>
+                    <button name="action_report_fms_shift"
+                            string="Print Report"
+                            type="object"
+                            class="btn-secondary"
+                            groups="fms.group_fms_supervisor"
+                            invisible="state == 'draft'"/>
                     <field name="state" widget="statusbar"
                            statusbar_visible="draft,open,closing,closed"/>
                 </header>
@@ -65,6 +71,9 @@
                             <field name="opening_meter_user_id" readonly="1"/>
                             <field name="closing_meter_date" readonly="1"/>
                             <field name="closing_meter_user_id" readonly="1"/>
+                            <field name="sales_journal_entry_id" readonly="1"
+                                   invisible="not sales_journal_entry_id"
+                                   string="Sales GL Entry"/>
                         </group>
                     </group>
 

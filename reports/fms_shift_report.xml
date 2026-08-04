@@ -1,0 +1,372 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ================================================================
+         Shift Reconciliation Report — action + paper format
+         Accessible via the "Print Report" button on fms.shift form.
+         Ref: Spec Section 10 (Reporting)
+    ================================================================ -->
+
+    <record id="action_report_fms_shift" model="ir.actions.report">
+        <field name="name">Shift Reconciliation Report</field>
+        <field name="model">fms.shift</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">fms.report_fms_shift_reconciliation</field>
+        <field name="report_file">fms.report_fms_shift_reconciliation</field>
+        <field name="binding_model_id" ref="model_fms_shift"/>
+        <field name="binding_type">report</field>
+        <field name="groups_id" eval="[(4, ref('fms.group_fms_supervisor'))]"/>
+        <field name="paperformat_id" ref="base.paperformat_a4"/>
+    </record>
+
+    <!-- QWeb report template -->
+    <template id="report_fms_shift_reconciliation">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="shift">
+                <t t-call="web.external_layout">
+                    <div class="page fms-report">
+
+                        <!-- ── Header ── -->
+                        <div class="row mb-4">
+                            <div class="col-8">
+                                <h2>Shift Reconciliation Report</h2>
+                                <h4>
+                                    <t t-esc="shift.date"/>
+                                    —
+                                    <t t-esc="dict(shift._fields['label'].selection).get(shift.label, shift.label)"/>
+                                </h4>
+                            </div>
+                            <div class="col-4 text-end">
+                                <span t-attf-class="badge #{
+                                    'bg-secondary' if shift.state == 'draft' else
+                                    'bg-success' if shift.state == 'open' else
+                                    'bg-warning' if shift.state == 'closing' else
+                                    'bg-dark'
+                                } fs-6">
+                                    <t t-esc="dict(shift._fields['state'].selection).get(shift.state, shift.state).upper()"/>
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- ── Shift Info ── -->
+                        <div class="row mb-3">
+                            <div class="col-6">
+                                <table class="table table-sm table-borderless">
+                                    <tr>
+                                        <td class="fw-bold" style="width:40%">Supervisor</td>
+                                        <td><t t-esc="shift.supervisor_id.name"/></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="fw-bold">Company</td>
+                                        <td><t t-esc="shift.company_id.name"/></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="fw-bold">Opened At</td>
+                                        <td><t t-esc="shift.opening_meter_date or '—'"/></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="fw-bold">Closed At</td>
+                                        <td><t t-esc="shift.closing_meter_date or '—'"/></td>
+                                    </tr>
+                                </table>
+                            </div>
+                            <div class="col-6">
+                                <table class="table table-sm table-borderless">
+                                    <tr>
+                                        <td class="fw-bold" style="width:50%">Total Meter Sales</td>
+                                        <td class="text-end">
+                                            KES <t t-esc="'{:,.2f}'.format(shift.total_meter_sales)"/>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="fw-bold">Total Reported Sales</td>
+                                        <td class="text-end">
+                                            KES <t t-esc="'{:,.2f}'.format(shift.total_reported_sales)"/>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="fw-bold">FC Cash Balance</td>
+                                        <td t-attf-class="text-end fw-bold #{
+                                            'text-success' if abs(shift.fc_cash_balance) &lt; 0.01 else 'text-danger'
+                                        }">
+                                            KES <t t-esc="'{:,.2f}'.format(shift.fc_cash_balance)"/>
+                                        </td>
+                                    </tr>
+                                    <t t-if="shift.sales_journal_entry_id">
+                                        <tr>
+                                            <td class="fw-bold">Sales GL Entry</td>
+                                            <td class="text-end">
+                                                <t t-esc="shift.sales_journal_entry_id.name"/>
+                                            </td>
+                                        </tr>
+                                    </t>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- ── Meter Readings ── -->
+                        <t t-if="shift.meter_entry_ids">
+                            <h5 class="mt-3">Pump Meter Readings</h5>
+                            <table class="table table-sm table-bordered">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Pump</th>
+                                        <th>Nozzle</th>
+                                        <th>Product</th>
+                                        <th class="text-end">Opening (L)</th>
+                                        <th class="text-end">Closing (L)</th>
+                                        <th class="text-end">Qty Sold (L)</th>
+                                        <th class="text-end">Amount (KES)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <t t-foreach="shift.meter_entry_ids" t-as="entry">
+                                        <tr>
+                                            <td><t t-esc="entry.pump_id.name"/></td>
+                                            <td><t t-esc="entry.nozzle_id.name"/></td>
+                                            <td><t t-esc="entry.product_id.name"/></td>
+                                            <td class="text-end"><t t-esc="'{:,.2f}'.format(entry.opening_elec_volume)"/></td>
+                                            <td class="text-end"><t t-esc="'{:,.2f}'.format(entry.closing_elec_volume)"/></td>
+                                            <td class="text-end"><t t-esc="'{:,.2f}'.format(entry.qty_sold_elec)"/></td>
+                                            <td class="text-end"><t t-esc="'{:,.2f}'.format(entry.amount_elec)"/></td>
+                                        </tr>
+                                    </t>
+                                </tbody>
+                                <tfoot class="table-light fw-bold">
+                                    <tr>
+                                        <td colspan="5">Total</td>
+                                        <td class="text-end">
+                                            <t t-esc="'{:,.2f}'.format(sum(shift.meter_entry_ids.mapped('qty_sold_elec')))"/>
+                                        </td>
+                                        <td class="text-end">
+                                            KES <t t-esc="'{:,.2f}'.format(shift.total_meter_sales)"/>
+                                        </td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </t>
+
+                        <!-- ── Tank Dips ── -->
+                        <t t-if="shift.dip_entry_ids">
+                            <h5 class="mt-3">Tank Dip Readings</h5>
+                            <table class="table table-sm table-bordered">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Tank</th>
+                                        <th>Product</th>
+                                        <th class="text-end">Opening (L)</th>
+                                        <th class="text-end">Closing (L)</th>
+                                        <th class="text-end">Change (L)</th>
+                                        <th class="text-end">Variance %</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <t t-foreach="shift.dip_entry_ids" t-as="dip">
+                                        <tr>
+                                            <td><t t-esc="dip.location_id.name"/></td>
+                                            <td><t t-esc="dip.product_id.name or '—'"/></td>
+                                            <td class="text-end"><t t-esc="'{:,.2f}'.format(dip.opening_volume)"/></td>
+                                            <td class="text-end"><t t-esc="'{:,.2f}'.format(dip.closing_volume)"/></td>
+                                            <td class="text-end"><t t-esc="'{:,.2f}'.format(dip.qty_change)"/></td>
+                                            <td t-attf-class="text-end #{
+                                                'text-success' if dip.variance_pct &lt;= 0.5 else
+                                                'text-warning' if dip.variance_pct &lt;= 2.0 else 'text-danger'
+                                            }">
+                                                <t t-esc="'{:.4f}'.format(dip.variance_pct)"/>%
+                                            </td>
+                                            <td>
+                                                <t t-if="dip.variance_pct &lt;= 0.5">OK</t>
+                                                <t t-elif="dip.variance_pct &lt;= 2.0">WARNING</t>
+                                                <t t-else="">EXCEEDED</t>
+                                            </td>
+                                        </tr>
+                                    </t>
+                                </tbody>
+                            </table>
+                        </t>
+
+                        <!-- ── Attendant Cash ── -->
+                        <t t-if="shift.attendant_cash_ids">
+                            <h5 class="mt-3">Attendant Cash Reconciliation</h5>
+                            <table class="table table-sm table-bordered">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Attendant</th>
+                                        <th class="text-end">POS Sales (KES)</th>
+                                        <th class="text-end">MPesa (KES)</th>
+                                        <th class="text-end">Card (KES)</th>
+                                        <th class="text-end">AR (KES)</th>
+                                        <th class="text-end">Expenses (KES)</th>
+                                        <th class="text-end">Cash Dropped (KES)</th>
+                                        <th class="text-end">Balance (KES)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <t t-foreach="shift.attendant_cash_ids" t-as="cash">
+                                        <tr>
+                                            <td><t t-esc="cash.attendant_id.name"/></td>
+                                            <td class="text-end"><t t-esc="'{:,.2f}'.format(cash.reported_sales)"/></td>
+                                            <td class="text-end"><t t-esc="'{:,.2f}'.format(cash.mpesa_amount)"/></td>
+                                            <td class="text-end"><t t-esc="'{:,.2f}'.format(cash.card_amount)"/></td>
+                                            <td class="text-end"><t t-esc="'{:,.2f}'.format(cash.ar_amount)"/></td>
+                                            <td class="text-end"><t t-esc="'{:,.2f}'.format(cash.expense_amount)"/></td>
+                                            <td class="text-end"><t t-esc="'{:,.2f}'.format(cash.cash_collected)"/></td>
+                                            <td t-attf-class="text-end fw-bold #{
+                                                'text-success' if abs(cash.balance) &lt; 0.01 else 'text-danger'
+                                            }">
+                                                <t t-esc="'{:,.2f}'.format(cash.balance)"/>
+                                            </td>
+                                        </tr>
+                                    </t>
+                                </tbody>
+                            </table>
+                        </t>
+
+                        <!-- ── Sales Summary ── -->
+                        <t t-if="shift.product_sales_ids">
+                            <h5 class="mt-3">Product Sales Summary</h5>
+                            <table class="table table-sm table-bordered">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Product</th>
+                                        <th class="text-end">Meter Qty (L)</th>
+                                        <th class="text-end">Meter Amount (KES)</th>
+                                        <th class="text-end">Residual Qty (L)</th>
+                                        <th class="text-end">Residual Amt (KES)</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <t t-foreach="shift.product_sales_ids" t-as="ps">
+                                        <tr>
+                                            <td><t t-esc="ps.product_id.name"/></td>
+                                            <td class="text-end"><t t-esc="'{:,.2f}'.format(ps.qty_sold_elec)"/></td>
+                                            <td class="text-end"><t t-esc="'{:,.2f}'.format(ps.amount_elec)"/></td>
+                                            <td class="text-end"><t t-esc="'{:,.2f}'.format(ps.residual_qty)"/></td>
+                                            <td t-attf-class="text-end #{
+                                                'text-success' if abs(ps.residual_amount) &lt; 0.01 else
+                                                'text-warning' if ps.residual_amount &gt; 0 else 'text-danger'
+                                            }">
+                                                <t t-esc="'{:,.2f}'.format(ps.residual_amount)"/>
+                                            </td>
+                                            <td t-attf-class="#{
+                                                'text-success' if ps.residual_type == 'none' else
+                                                'text-warning' if ps.residual_type == 'under' else 'text-danger'
+                                            }">
+                                                <t t-esc="dict([
+                                                    ('none','Balanced'),
+                                                    ('over','Over-reported'),
+                                                    ('under','Under-reported'),
+                                                ]).get(ps.residual_type, ps.residual_type)"/>
+                                            </td>
+                                        </tr>
+                                    </t>
+                                </tbody>
+                                <tfoot class="table-light fw-bold">
+                                    <tr>
+                                        <td>Total</td>
+                                        <td class="text-end">
+                                            <t t-esc="'{:,.2f}'.format(sum(shift.product_sales_ids.mapped('qty_sold_elec')))"/>
+                                        </td>
+                                        <td class="text-end">
+                                            KES <t t-esc="'{:,.2f}'.format(shift.total_meter_sales)"/>
+                                        </td>
+                                        <td colspan="3"></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </t>
+
+                        <!-- ── Residual Allocations ── -->
+                        <t t-if="shift.residual_allocation_ids">
+                            <h5 class="mt-3">Residual Allocations</h5>
+                            <table class="table table-sm table-bordered">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>From (Over-reported)</th>
+                                        <th>To (Under-reported)</th>
+                                        <th class="text-end">Qty (L)</th>
+                                        <th class="text-end">Amount (KES)</th>
+                                        <th>GL Entry</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <t t-foreach="shift.residual_allocation_ids" t-as="alloc">
+                                        <tr>
+                                            <td><t t-esc="alloc.source_product_id.name"/></td>
+                                            <td><t t-esc="alloc.target_product_id.name"/></td>
+                                            <td class="text-end"><t t-esc="'{:,.2f}'.format(alloc.qty_litres)"/></td>
+                                            <td class="text-end"><t t-esc="'{:,.2f}'.format(alloc.amount)"/></td>
+                                            <td><t t-esc="alloc.journal_entry_id.name or '—'"/></td>
+                                        </tr>
+                                    </t>
+                                </tbody>
+                            </table>
+                        </t>
+
+                        <!-- ── Gate Status ── -->
+                        <div class="mt-4 p-3 border rounded">
+                            <h5>Hard Gate Summary</h5>
+                            <table class="table table-sm table-borderless mb-0">
+                                <tr>
+                                    <td style="width:5%">
+                                        <t t-if="abs(shift.fc_cash_balance) &lt; 0.01">✓</t>
+                                        <t t-else="">✗</t>
+                                    </td>
+                                    <td><strong>GATE 1 — FC Cash Balance</strong></td>
+                                    <td t-attf-class="text-end #{
+                                        'text-success' if abs(shift.fc_cash_balance) &lt; 0.01 else 'text-danger'
+                                    }">
+                                        KES <t t-esc="'{:,.2f}'.format(shift.fc_cash_balance)"/>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <t t-if="all(abs(c.balance) &lt; 0.01 for c in shift.attendant_cash_ids)">✓</t>
+                                        <t t-else="">✗</t>
+                                    </td>
+                                    <td><strong>GATE 2 — All Attendants Clear</strong></td>
+                                    <td class="text-end">
+                                        <t t-esc="len([c for c in shift.attendant_cash_ids if abs(c.balance) &gt;= 0.01])"/> unresolved
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <t t-if="all(d.variance_pct &lt;= 0.5 or d.closing_volume &lt;= 0 for d in shift.dip_entry_ids)">✓</t>
+                                        <t t-else="">✗</t>
+                                    </td>
+                                    <td><strong>GATE 3 — Stock Variance &lt; ±0.5%</strong></td>
+                                    <td class="text-end">
+                                        <t t-esc="len([d for d in shift.dip_entry_ids if d.variance_pct &gt; 0.5 and d.closing_volume &gt; 0])"/> tanks exceeded
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+
+                        <!-- ── Signature block ── -->
+                        <div class="row mt-5">
+                            <div class="col-4 text-center">
+                                <div style="border-top:1px solid #000;margin-top:40px;padding-top:4px">
+                                    Supervisor Signature
+                                </div>
+                            </div>
+                            <div class="col-4 text-center">
+                                <div style="border-top:1px solid #000;margin-top:40px;padding-top:4px">
+                                    Date
+                                </div>
+                            </div>
+                            <div class="col-4 text-center">
+                                <div style="border-top:1px solid #000;margin-top:40px;padding-top:4px">
+                                    Station Manager
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+
+</odoo>

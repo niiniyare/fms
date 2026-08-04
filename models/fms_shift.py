@@ -175,6 +175,11 @@ class FMSShift(models.Model):
     # Product sales rollup
     # ------------------------------------------------------------------
 
+    def action_report_fms_shift(self):
+        """Open the Shift Reconciliation PDF report for this shift."""
+        self.ensure_one()
+        return self.env.ref('fms.action_report_fms_shift').report_action(self)
+
     def action_refresh_product_sales(self):
         """Re-aggregate meter entries into product sales summary lines."""
         for shift in self:
