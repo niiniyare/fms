@@ -1,0 +1,498 @@
+---
+name: fms-development
+description: FMS (Forecourt Management System) development patterns for Odoo 18 — models, business logic, testing
+keywords: [fms, forecourt, fuel-station, odoo-18, residual-allocation, hard-gates, immutable-logs]
+version: 1.0
+tags: [odoo, ecommerce, inventory, accounting]
+---
+
+# FMS Development Skill
+
+## Context
+
+FMS is a lightweight fuel station management module for Odoo 18. It solves shift-based reconciliation: reconciling pump sales against tank stock, tracking where money went, and automatically reallocating lumped non-fuel sales.
+
+**Reference:** `FMS_Complete_Specification_Technical_Guide.md`
+
+---
+
+## Pattern 1: Immutable Log Models
+
+**Use Case:** Meter/dip reading logs that cannot be edited after shift closes
+
+```python
+from odoo import models, fields
+from odoo.exceptions import ValidationError
+
+class FmsMeterLog(models.Model):
+    _name = "fms.meter.log"
+    _description = "Meter Reading Log (Immutable)"
+    
+    shift_id = fields.Many2one("fms.shift", ondelete="cascade")
+    pump_id = fields.Many2one("fms.pump", required=True)
+    nozzle_id = fields.Many2one("fms.pump.nozzle", required=True)
+    
+    opening_elec_vol = fields.Float(required=True)
+    closing_elec_vol = fields.Float(required=True)
+    qty_sold = fields.Float()
+    
+    created_on = fields.Datetime(default=fields.Datetime.now, readonly=True)
+    
+    # CRITICAL: Override write/unlink to prevent editing
+    def write(self, vals):
+        raise ValidationError("Meter logs are immutable. Cannot edit after creation.")
+    
+    def unlink(self):
+        raise ValidationError("Meter logs cannot be deleted.")
+```
+
+**Key Points:**
+- Use `readonly=True` on audit fields (created_on)
+- Override `write()` and `unlink()` to raise ValidationError
+- No computed fields (all data is captured at creation)
+- Records are write-once, read-many (audit trail)
+
+---
+
+## Pattern 2: Hard Gate Constraints
+
+**Use Case:** Non-negotiable validation that blocks shift close if violated
+
+```python
+def action_close_shift(self):
+    """Close shift — enforces hard gates, no overrides."""
+    self.ensure_one()
+    
+    # GATE 1: FC Cash must be exactly zero
+    if abs(self.fc_cash_balance) > 0.01:
+        raise ValidationError(
+            f"FC Cash is ±KES {abs(self.fc_cash_balance):.2f}. "
+            f"Supervisor must post adjustment before closing.")
+    
+    # GATE 2: All attendants must clear
+    for cash_line in self.attendant_cash_line_ids:
+        if abs(cash_line.balance) > 0.01:
+            raise ValidationError(
+                f"Attendant {cash_line.attendant_id.name} not cleared: "
+                f"±KES {abs(cash_line.balance):.2f}")
+    
+    # GATE 3: Stock variance within meniscus
+    for tank_line in self.tank_summary_line_ids:
+        if abs(tank_line.variance_pct) > self.variance_tolerance_pct:
+            raise ValidationError(
+                f"Tank {tank_line.tank_id.name}: variance "
+                f"{tank_line.variance_pct:.2f}% exceeds meniscus "
+                f"{self.variance_tolerance_pct:.2f}%")
+    
+    # All gates passed
+    self._write_logs()
+    self._post_journals()
+    self.status = "closed"
+```
+
+**Key Points:**
+- Use `raise ValidationError()` for hard gates (non-negotiable)
+- No `confirm()` dialog or override option
+- Check gates in order (most critical first)
+- Include precise error message with values
+- Only proceed if all gates pass
+
+---
+
+## Pattern 3: Computed Reconciliation Fields
+
+**Use Case:** Auto-calculate sales, variance, balance without manual entry
+
+```python
+@api.depends("shift_id.meter_entry_line_ids", "shift_id.meter_entry_line_ids.qty_sold")
+def _compute_product_sales(self):
+    """Group meter readings by product."""
+    for shift in self:
+        products_dict = {}
+        for meter_line in shift.meter_entry_line_ids:
+            product_id = meter_line.nozzle_id.product_id.id
+            if product_id not in products_dict:
+                products_dict[product_id] = {"qty": 0, "amount": 0}
+            products_dict[product_id]["qty"] += meter_line.qty_sold
+            products_dict[product_id]["amount"] += meter_line.amnt_sold
+        
+        # Delete old, create new
+        shift.product_sales_line_ids.unlink()
+        for product_id, data in products_dict.items():
+            self.env["fms.shift.product.sales"].create({
+                "shift_id": shift.id,
+                "product_id": product_id,
+                "meter_volume": data["qty"],
+                "meter_amount": data["amount"],
+            })
+
+@api.depends("total_in", "total_out")
+def _compute_balance(self):
+    """Attendant cash balance = incoming - outgoing."""
+    for line in self:
+        line.balance = line.total_in - line.total_out
+```
+
+**Key Points:**
+- Use `@api.depends()` on all source fields
+- Delete & recreate child records (not incremental updates)
+- Avoid N+1 queries (group at ORM level, not in loop)
+- Store computed results (`store=True`) for reporting
+- Never create circular dependencies
+
+---
+
+## Pattern 4: Residual Allocation Algorithm
+
+**Use Case:** Auto-detect & reallocate lumped non-fuel sales
+
+```python
+def _calculate_residuals(self):
+    """
+    Calculate product residuals (over/under reported).
+    
+    Algorithm:
+    1. For each product, compute residual = meter_volume - accounted_volume
+    2. Separate into over-reported (negative) and under-reported (positive)
+    3. Greedily allocate: min(over, under) → allocation
+    """
+    products_over = {}  # product_id → negative amount
+    products_under = {}  # product_id → positive amount
+    
+    # Step 1: Calculate residuals
+    for prod_sales in self.product_sales_line_ids:
+        residual = prod_sales.meter_amount - prod_sales.accounted_amount
+        
+        if residual < -0.01:
+            products_over[prod_sales.product_id.id] = -residual
+        elif residual > 0.01:
+            products_under[prod_sales.product_id.id] = residual
+    
+    # Step 2 & 3: Allocate greedily
+    for over_prod_id, over_amount in products_over.items():
+        for under_prod_id, under_amount in products_under.items():
+            if over_amount < 0.01 or under_amount < 0.01:
+                continue
+            
+            alloc_amount = min(over_amount, under_amount)
+            over_product = self.env["product.product"].browse(over_prod_id)
+            under_product = self.env["product.product"].browse(under_prod_id)
+            
+            over_rate = self._get_rate_for_product(over_product)
+            alloc_qty = alloc_amount / over_rate if over_rate else 0
+            
+            self.env["fms.shift.residual.allocation"].create({
+                "shift_id": self.id,
+                "from_product_id": over_prod_id,
+                "to_product_id": under_prod_id,
+                "quantity": alloc_qty,
+                "amount": alloc_amount,
+            })
+            
+            # Reduce both
+            products_over[over_prod_id] -= alloc_amount
+            products_under[under_prod_id] -= alloc_amount
+```
+
+**Key Points:**
+- Always pre-compute residuals before GL posting
+- Use greedy algorithm (simpler than optimal matching)
+- Convert amounts to quantities using product rates
+- Record allocations for audit trail
+- Leave unmatched residuals (supervisor reviews)
+
+---
+
+## Pattern 5: Journal Entry Posting
+
+**Use Case:** Post GL entries from FMS shift data
+
+```python
+def _post_sales_journal(self):
+    """Post daily sales journal: DR COGS | CR Revenue"""
+    lines = []
+    
+    for prod_sales in self.product_sales_line_ids:
+        cogs_acct = self._get_cogs_account(prod_sales.product_id)
+        revenue_acct = self._get_revenue_account(prod_sales.product_id)
+        
+        lines.append((0, 0, {
+            "account_id": cogs_acct.id,
+            "debit": prod_sales.meter_amount,
+        }))
+        lines.append((0, 0, {
+            "account_id": revenue_acct.id,
+            "credit": prod_sales.meter_amount,
+        }))
+    
+    if lines:
+        move = self.env["account.move"].create({
+            "move_type": "entry",
+            "date": self.shift_date,
+            "ref": f"Shift sales — {self.name}",
+            "line_ids": lines,
+            "journal_id": self._get_sales_journal().id,
+            "company_id": self.company_id.id,
+        })
+        move.action_post()
+        self.journal_entry_id = move.id
+
+def _post_residual_allocation_journal(self):
+    """Post residual reallocation: DR from_product COGS | CR to_product COGS"""
+    lines = []
+    
+    for alloc in self.residual_allocation_line_ids:
+        from_cogs = self._get_cogs_account(alloc.from_product_id)
+        to_cogs = self._get_cogs_account(alloc.to_product_id)
+        
+        lines.append((0, 0, {
+            "account_id": from_cogs.id,
+            "credit": alloc.amount,  # Reduce COGS (wasn't really sold)
+        }))
+        lines.append((0, 0, {
+            "account_id": to_cogs.id,
+            "debit": alloc.amount,  # Increase COGS (actually sold)
+        }))
+    
+    if lines:
+        move = self.env["account.move"].create({
+            "move_type": "entry",
+            "date": self.shift_date,
+            "ref": f"Residual allocation — {self.name}",
+            "line_ids": lines,
+            "journal_id": self._get_sales_journal().id,
+            "company_id": self.company_id.id,
+        })
+        move.action_post()
+```
+
+**Key Points:**
+- Create one journal per transaction type (sales, residuals, variances)
+- Always call `action_post()` to move from Draft to Posted
+- Use `move_type = "entry"` for internal transfers
+- Store journal ID on shift for audit trail
+- Catch duplicate posting (check for existing journal_entry_id)
+
+---
+
+## Pattern 6: Opening Readings Auto-Fetch
+
+**Use Case:** Populate opening meter/dip values from previous shift's closing
+
+```python
+def _populate_entry_lines_from_previous(self, prev_shift):
+    """Fetch previous shift's closing, populate entry lines."""
+    
+    # For dips: previous closing = current opening
+    for prev_dip_log in prev_shift.dip_log_ids.filtered(
+        lambda d: d.reading_type == "close"):
+        self.env["fms.shift.dip.entry"].create({
+            "shift_id": self.id,
+            "tank_id": prev_dip_log.tank_id.id,
+            "opening_vol": prev_dip_log.closing_vol,  # Previous close = current open
+            "closing_vol": 0,  # User fills in
+        })
+    
+    # For meters: similar pattern
+    for pump in self.company_id.fms_pump_ids.filtered("is_active"):
+        for nozzle in pump.nozzle_ids:
+            prev_meter_logs = prev_shift.meter_log_ids.filtered(
+                lambda m: m.nozzle_id == nozzle and m.reading_type == "close"
+            )
+            
+            opening_vol = prev_meter_logs[0].closing_elec_vol if prev_meter_logs else 0
+            
+            self.env["fms.shift.meter.entry"].create({
+                "shift_id": self.id,
+                "pump_id": pump.id,
+                "nozzle_id": nozzle.id,
+                "opening_elec_vol": opening_vol,
+                "opening_man_mech": opening_vol,
+                "closing_elec_vol": 0,  # User fills in
+                "closing_man_mech": 0,  # User fills in
+            })
+```
+
+**Key Points:**
+- Query immutable logs for most recent closing readings
+- Set opening values as readonly (prevent user edit)
+- Only require closing values (user entry)
+- Handle no-previous-shift case (initialize with 0)
+- Use active filtering to skip maintenance pumps
+
+---
+
+## Pattern 7: Unit Testing (pytest)
+
+**Use Case:** Test models and business logic
+
+```python
+from odoo.tests import TransactionCase
+
+class TestResidualAllocation(TransactionCase):
+    
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.shift = cls.env["fms.shift"].create({
+            "shift_date": "2026-01-15",
+            "shift_label": "1_day",
+            "supervisor_id": cls.env["hr.employee"].create({"name": "Supervisor"}).id,
+        })
+    
+    def test_diesel_over_reported_ux_under_reported(self):
+        """Diesel -100L over, UX +240L under → allocate 104L"""
+        # Create products
+        diesel = self.env["product.product"].create({
+            "name": "Diesel",
+            "fms_is_fuel": True,
+        })
+        ux = self.env["product.product"].create({
+            "name": "Unleaded",
+            "fms_is_fuel": True,
+        })
+        
+        # Create product sales (simulated)
+        self.env["fms.shift.product.sales"].create({
+            "shift_id": self.shift.id,
+            "product_id": diesel.id,
+            "meter_amount": 222800,
+            "accounted_amount": 230000,  # Over by 7200
+        })
+        self.env["fms.shift.product.sales"].create({
+            "shift_id": self.shift.id,
+            "product_id": ux.id,
+            "meter_amount": 107000,
+            "accounted_amount": 100000,  # Under by 7000
+        })
+        
+        # Trigger allocation
+        self.shift._calculate_residuals()
+        
+        # Verify
+        allocations = self.shift.residual_allocation_line_ids
+        self.assertEqual(len(allocations), 1)
+        
+        alloc = allocations[0]
+        self.assertEqual(alloc.from_product_id, diesel)
+        self.assertEqual(alloc.to_product_id, ux)
+        self.assertAlmostEqual(alloc.amount, 7000, places=2)
+    
+    def test_fc_cash_hard_gate(self):
+        """Shift refuses to close if FC Cash ≠ 0"""
+        self.shift.fc_cash_balance = 50.00  # Non-zero
+        
+        with self.assertRaises(ValidationError):
+            self.shift.action_close_shift()
+    
+    def test_immutable_log(self):
+        """Meter logs cannot be edited after creation"""
+        log = self.env["fms.meter.log"].create({
+            "shift_id": self.shift.id,
+            "pump_id": self.env["fms.pump"].create({"name": "UX5"}).id,
+            "nozzle_id": self.env["fms.pump.nozzle"].create({
+                "pump_id": self.env["fms.pump"].search([], limit=1).id,
+            }).id,
+            "opening_elec_vol": 450000,
+            "closing_elec_vol": 450500,
+        })
+        
+        with self.assertRaises(ValidationError):
+            log.write({"closing_elec_vol": 450600})
+        
+        with self.assertRaises(ValidationError):
+            log.unlink()
+```
+
+**Key Points:**
+- Use `TransactionCase` (has DB access)
+- Use `setUpClass()` for expensive setup
+- Test happy path + edge cases + error cases
+- Use `assertRaises()` for exceptions
+- Use `assertAlmostEqual()` for floats (avoid rounding errors)
+- Each test should be independent & idempotent
+
+---
+
+## Pattern 8: Form Design (Minimal Data Entry)
+
+**Use Case:** Design forms that minimize user input
+
+```xml
+<!-- views/fms_shift_form.xml -->
+<form string="Shift">
+    <header>
+        <button name="action_open_shift" string="Open Shift" type="object" />
+        <button name="action_close_shift" string="Close Shift" type="object" />
+        <field name="status" widget="statusbar" />
+    </header>
+    
+    <sheet>
+        <!-- COLLAPSIBLE SECTION: Header (always visible) -->
+        <group>
+            <field name="name" readonly="1" />
+            <field name="shift_date" />
+            <field name="supervisor_id" />
+        </group>
+        
+        <!-- COLLAPSIBLE SECTION: Dips (editable) -->
+        <separator string="Tank Dips" />
+        <field name="dip_entry_line_ids">
+            <tree editable="bottom">
+                <field name="tank_id" readonly="1" />
+                <field name="opening_vol" readonly="1" />
+                <field name="closing_vol" required="1" />
+                <field name="variance_pct" readonly="1" />
+            </tree>
+        </field>
+        
+        <!-- COLLAPSIBLE SECTION: Meters (editable) -->
+        <separator string="Pump Meters" />
+        <field name="meter_entry_line_ids">
+            <tree editable="bottom">
+                <field name="pump_id" readonly="1" />
+                <field name="nozzle_id" readonly="1" />
+                <field name="opening_elec_vol" readonly="1" />
+                <field name="closing_elec_vol" required="1" />
+                <field name="qty_sold" readonly="1" />
+            </tree>
+        </field>
+        
+        <!-- COLLAPSIBLE SECTION: Reconciliation (read-only) -->
+        <separator string="Reconciliation Results" />
+        <group>
+            <field name="fc_cash_balance" readonly="1" />
+            <field name="total_attendant_variance" readonly="1" />
+        </group>
+    </sheet>
+</form>
+```
+
+**Key Points:**
+- Use `readonly="1"` for auto-populated fields (opening readings)
+- Use `required="1"` for mandatory user entry (closing readings)
+- Use `editable="bottom"` for inline editing in lists
+- Use separators for sections (not headers)
+- Minimize scrolling (fit on one screen if possible)
+- Use status bar for state machine
+
+---
+
+## Best Practices Summary
+
+1. **Immutability:** Make logs immutable (prevent post-close edits)
+2. **Hard Gates:** No overrides, no "close anyway" buttons
+3. **Audit Trail:** Store all changes (Odoo's tracking module)
+4. **No Parallel Bookkeeping:** All data posts to GL
+5. **Minimal Entry:** Auto-fetch opening readings, compute everything else
+6. **Single Form:** One shift form, not multiple models/menus
+7. **GL Integration:** Use Odoo core (don't reinvent accounting)
+8. **Testing:** 80%+ coverage, test hard gates explicitly
+9. **Performance:** Avoid N+1 queries (use ORM grouping)
+10. **Compliance:** Immutable logs meet regulatory audit requirements
+
+---
+
+**Version:** 1.0  
+**Last Updated:** 2026-08-04  
+**Scope:** FMS Phase 1 MVP (Odoo 18)

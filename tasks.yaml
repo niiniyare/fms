@@ -1,0 +1,528 @@
+# FMS (Forecourt Management System) Task Registry
+# Defines all development tasks, dependencies, and expected artifacts
+
+project_name: FMS (Forecourt Management System)
+project_version: 1.0 (Phase 1 MVP)
+platform: Odoo 18 Community Edition
+framework: Python CLI + Claude Code
+
+---
+
+tasks:
+
+  # ═════════════════════════════════════════════════════════════════════
+  # TASK FMS-001: Core Models & Schema
+  # ═════════════════════════════════════════════════════════════════════
+  
+  FMS-001:
+    title: "Core Models & Schema"
+    description: |
+      Implement base FMS models: fms.shift (main orchestration),
+      fms.pump, fms.pump_nozzle (master data),
+      fms.meter_log, fms.dip_log (immutable audit logs)
+    
+    status: TODO  # TODO, IN_PROGRESS, TESTING, APPROVED, FAILED
+    spec_reference: "Spec Section 8.1"
+    
+    estimated_time: "3h"
+    actual_time: "0h"
+    
+    dependencies: []  # No prerequisites
+    
+    subtasks:
+      - "FMS-001-A: fms.shift base model (620 lines)"
+      - "FMS-001-B: fms.meter_log & fms.dip_log (immutable, ~80 lines each)"
+      - "FMS-001-C: fms.pump & fms.pump_nozzle master data (~60 lines each)"
+      - "FMS-001-D: Unit tests (12+ tests)"
+    
+    artifacts:
+      models:
+        - "models/__init__.py"
+        - "models/fms_shift.py (fms.shift model)"
+        - "models/fms_pump.py (fms.pump, fms.pump_nozzle)"
+        - "models/fms_logs.py (fms.meter_log, fms.dip_log)"
+      
+      tests:
+        - "tests/test_fms_shift.py"
+        - "tests/test_fms_logs.py"
+      
+      total_lines: 945
+    
+    testing_guide: FMS-001
+    
+    commit_message: |
+      feat(models): implement core FMS models
+      
+      - fms.shift: Main shift orchestration (620 lines)
+      - fms.meter_log: Immutable meter reading log
+      - fms.dip_log: Immutable dip reading log
+      - fms.pump & fms.pump_nozzle: Master data
+      
+      Ref: Spec Section 8.1
+      Tests: 12/12 passing
+      Task: FMS-001
+
+  # ═════════════════════════════════════════════════════════════════════
+  # TASK FMS-002: Child Models & Entry Forms
+  # ═════════════════════════════════════════════════════════════════════
+  
+  FMS-002:
+    title: "Child Models & Entry Forms"
+    description: |
+      Implement shift entry models: fms.shift.meter.entry, fms.shift.dip.entry,
+      fms.shift.attendant.cash, fms.shift.product.sales (computed)
+      Include basic forms & list views
+    
+    status: TODO
+    spec_reference: "Spec Section 8.1"
+    
+    estimated_time: "2h 30m"
+    actual_time: "0h"
+    
+    dependencies:
+      - FMS-001  # Requires base models first
+    
+    subtasks:
+      - "FMS-002-A: fms.shift.meter.entry & fms.shift.dip.entry (~100 lines each)"
+      - "FMS-002-B: fms.shift.attendant.cash reconciliation model (~120 lines)"
+      - "FMS-002-C: fms.shift.product.sales (computed, ~80 lines)"
+      - "FMS-002-D: Basic forms & list views (XML, ~300 lines)"
+      - "FMS-002-E: Tests (8+ tests)"
+    
+    artifacts:
+      models:
+        - "models/fms_shift_entry.py (meter.entry, dip.entry)"
+        - "models/fms_shift_reconciliation.py (attendant.cash, product.sales)"
+      
+      views:
+        - "views/fms_shift_views.xml (list & form)"
+        - "views/fms_shift_meter_views.xml (meter entry form)"
+        - "views/fms_shift_dip_views.xml (dip entry form)"
+      
+      tests:
+        - "tests/test_fms_shift_entry.py"
+      
+      total_lines: 680
+    
+    testing_guide: FMS-002
+    
+    commit_message: |
+      feat(forms): implement child models & entry forms
+      
+      - fms.shift.meter.entry: Meter reading entry (one2many)
+      - fms.shift.dip.entry: Dip reading entry (one2many)
+      - fms.shift.attendant.cash: Per-attendant reconciliation
+      - fms.shift.product.sales: Computed product summary
+      - Basic forms for data entry
+      
+      Ref: Spec Section 8.1
+      Tests: 8/8 passing
+      Task: FMS-002
+
+  # ═════════════════════════════════════════════════════════════════════
+  # TASK FMS-003: Residual Allocation Algorithm
+  # ═════════════════════════════════════════════════════════════════════
+  
+  FMS-003:
+    title: "Residual Allocation Algorithm"
+    description: |
+      Implement automatic residual allocation: detect lumped non-fuel sales
+      (e.g., carwash in Diesel) and auto-reallocate to correct product.
+      Includes calculation, allocation, and audit trail.
+    
+    status: TODO
+    spec_reference: "Spec Section 7.1"
+    
+    estimated_time: "2h"
+    actual_time: "0h"
+    
+    dependencies:
+      - FMS-001  # Requires base models
+      - FMS-002  # Requires entry models
+    
+    subtasks:
+      - "FMS-003-A: Product sales reconciliation computation (_compute_product_sales)"
+      - "FMS-003-B: Residual detection & calculation (_calculate_residuals prep)"
+      - "FMS-003-C: Greedy allocation algorithm (_calculate_residuals impl)"
+      - "FMS-003-D: Allocation audit trail (fms.shift.residual.allocation)"
+      - "FMS-003-E: Unit tests (6+ tests)"
+    
+    artifacts:
+      models:
+        - "models/fms_shift_reconciliation.py (_calculate_residuals method)"
+      
+      tests:
+        - "tests/test_residual_allocation.py"
+      
+      total_lines: 280
+    
+    testing_guide: FMS-003
+    
+    commit_message: |
+      feat(algorithms): implement residual allocation
+      
+      - Product sales reconciliation (meter vs. accounted)
+      - Residual detection (over/under reported)
+      - Greedy allocation algorithm
+      - Allocation audit trail
+      
+      Example: Diesel -100L (over) → Carwash +100L (under)
+      
+      Ref: Spec Section 7.1
+      Tests: 6/6 passing
+      Task: FMS-003
+
+  # ═════════════════════════════════════════════════════════════════════
+  # TASK FMS-004: Security & Access Control
+  # ═════════════════════════════════════════════════════════════════════
+  
+  FMS-004:
+    title: "Security & Access Control"
+    description: |
+      Implement role-based groups (fuel_station_attendant, supervisor, accountant),
+      row-level security (company scoping), immutable log protection,
+      field-level permissions
+    
+    status: TODO
+    spec_reference: "Spec Section 9"
+    
+    estimated_time: "1h 30m"
+    actual_time: "0h"
+    
+    dependencies:
+      - FMS-001  # Requires base models
+    
+    subtasks:
+      - "FMS-004-A: Define groups (ir.group definitions, ~60 lines)"
+      - "FMS-004-B: Model-level access rules (ir.model.access, ~50 lines)"
+      - "FMS-004-C: Row-level security (ir.rule, company scoping, ~40 lines)"
+      - "FMS-004-D: Log immutability enforcement (already in models)"
+      - "FMS-004-E: Unit tests (5+ tests)"
+    
+    artifacts:
+      security:
+        - "security/fms_groups.xml (group definitions)"
+        - "security/ir_model_access.xml (CRUD permissions per group)"
+        - "security/ir_rule.xml (row-level security)"
+      
+      tests:
+        - "tests/test_security.py"
+      
+      total_lines: 200
+    
+    testing_guide: FMS-004
+    
+    commit_message: |
+      feat(security): implement RBAC & row-level security
+      
+      Groups:
+      - fuel_station_attendant: enter data, cannot close
+      - fuel_station_supervisor: close shifts, post corrections
+      - fuel_station_accountant: read-only reporting
+      
+      Row-level: Users see only own company's shifts
+      Immutability: Logs locked after shift close
+      
+      Ref: Spec Section 9
+      Tests: 5/5 passing
+      Task: FMS-004
+
+  # ═════════════════════════════════════════════════════════════════════
+  # TASK FMS-005: Journal Entry Posting & GL Integration
+  # ═════════════════════════════════════════════════════════════════════
+  
+  FMS-005:
+    title: "Journal Entry Posting & GL Integration"
+    description: |
+      Implement automatic GL posting:
+      - Sales journals (DR COGS | CR Revenue)
+      - Residual allocation journals (DR from_product | CR to_product)
+      - Cash variance journals (DR FC Cash | CR Employee/Expense)
+      - Stock inventory adjustments
+    
+    status: TODO
+    spec_reference: "Spec Section 7.2-7.3, Section 8.1"
+    
+    estimated_time: "2h"
+    actual_time: "0h"
+    
+    dependencies:
+      - FMS-003  # Requires residuals
+      - FMS-004  # Requires security setup
+    
+    subtasks:
+      - "FMS-005-A: Sales journal posting (_post_sales_journal, ~60 lines)"
+      - "FMS-005-B: Residual allocation journal (_post_residual_allocation_journal, ~50 lines)"
+      - "FMS-005-C: Cash variance posting (_post_cash_variance_journal, ~50 lines)"
+      - "FMS-005-D: Stock inventory adjustments (_post_inventory_adjustments, ~70 lines)"
+      - "FMS-005-E: Integration tests (8+ tests)"
+    
+    artifacts:
+      models:
+        - "models/fms_shift.py (posting methods)"
+      
+      tests:
+        - "tests/test_journal_posting.py"
+      
+      total_lines: 280
+    
+    testing_guide: FMS-005
+    
+    commit_message: |
+      feat(accounting): implement journal posting & GL integration
+      
+      - Sales journal: DR Fuel COGS | CR Fuel Revenue
+      - Residual allocation: DR from_product COGS | CR to_product COGS
+      - Cash variance: DR FC Cash | CR Employee/Expense
+      - Stock adjustments: Update inventory via stock.inventory
+      
+      All entries posted via account.move (standard GL)
+      
+      Ref: Spec Section 7.2-7.3
+      Tests: 8/8 passing
+      Task: FMS-005
+
+  # ═════════════════════════════════════════════════════════════════════
+  # TASK FMS-006: Shift Lifecycle & Hard Gates
+  # ═════════════════════════════════════════════════════════════════════
+  
+  FMS-006:
+    title: "Shift Lifecycle & Hard Gates"
+    description: |
+      Implement shift state machine (Draft → Open → Closing → Closed),
+      validation gates (FC Cash = 0, all attendants clear, stock variance < meniscus),
+      opening shift workflow (fetch previous readings), closing workflow
+    
+    status: TODO
+    spec_reference: "Spec Section 3.2, Section 8.1"
+    
+    estimated_time: "1h 30m"
+    actual_time: "0h"
+    
+    dependencies:
+      - FMS-002  # Requires entry models
+      - FMS-003  # Requires residuals
+    
+    subtasks:
+      - "FMS-006-A: State machine (Draft → Open → Closing → Closed, ~40 lines)"
+      - "FMS-006-B: Hard gate 1: FC Cash must = 0 (_check_fc_cash, ~30 lines)"
+      - "FMS-006-C: Hard gate 2: All attendants clear (validation, ~30 lines)"
+      - "FMS-006-D: Hard gate 3: Stock variance < meniscus (validation, ~30 lines)"
+      - "FMS-006-E: action_open_shift & action_close_shift methods (~100 lines)"
+      - "FMS-006-F: Unit tests (6+ tests)"
+    
+    artifacts:
+      models:
+        - "models/fms_shift.py (state machine & gates)"
+      
+      tests:
+        - "tests/test_shift_lifecycle.py"
+      
+      total_lines: 260
+    
+    testing_guide: FMS-006
+    
+    commit_message: |
+      feat(workflow): implement shift lifecycle & hard gates
+      
+      State machine: Draft → Open → Closing → Closed (no re-open)
+      Hard gate 1: FC Cash must equal zero exactly (no override)
+      Hard gate 2: All attendants must clear (no override)
+      Hard gate 3: Stock variance < meniscus % (no override)
+      
+      Action: open_shift (fetch prev readings, create entry lines)
+      Action: close_shift (validate gates, write logs, post journals)
+      
+      Ref: Spec Section 3.2
+      Tests: 6/6 passing
+      Task: FMS-006
+
+  # ═════════════════════════════════════════════════════════════════════
+  # TASK FMS-007: UI/UX Forms & Reports
+  # ═════════════════════════════════════════════════════════════════════
+  
+  FMS-007:
+    title: "UI/UX Forms & Reports"
+    description: |
+      Build complete shift form (unified data entry workflow),
+      shift list dashboard, reconciliation summary (read-only),
+      PDF shift reconciliation report, mobile responsiveness
+    
+    status: TODO
+    spec_reference: "Spec Section 3.3, Section 10"
+    
+    estimated_time: "3h"
+    actual_time: "0h"
+    
+    dependencies:
+      - FMS-002  # Requires entry forms
+      - FMS-006  # Requires lifecycle methods
+    
+    subtasks:
+      - "FMS-007-A: Shift list view dashboard (tree + search, ~80 lines)"
+      - "FMS-007-B: Unified shift form (6-section collapsible form, ~200 lines)"
+      - "FMS-007-C: Reconciliation summary section (read-only, ~100 lines)"
+      - "FMS-007-D: Mobile responsiveness (CSS media queries, ~50 lines)"
+      - "FMS-007-E: Shift reconciliation PDF report (~150 lines)"
+      - "FMS-007-F: UI tests (visual testing guide)"
+    
+    artifacts:
+      views:
+        - "views/fms_shift_list_views.xml"
+        - "views/fms_shift_form_views.xml (unified form)"
+        - "views/fms_shift_reconciliation_views.xml"
+      
+      reports:
+        - "reports/fms_shift_reconciliation_report.xml"
+        - "reports/fms_shift_reconciliation_template.xml"
+      
+      static:
+        - "static/src/css/fms_responsive.css (mobile)"
+      
+      total_lines: 680
+    
+    testing_guide: FMS-007
+    
+    commit_message: |
+      feat(ui): build shift form & reports
+      
+      - Shift list dashboard (tree view with status indicators)
+      - Unified shift form (6 collapsible sections, all entry in one place)
+      - Reconciliation summary (computed, read-only)
+      - PDF shift report (archive, accountant distribution)
+      - Mobile responsive (tablet & phone)
+      
+      Ref: Spec Section 3.3 & Section 10
+      Visual testing: passed
+      Task: FMS-007
+
+  # ═════════════════════════════════════════════════════════════════════
+  # TASK FMS-008: Testing, Documentation & Go-Live
+  # ═════════════════════════════════════════════════════════════════════
+  
+  FMS-008:
+    title: "Testing, Documentation & Go-Live"
+    description: |
+      Run full test suite (regression), create operation runbooks,
+      create installation guide, sample data import script,
+      UAT checklist & sign-off, go-live preparation
+    
+    status: TODO
+    spec_reference: "Spec Section 11-13"
+    
+    estimated_time: "2h"
+    actual_time: "0h"
+    
+    dependencies:
+      - FMS-005  # Requires GL posting
+      - FMS-007  # Requires UI/forms
+    
+    subtasks:
+      - "FMS-008-A: Full test suite & regression (pytest, 42+ tests, ~50 lines)"
+      - "FMS-008-B: RUNBOOK.md (daily operations for staff, ~200 lines)"
+      - "FMS-008-C: INSTALLATION.md (setup guide for admins, ~150 lines)"
+      - "FMS-008-D: Sample data import script (populate demo station, ~150 lines)"
+      - "FMS-008-E: UAT checklist (5 scenarios, sign-off, ~100 lines)"
+      - "FMS-008-F: Go-live checklist (13 items, ~50 lines)"
+    
+    artifacts:
+      docs:
+        - "RUNBOOK.md (daily operations)"
+        - "INSTALLATION.md (setup guide)"
+        - "UAT_CHECKLIST.md (test scenarios)"
+        - "GO_LIVE_CHECKLIST.md"
+      
+      scripts:
+        - "scripts/import_sample_data.py (populate demo data)"
+      
+      tests:
+        - "tests/test_integration_full_workflow.py"
+      
+      total_lines: 700
+    
+    testing_guide: FMS-008
+    
+    commit_message: |
+      chore(release): complete testing & documentation for Phase 1 MVP
+      
+      Tests:
+      - Full regression: 42+ tests, 80%+ coverage
+      - All 5 UAT scenarios passing
+      - Performance: all actions <10s
+      
+      Documentation:
+      - RUNBOOK.md: How to open/close shifts daily
+      - INSTALLATION.md: How to set up FMS on new station
+      - UAT_CHECKLIST.md: Test scenarios & sign-off
+      
+      Scripts:
+      - Sample data import (demo station pre-population)
+      
+      Ref: Spec Section 11-13
+      Status: Ready for production deployment
+      Task: FMS-008
+
+---
+
+# Task Summary
+
+summary:
+  total_tasks: 8
+  total_estimated_time: "16h"
+  critical_path: "FMS-001 → FMS-002 → FMS-003 → FMS-005 → FMS-007 → FMS-008"
+  
+  breakdown_by_week:
+    Week_1:
+      tasks: [FMS-001, FMS-002, FMS-003]
+      estimated: "8h"
+      focus: "Core models, entry forms, residual algorithm"
+    
+    Week_2:
+      tasks: [FMS-004, FMS-005, FMS-006]
+      estimated: "5h"
+      focus: "Security, GL posting, shift lifecycle & gates"
+    
+    Week_3:
+      tasks: [FMS-007, FMS-008]
+      estimated: "5h"
+      focus: "UI/forms, testing, go-live prep"
+    
+    Buffer:
+      estimated: "2h"
+      focus: "Fixes, adjustments, surprises"
+
+---
+
+# Dependencies Graph
+
+dependencies_graph:
+  FMS-001:
+    blocks: [FMS-002, FMS-003, FMS-004]
+  
+  FMS-002:
+    requires: [FMS-001]
+    blocks: [FMS-003, FMS-006, FMS-007]
+  
+  FMS-003:
+    requires: [FMS-001, FMS-002]
+    blocks: [FMS-005]
+  
+  FMS-004:
+    requires: [FMS-001]
+    blocks: [FMS-005]
+  
+  FMS-005:
+    requires: [FMS-003, FMS-004]
+    blocks: [FMS-008]
+  
+  FMS-006:
+    requires: [FMS-002, FMS-003]
+    blocks: [FMS-007]
+  
+  FMS-007:
+    requires: [FMS-002, FMS-006]
+    blocks: [FMS-008]
+  
+  FMS-008:
+    requires: [FMS-005, FMS-007]
+    blocks: []
