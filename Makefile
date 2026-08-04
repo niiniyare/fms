@@ -1,4 +1,4 @@
-.PHONY: help setup setup-all setup-structure setup-git clean status task list info report test test-coverage test-watch git-branch git-commit git-merge odoo odoo-dev odoo-install odoo-update odoo-shell odoo-test odoo-drop docs runbook spec patterns install format lint
+.PHONY: help setup setup-all setup-structure setup-git clean status task list info report test test-coverage test-watch git-branch git-commit git-merge odoo odoo-dev odoo-install odoo-update odoo-shell odoo-test odoo-demo odoo-demo-reload odoo-drop docs runbook spec patterns install format lint
 
 # Color output
 BLUE := \033[0;34m
@@ -225,6 +225,18 @@ odoo-test: ## Run FMS tests via Odoo test runner
 		--addons-path=$(ODOO_ADDONS) \
 		--test-enable --stop-after-init -i fms -p 8070
 	@echo "$(GREEN)✓ Tests complete$(NC)"
+
+odoo-demo: ## Start Odoo web server on the demo database (http://localhost:8070)
+	@echo "$(BLUE)Starting Odoo with demo data (db: fms_demo, port: 8070)...$(NC)"
+	@echo "$(YELLOW)Open: http://localhost:8070  →  Forecourt → Shifts$(NC)"
+	@$(ODOO_VENV) $(ODOO_BIN) -d fms_demo -p 8070 \
+		--addons-path=$(ODOO_ADDONS) --dev=all
+
+odoo-demo-reload: ## Reload demo data into fms_demo (re-runs demo XML)
+	@echo "$(BLUE)Reloading demo data into fms_demo...$(NC)"
+	@$(ODOO_VENV) $(ODOO_BIN) -d fms_demo -u fms \
+		--addons-path=$(ODOO_ADDONS) --stop-after-init -p 8070
+	@echo "$(GREEN)✓ Demo data reloaded$(NC)"
 
 odoo-drop: ## Drop test database (WARNING: deletes all data!)
 	@echo "$(RED)WARNING: This will delete all data in $(DB_NAME)$(NC)"

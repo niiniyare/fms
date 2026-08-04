@@ -1,0 +1,360 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+<data noupdate="1">
+
+    <!-- ================================================================
+         FMS Demo Data — Shell Maanzoni Station
+
+         Creates a realistic forecourt setup:
+           Products  : Diesel, Super, V-Power, Kerosene
+           Tanks     : Diesel Tank 1 & 2, Super Tank, V-Power Tank
+           Pumps     : UX5 (Diesel/Super), DX6 (Diesel/VPower), KX7 (Kerosene)
+           Employees : 1 Supervisor, 3 Attendants
+           Shift     : Day shift (2026-01-15) — open with sample readings
+    ================================================================ -->
+
+    <!-- ============================================================
+         1. FUEL PRODUCTS
+    ============================================================ -->
+
+    <record id="product_diesel" model="product.product">
+        <field name="name">Diesel</field>
+        <field name="type">consu</field>
+        <field name="list_price">222.80</field>
+        <field name="fms_is_fuel" eval="True"/>
+        <field name="categ_id" ref="product.product_category_all"/>
+    </record>
+
+    <record id="product_super" model="product.product">
+        <field name="name">Super (Unleaded)</field>
+        <field name="type">consu</field>
+        <field name="list_price">217.50</field>
+        <field name="fms_is_fuel" eval="True"/>
+        <field name="categ_id" ref="product.product_category_all"/>
+    </record>
+
+    <record id="product_vpower" model="product.product">
+        <field name="name">V-Power</field>
+        <field name="type">consu</field>
+        <field name="list_price">250.00</field>
+        <field name="fms_is_fuel" eval="True"/>
+        <field name="categ_id" ref="product.product_category_all"/>
+    </record>
+
+    <record id="product_kerosene" model="product.product">
+        <field name="name">Kerosene (IK)</field>
+        <field name="type">consu</field>
+        <field name="list_price">149.30</field>
+        <field name="fms_is_fuel" eval="True"/>
+        <field name="categ_id" ref="product.product_category_all"/>
+    </record>
+
+    <!-- Non-fuel product (used in residual allocation demo) -->
+    <record id="product_carwash" model="product.product">
+        <field name="name">Carwash</field>
+        <field name="type">service</field>
+        <field name="list_price">500.00</field>
+        <field name="categ_id" ref="product.product_category_all"/>
+    </record>
+
+    <!-- ============================================================
+         2. FUEL TANK LOCATIONS
+    ============================================================ -->
+
+    <!-- Parent location for all tanks -->
+    <record id="location_tanks" model="stock.location">
+        <field name="name">Fuel Tanks</field>
+        <field name="usage">internal</field>
+        <field name="location_id" ref="stock.stock_location_locations"/>
+    </record>
+
+    <record id="location_diesel_tank_1" model="stock.location">
+        <field name="name">Diesel Tank 1</field>
+        <field name="usage">internal</field>
+        <field name="location_id" ref="location_tanks"/>
+        <field name="fms_is_fuel_tank" eval="True"/>
+        <field name="fms_fuel_product_id" ref="product_diesel"/>
+    </record>
+
+    <record id="location_diesel_tank_2" model="stock.location">
+        <field name="name">Diesel Tank 2</field>
+        <field name="usage">internal</field>
+        <field name="location_id" ref="location_tanks"/>
+        <field name="fms_is_fuel_tank" eval="True"/>
+        <field name="fms_fuel_product_id" ref="product_diesel"/>
+    </record>
+
+    <record id="location_super_tank" model="stock.location">
+        <field name="name">Super Tank</field>
+        <field name="usage">internal</field>
+        <field name="location_id" ref="location_tanks"/>
+        <field name="fms_is_fuel_tank" eval="True"/>
+        <field name="fms_fuel_product_id" ref="product_super"/>
+    </record>
+
+    <record id="location_vpower_tank" model="stock.location">
+        <field name="name">V-Power Tank</field>
+        <field name="usage">internal</field>
+        <field name="location_id" ref="location_tanks"/>
+        <field name="fms_is_fuel_tank" eval="True"/>
+        <field name="fms_fuel_product_id" ref="product_vpower"/>
+    </record>
+
+    <record id="location_kerosene_tank" model="stock.location">
+        <field name="name">Kerosene Tank</field>
+        <field name="usage">internal</field>
+        <field name="location_id" ref="location_tanks"/>
+        <field name="fms_is_fuel_tank" eval="True"/>
+        <field name="fms_fuel_product_id" ref="product_kerosene"/>
+    </record>
+
+    <!-- ============================================================
+         3. PUMPS AND NOZZLES
+
+         UX5: Nozzle A = Diesel,  Nozzle B = Super
+         DX6: Nozzle A = Diesel,  Nozzle B = V-Power
+         KX7: Nozzle A = Kerosene
+    ============================================================ -->
+
+    <record id="pump_ux5" model="fms.pump">
+        <field name="name">UX5</field>
+        <field name="order">1</field>
+    </record>
+
+    <record id="nozzle_ux5_a" model="fms.pump.nozzle">
+        <field name="pump_id" ref="pump_ux5"/>
+        <field name="name">UX5-A</field>
+        <field name="letter">A</field>
+        <field name="order">1</field>
+        <field name="product_id" ref="product_diesel"/>
+    </record>
+
+    <record id="nozzle_ux5_b" model="fms.pump.nozzle">
+        <field name="pump_id" ref="pump_ux5"/>
+        <field name="name">UX5-B</field>
+        <field name="letter">B</field>
+        <field name="order">2</field>
+        <field name="product_id" ref="product_super"/>
+    </record>
+
+    <record id="pump_dx6" model="fms.pump">
+        <field name="name">DX6</field>
+        <field name="order">2</field>
+    </record>
+
+    <record id="nozzle_dx6_a" model="fms.pump.nozzle">
+        <field name="pump_id" ref="pump_dx6"/>
+        <field name="name">DX6-A</field>
+        <field name="letter">A</field>
+        <field name="order">1</field>
+        <field name="product_id" ref="product_diesel"/>
+    </record>
+
+    <record id="nozzle_dx6_b" model="fms.pump.nozzle">
+        <field name="pump_id" ref="pump_dx6"/>
+        <field name="name">DX6-B</field>
+        <field name="letter">B</field>
+        <field name="order">2</field>
+        <field name="product_id" ref="product_vpower"/>
+    </record>
+
+    <record id="pump_kx7" model="fms.pump">
+        <field name="name">KX7</field>
+        <field name="order">3</field>
+    </record>
+
+    <record id="nozzle_kx7_a" model="fms.pump.nozzle">
+        <field name="pump_id" ref="pump_kx7"/>
+        <field name="name">KX7-A</field>
+        <field name="letter">A</field>
+        <field name="order">1</field>
+        <field name="product_id" ref="product_kerosene"/>
+    </record>
+
+    <!-- ============================================================
+         4. EMPLOYEES — Supervisor + 3 Attendants
+    ============================================================ -->
+
+    <record id="employee_supervisor_john" model="hr.employee">
+        <field name="name">John Kamau (Supervisor)</field>
+        <field name="job_title">Shift Supervisor</field>
+        <field name="fms_is_attendant" eval="False"/>
+    </record>
+
+    <record id="employee_attendant_alice" model="hr.employee">
+        <field name="name">Alice Wanjiku</field>
+        <field name="job_title">Forecourt Attendant</field>
+        <field name="fms_is_attendant" eval="True"/>
+        <field name="fms_pumps_assigned" eval="[(4, ref('pump_ux5'))]"/>
+    </record>
+
+    <record id="employee_attendant_bob" model="hr.employee">
+        <field name="name">Bob Otieno</field>
+        <field name="job_title">Forecourt Attendant</field>
+        <field name="fms_is_attendant" eval="True"/>
+        <field name="fms_pumps_assigned" eval="[(4, ref('pump_dx6'))]"/>
+    </record>
+
+    <record id="employee_attendant_carol" model="hr.employee">
+        <field name="name">Carol Muthoni</field>
+        <field name="job_title">Forecourt Attendant</field>
+        <field name="fms_is_attendant" eval="True"/>
+        <field name="fms_pumps_assigned" eval="[(4, ref('pump_kx7'))]"/>
+    </record>
+
+    <!-- ============================================================
+         5. SAMPLE SHIFT — Day shift 2026-01-15 (state: open)
+
+         Scenario:
+           - Shift started at 06:00
+           - Meter readings entered for all 5 nozzles
+           - Dip readings entered for all 5 tanks
+           - Attendant cash entered (slightly unbalanced — to demo the gate)
+    ============================================================ -->
+
+    <record id="shift_demo_day" model="fms.shift">
+        <field name="date">2026-01-15</field>
+        <field name="label">1_day</field>
+        <field name="supervisor_id" ref="employee_supervisor_john"/>
+        <field name="state">open</field>
+        <field name="opening_meter_date">2026-01-15 06:00:00</field>
+    </record>
+
+    <!-- Meter entries -->
+
+    <record id="meter_entry_ux5_a" model="fms.shift.meter.entry">
+        <field name="shift_id" ref="shift_demo_day"/>
+        <field name="pump_id" ref="pump_ux5"/>
+        <field name="nozzle_id" ref="nozzle_ux5_a"/>
+        <field name="opening_elec_volume">124500.00</field>
+        <field name="closing_elec_volume">125350.00</field>
+        <!-- 850L × 222.80 = 189,380 KES -->
+    </record>
+
+    <record id="meter_entry_ux5_b" model="fms.shift.meter.entry">
+        <field name="shift_id" ref="shift_demo_day"/>
+        <field name="pump_id" ref="pump_ux5"/>
+        <field name="nozzle_id" ref="nozzle_ux5_b"/>
+        <field name="opening_elec_volume">88200.00</field>
+        <field name="closing_elec_volume">88640.00</field>
+        <!-- 440L × 217.50 = 95,700 KES -->
+    </record>
+
+    <record id="meter_entry_dx6_a" model="fms.shift.meter.entry">
+        <field name="shift_id" ref="shift_demo_day"/>
+        <field name="pump_id" ref="pump_dx6"/>
+        <field name="nozzle_id" ref="nozzle_dx6_a"/>
+        <field name="opening_elec_volume">212000.00</field>
+        <field name="closing_elec_volume">212750.00</field>
+        <!-- 750L × 222.80 = 167,100 KES -->
+    </record>
+
+    <record id="meter_entry_dx6_b" model="fms.shift.meter.entry">
+        <field name="shift_id" ref="shift_demo_day"/>
+        <field name="pump_id" ref="pump_dx6"/>
+        <field name="nozzle_id" ref="nozzle_dx6_b"/>
+        <field name="opening_elec_volume">45100.00</field>
+        <field name="closing_elec_volume">45220.00</field>
+        <!-- 120L × 250.00 = 30,000 KES -->
+    </record>
+
+    <record id="meter_entry_kx7_a" model="fms.shift.meter.entry">
+        <field name="shift_id" ref="shift_demo_day"/>
+        <field name="pump_id" ref="pump_kx7"/>
+        <field name="nozzle_id" ref="nozzle_kx7_a"/>
+        <field name="opening_elec_volume">31000.00</field>
+        <field name="closing_elec_volume">31180.00</field>
+        <!-- 180L × 149.30 = 26,874 KES -->
+    </record>
+
+    <!-- Dip entries (tank stock readings) -->
+
+    <record id="dip_entry_diesel_1" model="fms.shift.dip.entry">
+        <field name="shift_id" ref="shift_demo_day"/>
+        <field name="location_id" ref="location_diesel_tank_1"/>
+        <field name="opening_volume">18500.00</field>
+        <field name="closing_volume">17650.00</field>
+        <!-- Change: -850L (matches UX5-A meter sold) -->
+    </record>
+
+    <record id="dip_entry_diesel_2" model="fms.shift.dip.entry">
+        <field name="shift_id" ref="shift_demo_day"/>
+        <field name="location_id" ref="location_diesel_tank_2"/>
+        <field name="opening_volume">15000.00</field>
+        <field name="closing_volume">14248.00</field>
+        <!-- Change: -752L (DX6-A sold 750L — 2L variance, within meniscus) -->
+    </record>
+
+    <record id="dip_entry_super" model="fms.shift.dip.entry">
+        <field name="shift_id" ref="shift_demo_day"/>
+        <field name="location_id" ref="location_super_tank"/>
+        <field name="opening_volume">12000.00</field>
+        <field name="closing_volume">11560.00</field>
+        <!-- Change: -440L (matches UX5-B meter sold) -->
+    </record>
+
+    <record id="dip_entry_vpower" model="fms.shift.dip.entry">
+        <field name="shift_id" ref="shift_demo_day"/>
+        <field name="location_id" ref="location_vpower_tank"/>
+        <field name="opening_volume">5000.00</field>
+        <field name="closing_volume">4880.00</field>
+        <!-- Change: -120L (matches DX6-B meter sold) -->
+    </record>
+
+    <record id="dip_entry_kerosene" model="fms.shift.dip.entry">
+        <field name="shift_id" ref="shift_demo_day"/>
+        <field name="location_id" ref="location_kerosene_tank"/>
+        <field name="opening_volume">8000.00</field>
+        <field name="closing_volume">7821.00</field>
+        <!-- Change: -179L (KX7-A sold 180L — 1L variance, within meniscus) -->
+    </record>
+
+    <!-- Attendant cash entries
+         Total meter sales = 189,380 + 95,700 + 167,100 + 30,000 + 26,874 = 509,054 KES
+
+         Alice  covers UX5: Diesel 189,380 + Super 95,700 = 285,080
+         Bob    covers DX6: Diesel 167,100 + VPower 30,000 = 197,100
+         Carol  covers KX7: Kerosene 26,874
+
+         Demo scenario: Alice has a 5,000 KES carwash residual lumped into Diesel
+         (she collected 290,080 but meter shows 285,080 — gap of 5,000)
+    -->
+
+    <record id="cash_entry_alice" model="fms.shift.attendant.cash">
+        <field name="shift_id" ref="shift_demo_day"/>
+        <field name="attendant_id" ref="employee_attendant_alice"/>
+        <field name="reported_sales">290080.00</field>
+        <field name="cash_collected">150000.00</field>
+        <field name="mpesa_amount">120080.00</field>
+        <field name="card_amount">20000.00</field>
+        <field name="ar_amount">0.00</field>
+        <field name="expense_amount">0.00</field>
+        <!-- balance = 290,080 - (150,000+120,080+20,000) = 0  ✓ -->
+    </record>
+
+    <record id="cash_entry_bob" model="fms.shift.attendant.cash">
+        <field name="shift_id" ref="shift_demo_day"/>
+        <field name="attendant_id" ref="employee_attendant_bob"/>
+        <field name="reported_sales">197100.00</field>
+        <field name="cash_collected">100000.00</field>
+        <field name="mpesa_amount">80000.00</field>
+        <field name="card_amount">17100.00</field>
+        <field name="ar_amount">0.00</field>
+        <field name="expense_amount">0.00</field>
+        <!-- balance = 0  ✓ -->
+    </record>
+
+    <record id="cash_entry_carol" model="fms.shift.attendant.cash">
+        <field name="shift_id" ref="shift_demo_day"/>
+        <field name="attendant_id" ref="employee_attendant_carol"/>
+        <field name="reported_sales">26874.00</field>
+        <field name="cash_collected">26874.00</field>
+        <field name="mpesa_amount">0.00</field>
+        <field name="card_amount">0.00</field>
+        <field name="ar_amount">0.00</field>
+        <field name="expense_amount">0.00</field>
+        <!-- balance = 0  ✓ -->
+    </record>
+
+</data>
+</odoo>
