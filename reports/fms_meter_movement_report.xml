@@ -126,33 +126,22 @@
                             </tfoot>
                         </table>
 
-                        <!-- Per-attendant summary -->
+                        <!-- Per-attendant summary (grouped by model method) -->
                         <h5 class="mt-4">Attendant Summary</h5>
                         <table class="table table-sm table-bordered fms-report-table">
                             <thead class="fms-report-header">
                                 <tr>
                                     <th>Attendant</th>
-                                    <th class="text-end">Nozzles</th>
+                                    <th>Nozzles</th>
                                     <th class="text-end">Total Cash Sold (KES)</th>
                                     <th class="text-end">Total Vol Sold (L)</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                <t t-set="attendant_map" t-value="{}"/>
-                                <t t-foreach="shift.meter_entry_ids" t-as="entry">
-                                    <t t-set="akey" t-value="entry.attendant_id.id or 0"/>
-                                    <t t-if="akey not in attendant_map">
-                                        <t t-set="dummy" t-value="attendant_map.update({akey: {'name': entry.attendant_id.name or 'Unassigned', 'nozzles': [], 'cash': 0.0, 'vol': 0.0}})"/>
-                                    </t>
-                                    <t t-set="dummy" t-value="attendant_map[akey]['nozzles'].append(entry.pump_id.name + '-' + entry.nozzle_id.letter)"/>
-                                    <t t-set="dummy" t-value="attendant_map.__setitem__(akey, {**attendant_map[akey], 'cash': attendant_map[akey]['cash'] + entry.elec_cash_sold, 'vol': attendant_map[akey]['vol'] + entry.qty_sold_elec})"/>
-                                </t>
-                                <t t-foreach="attendant_map.values()" t-as="att">
+                                <t t-foreach="shift.get_meter_attendant_summary()" t-as="att">
                                     <tr>
                                         <td><t t-esc="att['name']"/></td>
-                                        <td class="text-end">
-                                            <t t-esc="', '.join(att['nozzles'])"/>
-                                        </td>
+                                        <td><t t-esc="', '.join(att['nozzles'])"/></td>
                                         <td class="text-end fw-bold">
                                             <t t-esc="'%.2f' % att['cash']"/>
                                         </td>

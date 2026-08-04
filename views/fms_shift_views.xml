@@ -46,9 +46,9 @@
                             class="btn-secondary"
                             groups="fms.group_fms_supervisor"
                             invisible="state == 'draft'"/>
-                    <button name="%(fms.action_report_fms_meter_movement)d"
+                    <button name="action_report_meter_movement"
                             string="Print Meter Movement"
-                            type="action"
+                            type="object"
                             class="btn-secondary"
                             groups="fms.group_fms_supervisor"
                             invisible="state == 'draft'"/>

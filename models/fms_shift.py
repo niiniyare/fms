@@ -138,25 +138,27 @@ class FMSShift(models.Model):
 
     total_meter_sales = fields.Float(
         'Total Meter Sales (KES)', compute='_compute_totals', store=True, digits=(16, 2),
+        help="Sum of elec_cash_sold across all nozzles — total cash the pumps say was collected.",
     )
     total_reported_sales = fields.Float(
         'Total Reported Sales (KES)', compute='_compute_totals', store=True, digits=(16, 2),
+        help="Sum of reported_sales across all attendant cash lines (derived from their nozzle meters).",
     )
     fc_cash_balance = fields.Float(
         'FC Cash Balance (KES)', compute='_compute_totals', store=True, digits=(16, 2),
-        help="Total Reported Sales minus Total Meter Sales. Must be 0 to close.",
+        help="Net balance across all attendants (total_in − total_out). Must be 0 to close.",
     )
 
     @api.depends(
-        'meter_entry_ids.amount_elec',
+        'meter_entry_ids.elec_cash_sold',
         'attendant_cash_ids.total_in',
         'attendant_cash_ids.balance',
     )
     def _compute_totals(self):
         for shift in self:
-            shift.total_meter_sales = sum(shift.meter_entry_ids.mapped('amount_elec'))
+            shift.total_meter_sales    = sum(shift.meter_entry_ids.mapped('elec_cash_sold'))
             shift.total_reported_sales = sum(shift.attendant_cash_ids.mapped('total_in'))
-            shift.fc_cash_balance = sum(shift.attendant_cash_ids.mapped('balance'))
+            shift.fc_cash_balance      = sum(shift.attendant_cash_ids.mapped('balance'))
 
     # ------------------------------------------------------------------
     # Notes
@@ -179,6 +181,34 @@ class FMSShift(models.Model):
         """Open the Shift Reconciliation PDF report for this shift."""
         self.ensure_one()
         return self.env.ref('fms.action_report_fms_shift').report_action(self)
+
+    def action_report_meter_movement(self):
+        """Open the Meter Movement PDF report for this shift."""
+        self.ensure_one()
+        return self.env.ref('fms.action_report_fms_meter_movement').report_action(self)
+
+    def get_meter_attendant_summary(self):
+        """
+        Return a list of dicts grouping meter entry totals per attendant.
+        Used by the Meter Movement Report QWeb template.
+        """
+        self.ensure_one()
+        summary = {}
+        for entry in self.meter_entry_ids:
+            key = entry.attendant_id.id or 0
+            if key not in summary:
+                summary[key] = {
+                    'name':    entry.attendant_id.name or 'Unassigned',
+                    'nozzles': [],
+                    'cash':    0.0,
+                    'vol':     0.0,
+                }
+            summary[key]['nozzles'].append(
+                f"{entry.pump_id.name}-{entry.nozzle_id.letter}"
+            )
+            summary[key]['cash'] += entry.elec_cash_sold
+            summary[key]['vol']  += entry.qty_sold_elec
+        return list(summary.values())
 
     def action_refresh_product_sales(self):
         """Re-aggregate meter entries into product sales summary lines."""

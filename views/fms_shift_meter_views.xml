@@ -2,7 +2,8 @@
 <odoo>
 
     <!-- ================================================================
-         Standalone meter entry views (for direct access / debugging)
+         Standalone meter entry views
+         (for direct access / Meter Movement list from the menu)
     ================================================================ -->
 
     <record id="view_fms_shift_meter_entry_tree" model="ir.ui.view">
@@ -14,10 +15,13 @@
                 <field name="pump_id"/>
                 <field name="nozzle_id"/>
                 <field name="product_id"/>
-                <field name="opening_elec_volume"/>
-                <field name="closing_elec_volume"/>
-                <field name="qty_sold_elec" sum="Total L"/>
-                <field name="amount_elec" sum="Total KES"/>
+                <field name="attendant_id"/>
+                <field name="closing_elec_cash" string="Elec Cash (KES)"/>
+                <field name="closing_elec_volume" string="Elec Vol (L)"/>
+                <field name="closing_man_mech" string="Manual (L)"/>
+                <field name="rtt_volume" string="RTT (L)" optional="show"/>
+                <field name="elec_cash_sold" string="Cash Sold (KES)" sum="Total Cash KES"/>
+                <field name="qty_sold_elec" string="Vol Sold (L)" sum="Total L"/>
             </list>
         </field>
     </record>
@@ -29,23 +33,40 @@
             <form string="Meter Entry">
                 <sheet>
                     <group>
-                        <group string="Pump">
+                        <group string="Identity">
                             <field name="shift_id"/>
                             <field name="pump_id"/>
                             <field name="nozzle_id"
                                    domain="[('pump_id','=',pump_id)]"/>
                             <field name="product_id" readonly="1"/>
+                            <field name="attendant_id"
+                                   domain="[('fms_is_attendant','=',True)]"/>
                         </group>
-                        <group string="Electronic Readings">
-                            <field name="opening_elec_volume"/>
-                            <field name="closing_elec_volume"/>
-                            <field name="qty_sold_elec" readonly="1"/>
-                            <field name="amount_elec" readonly="1"/>
+                        <group string="Elec Cash Meter (KES)">
+                            <field name="opening_elec_cash" readonly="1"
+                                   string="Opening (KES)"/>
+                            <field name="closing_elec_cash"
+                                   string="Closing (KES)"/>
+                            <field name="elec_cash_sold" readonly="1"
+                                   string="Cash Sold (KES)"/>
                         </group>
-                        <group string="Manual / Mechanical Readings">
-                            <field name="opening_man_mech"/>
-                            <field name="closing_man_mech"/>
-                            <field name="qty_sold_man" readonly="1"/>
+                        <group string="Elec Volume Meter (L)">
+                            <field name="opening_elec_volume" readonly="1"
+                                   string="Opening (L)"/>
+                            <field name="closing_elec_volume"
+                                   string="Closing (L)"/>
+                            <field name="rtt_volume"
+                                   string="RTT (L)"/>
+                            <field name="qty_sold_elec" readonly="1"
+                                   string="Vol Sold (L)"/>
+                        </group>
+                        <group string="Manual Meter (L)">
+                            <field name="opening_man_mech" readonly="1"
+                                   string="Opening (L)"/>
+                            <field name="closing_man_mech"
+                                   string="Closing (L)"/>
+                            <field name="qty_sold_man" readonly="1"
+                                   string="Man Sold (L)"/>
                         </group>
                     </group>
                     <group>
