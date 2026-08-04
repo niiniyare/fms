@@ -75,10 +75,18 @@
                         <group string="Shift Details">
                             <field name="date" readonly="state != 'draft'"/>
                             <field name="label" readonly="state != 'draft'"/>
-                            <field name="supervisor_id"/>
-                            <field name="company_id" groups="base.group_multi_company"/>
+                            <!-- Supervisor optional at open; required at close only if sales exist -->
+                            <field name="supervisor_id"
+                                   placeholder="Assign any time before closing"/>
+                            <!-- Company is always the user's company — read-only -->
+                            <field name="company_id" readonly="1"
+                                   groups="base.group_multi_company"/>
                         </group>
                         <group string="Timestamps">
+                            <field name="planned_open"  readonly="1"
+                                   invisible="not planned_open"/>
+                            <field name="planned_close" readonly="1"
+                                   invisible="not planned_close"/>
                             <field name="opening_meter_date" readonly="1"/>
                             <field name="opening_meter_user_id" readonly="1"/>
                             <field name="closing_meter_date" readonly="1"/>

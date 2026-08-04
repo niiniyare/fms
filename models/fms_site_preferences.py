@@ -53,10 +53,31 @@ class FMSSitePreferences(models.Model):
              "Auto-detected from journals named 'forecourt' if left blank.",
     )
 
+    # ── Shift schedule ────────────────────────────────────────────────────────
+    shift_duration_hrs = fields.Selection([
+        ('8',  '8 hours  (3 shifts/day: Day / Evening / Night)'),
+        ('12', '12 hours (2 shifts/day: Day / Night)'),
+        ('24', '24 hours (1 shift/day)'),
+    ], string='Shift Duration', default='8',
+       help="Controls planned close time and which label the auto-created next shift gets.")
+
+    # Start-of-day hour for each slot (24h clock, integer).
+    # Only used when shift_duration_hrs = '8' or '12'.
+    shift_1_start_hour = fields.Integer('Shift 1 Start Hour', default=6,
+                                        help="e.g. 6 = 06:00")
+    shift_2_start_hour = fields.Integer('Shift 2 Start Hour', default=14,
+                                        help="e.g. 14 = 14:00 (ignored for 24hr)")
+    shift_3_start_hour = fields.Integer('Shift 3 Start Hour', default=22,
+                                        help="e.g. 22 = 22:00 (8hr only)")
+
     # ── Operational ───────────────────────────────────────────────────────────
     auto_sync_attendants = fields.Boolean(
         'Auto-sync Attendant Cash Lines', default=True,
         help="Automatically create attendant cash lines when Start Closing is clicked.",
+    )
+    auto_open_next_shift = fields.Boolean(
+        'Auto-open Next Shift on Close', default=True,
+        help="When a shift closes, immediately create and open the next one.",
     )
 
     _sql_constraints = [

@@ -73,15 +73,26 @@ class FMSShift(models.Model):
 
     date = fields.Date('Shift Date', required=True, default=fields.Date.today)
     label = fields.Selection([
-        ('1_day',     '1. Day (06:00–14:00)'),
-        ('2_evening', '2. Evening (14:00–22:00)'),
-        ('3_night',   '3. Night (22:00–06:00)'),
+        ('1_day',     '1. Day'),
+        ('2_evening', '2. Evening'),
+        ('3_night',   '3. Night'),
     ], string='Shift Period', required=True)
 
-    supervisor_id = fields.Many2one('hr.employee', 'Supervisor', required=True)
+    # Planned open / close — set when shift is created based on site preferences.
+    # planned_close is informational: shows expected end even if shift runs late.
+    planned_open  = fields.Datetime('Planned Open',  readonly=True, copy=False)
+    planned_close = fields.Datetime('Planned Close', readonly=True, copy=False)
+
+    # Supervisor is optional at open time; enforced at close only when there is
+    # monetary activity. Managers can assign it at any point during the shift.
+    supervisor_id = fields.Many2one('hr.employee', 'Supervisor')
+
+    # Company is always the logged-in user's company — not user-editable.
     company_id = fields.Many2one(
         'res.company', 'Company',
-        required=True, default=lambda self: self.env.company,
+        required=True,
+        default=lambda self: self.env.company,
+        readonly=True,
     )
 
     # ------------------------------------------------------------------
@@ -271,8 +282,41 @@ class FMSShift(models.Model):
     @api.model_create_multi
     def create(self, vals_list):
         for vals in vals_list:
-            vals.setdefault('company_id', self.env.company.id)
+            # Always use the creating user's company — ignore any passed value.
+            vals['company_id'] = self.env.company.id
+            # Set planned open/close from site preferences if not already set.
+            if not vals.get('planned_open') and vals.get('date') and vals.get('label'):
+                planned_open, planned_close = self._compute_planned_times(
+                    vals['date'], vals['label'], self.env.company
+                )
+                vals.setdefault('planned_open',  planned_open)
+                vals.setdefault('planned_close', planned_close)
         return super().create(vals_list)
+
+    @api.model
+    def _compute_planned_times(self, date, label, company):
+        """
+        Return (planned_open, planned_close) datetimes for a shift
+        given its date, label, and company site preferences.
+        """
+        from datetime import datetime, timedelta
+        prefs = self.env['fms.site.preferences'].get_for_company(company)
+        duration = int(prefs.shift_duration_hrs or 8)
+
+        label_to_hour = {
+            '1_day':     prefs.shift_1_start_hour or 6,
+            '2_evening': prefs.shift_2_start_hour or 14,
+            '3_night':   prefs.shift_3_start_hour or 22,
+        }
+        start_hour = label_to_hour.get(label, 0)
+
+        if isinstance(date, str):
+            from odoo.fields import Date
+            date = Date.from_string(date)
+
+        planned_open  = datetime(date.year, date.month, date.day, start_hour, 0, 0)
+        planned_close = planned_open + timedelta(hours=duration)
+        return planned_open, planned_close
 
     def unlink(self):
         if any(s.state == 'closed' for s in self):
@@ -602,18 +646,39 @@ class FMSShift(models.Model):
 
         return allocations
 
+    def _is_empty_shift(self):
+        """
+        Return True when nothing financial happened this shift:
+          - No meter sales (all elec_cash_sold = 0)
+          - No attendant cash lines or all balances already zero
+          - No dip variance outside meniscus
+
+        Empty shifts can close automatically without gate checks or a supervisor.
+        """
+        self.ensure_one()
+        if abs(self.total_meter_sales) > 0.01:
+            return False
+        if any(abs(c.balance) > 0.01 for c in self.attendant_cash_ids):
+            return False
+        return True
+
     def action_close_shift(self):
         """
-        Move Closing → Closed:
-          1. Snapshot meter and dip entries into immutable logs.
-          2. Post sales GL journal (DR Cash Clearing | CR Fuel Revenue per product).
-          3. Post residual reallocation journals (DR target COGS | CR source COGS).
-          4. Transition state to 'closed'.
+        Move Closing → Closed.
 
-        All steps are wrapped in a savepoint so any GL failure rolls back
-        the whole close, keeping shift in 'closing' for supervisor to fix.
+        Empty shifts (no sales, zero balances) close automatically — no gate
+        checks, no supervisor required.
 
-        Hard gate validation (FMS-006) will be added on top of this method.
+        Active shifts run the full gate sequence:
+          Gate 1: volume reconciliation (meter L ≈ POS L)
+          Gate 2: cash reconciliation (cash meter KES ≈ POS KES)
+          Gate 3: each attendant balance = 0
+          Gate 4: FC cash total = 0
+          Gate 5: tank dip variance within meniscus
+          + supervisor must be assigned before close
+
+        On success: writes immutable logs, posts GL, then auto-opens the next
+        shift if configured in site preferences.
         """
         self.ensure_one()
         if self.state != 'closing':
@@ -621,17 +686,20 @@ class FMSShift(models.Model):
                 f"Cannot close a shift that is '{self.state}'. "
                 "Use 'Start Closing' first."
             )
-        # FMS-006: Hard gate validation — gates run in prescribed order
-        #   Gate 1: volume reconciliation (meter liters ≈ POS liters)
-        #   Gate 2: cash reconciliation (cash meter KES ≈ POS KES)
-        #   Gate 3: attendant balances each = 0
-        #   Gate 4: FC cash total = 0
-        #   Gate 5: stock variance within meniscus
-        self._gate_check_volume_reconciliation()
-        self._gate_check_cash_reconciliation()
-        self._gate_check_attendant_balances()
-        self._gate_check_fc_cash()
-        self._gate_check_stock_variance()
+
+        if not self._is_empty_shift():
+            # Supervisor required when money is involved
+            if not self.supervisor_id:
+                raise ValidationError(
+                    "A supervisor must be assigned before closing a shift with sales. "
+                    "Set the Supervisor field and try again."
+                )
+            # Full gate sequence
+            self._gate_check_volume_reconciliation()
+            self._gate_check_cash_reconciliation()
+            self._gate_check_attendant_balances()
+            self._gate_check_fc_cash()
+            self._gate_check_stock_variance()
 
         with self.env.cr.savepoint():
             self._write_meter_logs()
@@ -643,6 +711,63 @@ class FMSShift(models.Model):
         if sales_move:
             vals['sales_journal_entry_id'] = sales_move.id
         self.write(vals)
+
+        # Auto-open next shift if site preferences say so
+        prefs = self.env['fms.site.preferences'].get_for_company(self.company_id)
+        if prefs.auto_open_next_shift:
+            self._auto_open_next_shift()
+
+    def _auto_open_next_shift(self):
+        """
+        Create and immediately open the next shift after this one closes.
+
+        Label and date are determined from site preferences and the current
+        shift's label / date:
+          8hr:  Day → Evening → Night → Day (next date)
+          12hr: Day → Night → Day (next date)
+          24hr: always label '1_day', date + 1 day
+        """
+        self.ensure_one()
+        from datetime import timedelta
+
+        prefs = self.env['fms.site.preferences'].get_for_company(self.company_id)
+        duration = prefs.shift_duration_hrs or '8'
+
+        next_label, next_date = self._next_label_and_date(duration)
+
+        next_shift = self.create({
+            'date':       next_date,
+            'label':      next_label,
+            'company_id': self.company_id.id,
+            # supervisor intentionally not set — assigned later
+        })
+        next_shift.action_open_shift()
+        return next_shift
+
+    def _next_label_and_date(self, duration):
+        """Return (label, date) for the shift that follows this one."""
+        from datetime import timedelta
+
+        today = self.date
+
+        if duration == '24':
+            return '1_day', today + timedelta(days=1)
+
+        if duration == '12':
+            sequence = ['1_day', '3_night']
+            idx = sequence.index(self.label) if self.label in sequence else 0
+            next_idx = (idx + 1) % len(sequence)
+            next_label = sequence[next_idx]
+            next_date  = today + timedelta(days=1) if next_idx == 0 else today
+            return next_label, next_date
+
+        # 8hr default
+        sequence = ['1_day', '2_evening', '3_night']
+        idx = sequence.index(self.label) if self.label in sequence else 0
+        next_idx = (idx + 1) % len(sequence)
+        next_label = sequence[next_idx]
+        next_date  = today + timedelta(days=1) if next_idx == 0 else today
+        return next_label, next_date
 
     # ------------------------------------------------------------------
     # FMS-006: Hard gate validators (Spec Section 7.2–7.3)

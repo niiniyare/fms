@@ -41,8 +41,19 @@
                         </group>
                     </group>
 
+                    <group string="Shift Schedule">
+                        <field name="shift_duration_hrs" widget="radio"/>
+                        <field name="shift_1_start_hour" string="Shift 1 Start (hour)"
+                               invisible="shift_duration_hrs == '24'"/>
+                        <field name="shift_2_start_hour" string="Shift 2 Start (hour)"
+                               invisible="shift_duration_hrs in ('24', '12')"/>
+                        <field name="shift_3_start_hour" string="Shift 3 Start (hour)"
+                               invisible="shift_duration_hrs == '24'"/>
+                    </group>
+
                     <group string="Operational">
                         <field name="auto_sync_attendants"/>
+                        <field name="auto_open_next_shift"/>
                     </group>
                 </sheet>
             </form>
