@@ -349,11 +349,13 @@ class ClaudeMemory:
             self.file.write_text(self._template())
     
     def _template(self) -> str:
-        return """# FMS (Forecourt Management System) Development Memory
+        from datetime import datetime
+        date_str = datetime.now().strftime('%Y-%m-%d %H:%M')
+        return f"""# FMS (Forecourt Management System) Development Memory
 
 **Project:** Forecourt Management System for Odoo 18  
 **Status:** In Development  
-**Started:** %(date)s  
+**Started:** {date_str}  
 **Team:** Solo Developer + Claude Code
 
 ## Context Summary
@@ -601,9 +603,9 @@ Time: [1h 30m]
 
 ---
 
-**Last Updated:** %(date)s  
+**Last Updated:** {date_str}  
 **Status:** Ready to begin development
-""" % {'date': datetime.now().strftime('%Y-%m-%d %H:%M')}
+"""
     
     def update_task(self, task_id: str, status: str, notes: str = ""):
         """Update memory with task progress"""

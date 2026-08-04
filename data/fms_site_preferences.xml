@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- FMS Site Preferences Template
+             
+             Customize for your fuel station:
+             - acceptable_variance_pct: Default ±0.5% (0.005)
+             - fc_cash_account_id: Cash asset account
+             - employee_overage_account_id: AR/advance account
+             - miscounted_expense_account_id: Expense account
+        -->
+        
+        <!-- TODO: Add site preferences data -->
+        
+    </data>
+</odoo>

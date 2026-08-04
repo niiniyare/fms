@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- ================================================================
+         FMS Model Access Control — STUB
+         Full role-based rules added in FMS-004.
+         For now: grant full CRUD to all internal users so the module
+         installs and basic tests can run.
+    ================================================================ -->
+
+    <!-- fms.shift -->
+    <record id="access_fms_shift_user" model="ir.model.access">
+        <field name="name">fms.shift user</field>
+        <field name="model_id" ref="model_fms_shift"/>
+        <field name="group_id" ref="base.group_user"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="1"/>
+        <field name="perm_create" eval="1"/>
+        <field name="perm_unlink" eval="1"/>
+    </record>
+
+    <!-- fms.pump -->
+    <record id="access_fms_pump_user" model="ir.model.access">
+        <field name="name">fms.pump user</field>
+        <field name="model_id" ref="model_fms_pump"/>
+        <field name="group_id" ref="base.group_user"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="1"/>
+        <field name="perm_create" eval="1"/>
+        <field name="perm_unlink" eval="1"/>
+    </record>
+
+    <!-- fms.pump.nozzle -->
+    <record id="access_fms_pump_nozzle_user" model="ir.model.access">
+        <field name="name">fms.pump.nozzle user</field>
+        <field name="model_id" ref="model_fms_pump_nozzle"/>
+        <field name="group_id" ref="base.group_user"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="1"/>
+        <field name="perm_create" eval="1"/>
+        <field name="perm_unlink" eval="1"/>
+    </record>
+
+    <!-- fms.meter_log -->
+    <record id="access_fms_meter_log_user" model="ir.model.access">
+        <field name="name">fms.meter_log user</field>
+        <field name="model_id" ref="model_fms_meter_log"/>
+        <field name="group_id" ref="base.group_user"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="1"/>
+        <field name="perm_create" eval="1"/>
+        <field name="perm_unlink" eval="1"/>
+    </record>
+
+    <!-- fms.dip_log -->
+    <record id="access_fms_dip_log_user" model="ir.model.access">
+        <field name="name">fms.dip_log user</field>
+        <field name="model_id" ref="model_fms_dip_log"/>
+        <field name="group_id" ref="base.group_user"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="1"/>
+        <field name="perm_create" eval="1"/>
+        <field name="perm_unlink" eval="1"/>
+    </record>
+
+    <!-- fms.shift.meter.entry -->
+    <record id="access_fms_shift_meter_entry_user" model="ir.model.access">
+        <field name="name">fms.shift.meter.entry user</field>
+        <field name="model_id" ref="model_fms_shift_meter_entry"/>
+        <field name="group_id" ref="base.group_user"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="1"/>
+        <field name="perm_create" eval="1"/>
+        <field name="perm_unlink" eval="1"/>
+    </record>
+
+    <!-- fms.shift.dip.entry -->
+    <record id="access_fms_shift_dip_entry_user" model="ir.model.access">
+        <field name="name">fms.shift.dip.entry user</field>
+        <field name="model_id" ref="model_fms_shift_dip_entry"/>
+        <field name="group_id" ref="base.group_user"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="1"/>
+        <field name="perm_create" eval="1"/>
+        <field name="perm_unlink" eval="1"/>
+    </record>
+
+    <!-- fms.shift.attendant.cash -->
+    <record id="access_fms_shift_attendant_cash_user" model="ir.model.access">
+        <field name="name">fms.shift.attendant.cash user</field>
+        <field name="model_id" ref="model_fms_shift_attendant_cash"/>
+        <field name="group_id" ref="base.group_user"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="1"/>
+        <field name="perm_create" eval="1"/>
+        <field name="perm_unlink" eval="1"/>
+    </record>
+
+    <!-- fms.shift.residual.allocation -->
+    <record id="access_fms_shift_residual_allocation_user" model="ir.model.access">
+        <field name="name">fms.shift.residual.allocation user</field>
+        <field name="model_id" ref="model_fms_shift_residual_allocation"/>
+        <field name="group_id" ref="base.group_user"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="1"/>
+        <field name="perm_create" eval="1"/>
+        <field name="perm_unlink" eval="1"/>
+    </record>
+</odoo>

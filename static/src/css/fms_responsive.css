@@ -1,0 +1,22 @@
+/* FMS Responsive Design
+
+   Mobile-first responsive styles for FMS forms.
+   Ensures forms work on desktop, tablet, and phone.
+*/
+
+/* TODO: Add responsive CSS rules */
+
+/* Mobile (320px - 767px) */
+@media (max-width: 767px) {
+    /* Stack form fields vertically */
+}
+
+/* Tablet (768px - 1024px) */
+@media (min-width: 768px) and (max-width: 1024px) {
+    /* Two-column layout */
+}
+
+/* Desktop (1025px+) */
+@media (min-width: 1025px) {
+    /* Three-column layout */
+}
