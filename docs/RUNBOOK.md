@@ -207,6 +207,63 @@ Tank T1 (10,000L capacity):
 
 ---
 
+## Pre-Go-Live Production Checklist
+
+Run through these checks before going live at a new station.
+
+### System Configuration
+- [ ] Odoo 18 Community installed, FMS module installed and upgraded
+- [ ] Company/currency set correctly (KES)
+- [ ] At least one Sale journal exists (type=sale)
+- [ ] At least one Receivable account with "clearing" in the name
+- [ ] Fuel products created with `fms_is_fuel = True`
+- [ ] Fuel products have `fms_revenue_account_id` and `fms_cogs_account_id` set
+- [ ] Pumps created with nozzles linked to fuel products
+- [ ] Tanks created (`fms_is_fuel_tank = True`) linked to fuel products
+- [ ] Employees created; supervisors added to `Forecourt Management / Shift Supervisor` group
+- [ ] Attendants created with `fms_is_attendant = True`
+
+### UAT Acceptance Scenarios
+
+Run these manually before going live:
+
+**Scenario 1 – Normal shift close:**
+1. Create shift, click Open Shift
+2. Enter closing meter readings (e.g., diesel +500L)
+3. Enter closing dip reading (variance < 0.5%)
+4. Add attendant cash line with cash_collected = 0
+5. Click Start Closing → Close Shift
+6. Confirm: state = Closed, meter/dip logs created
+
+**Scenario 2 – Gate 1 block and resolution:**
+1. Open a shift, start closing
+2. Add attendant cash line with cash_collected = 5,000 (no POS sales → balance = -5,000)
+3. Attempt Close Shift → must see "GATE 1 FAILED" error
+4. Set cash_collected = 0, retry Close Shift → must succeed
+
+**Scenario 3 – Gate 3 block and resolution:**
+1. Open a shift, add dip entry with 10,000L opening, 9,700L closing (3% variance)
+2. Start closing, attempt Close Shift → must see "GATE 3 FAILED" error
+3. Update dip to 9,950L (0.5% variance), retry → must succeed
+
+**Scenario 4 – Print shift report:**
+1. With a closing/closed shift, click Print Report
+2. PDF must render with meter readings, dip readings, attendant cash, and gate summary
+
+**Scenario 5 – Sequential shifts:**
+1. Close shift 1 with diesel meter at 1000L
+2. Open shift 2 the next day
+3. Confirm shift 2 opens with diesel opening = 1000L (carried over)
+
+### Go/No-Go Criteria
+- All 5 UAT scenarios pass manually
+- All automated tests pass: `make odoo-test`
+- No JS errors in browser console (F12) during shift workflow
+- Shift close time < 5 minutes (end-to-end)
+- Report renders without errors (wkhtmltopdf installed)
+
+---
+
 ## Contact & Support
 
 - **Technical Issues:** Check logs (Odoo admin panel)
