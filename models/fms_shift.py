@@ -384,6 +384,42 @@ class FMSShift(models.Model):
             if dip_entries:
                 self.env['fms.shift.dip.entry'].create(dip_entries)
 
+    def action_sync_attendant_cash_lines(self):
+        """Button action — manually re-sync attendant cash lines from meter entries."""
+        self.ensure_one()
+        created = self._sync_attendant_cash_lines()
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': 'Attendant Cash Lines Synced',
+                'message': f'{created} new line(s) added.' if created else 'All attendants already have cash lines.',
+                'type': 'success' if created else 'info',
+            },
+        }
+
+    def _sync_attendant_cash_lines(self):
+        """
+        For every attendant assigned to at least one nozzle in this shift's
+        meter entries, ensure a corresponding attendant cash line exists.
+
+        Non-destructive: existing lines are never removed or modified.
+        Returns the count of newly created lines.
+        """
+        self.ensure_one()
+        # Attendants already covered by existing cash lines
+        existing_ids = set(self.attendant_cash_ids.mapped('attendant_id').ids)
+        # Attendants present in meter entries (skip unassigned nozzles)
+        needed = self.meter_entry_ids.mapped('attendant_id').filtered('id')
+        to_create = needed.filtered(lambda a: a.id not in existing_ids)
+        if not to_create:
+            return 0
+        self.env['fms.shift.attendant.cash'].create([
+            {'shift_id': self.id, 'attendant_id': att.id}
+            for att in to_create
+        ])
+        return len(to_create)
+
     def action_start_closing(self):
         """
         Move Open → Closing and auto-run residual allocation algorithm.
@@ -398,6 +434,8 @@ class FMSShift(models.Model):
             'closing_meter_date': fields.Datetime.now(),
             'closing_meter_user_id': self.env.user.id,
         })
+        # Ensure every attendant with a nozzle assignment has a cash line
+        self._sync_attendant_cash_lines()
         # Auto-calculate residuals on transition to closing
         self._calculate_residuals()
 

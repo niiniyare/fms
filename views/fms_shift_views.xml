@@ -29,6 +29,12 @@
                             groups="fms.group_fms_supervisor"
                             invisible="state != 'closing'"
                             confirm="This will lock the shift and post all journal entries. Continue?"/>
+                    <button name="action_sync_attendant_cash_lines"
+                            string="Sync Attendants"
+                            type="object" class="btn-secondary"
+                            groups="fms.group_fms_supervisor"
+                            invisible="state not in ('open', 'closing')"
+                            title="Add cash lines for any attendant assigned to a nozzle but not yet in the Attendant Cash tab"/>
                     <button name="action_refresh_product_sales"
                             string="Refresh Sales Summary"
                             type="object" class="btn-secondary"
