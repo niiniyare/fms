@@ -65,6 +65,7 @@ class FMSShift(models.Model):
     _name = 'fms.shift'
     _description = 'Forecourt Shift'
     _order = 'date DESC, label'
+    _inherit = ['mail.thread', 'mail.activity.mixin']
 
     # ------------------------------------------------------------------
     # Identity

@@ -39,6 +39,7 @@ Reference: Complete specification in FMS_Complete_Specification_Technical_Guide.
     "author": "Anika Global Limited",
     "depends": [
         "base",
+        "mail",
         "account",
         "stock",
         "point_of_sale",
@@ -62,11 +63,10 @@ Reference: Complete specification in FMS_Complete_Specification_Technical_Guide.
         
         # Reports (added in FMS-007)
         # "reports/fms_shift_reconciliation_report.xml",
-
-        # Demo / sample data (noupdate=1 inside the file — safe to re-install)
+    ],
+    "demo": [
         "demo/fms_demo_data.xml",
     ],
-    "demo": [],
     "installable": True,
     "application": True,
     "auto_install": False,

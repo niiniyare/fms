@@ -24,17 +24,17 @@ class TestFMSPump(TransactionCase):
         })
 
     def test_pump_creation(self):
-        pump = self.pump_model.create({'name': 'UX5', 'order': 1})
-        self.assertEqual(pump.name, 'UX5')
+        pump = self.pump_model.create({'name': 'TEST-UX5', 'order': 1})
+        self.assertEqual(pump.name, 'TEST-UX5')
         self.assertTrue(pump.active)
         self.assertEqual(pump.order, 1)
 
     def test_pump_default_active(self):
-        pump = self.pump_model.create({'name': 'DX6', 'order': 2})
+        pump = self.pump_model.create({'name': 'TEST-DX6', 'order': 2})
         self.assertTrue(pump.active)
 
     def test_nozzle_creation(self):
-        pump = self.pump_model.create({'name': 'UX5', 'order': 1})
+        pump = self.pump_model.create({'name': 'TEST-UX5', 'order': 1})
         nozzle = self.nozzle_model.create({
             'pump_id': pump.id,
             'name': 'A',
@@ -46,7 +46,7 @@ class TestFMSPump(TransactionCase):
         self.assertEqual(nozzle.pump_id.id, pump.id)
 
     def test_nozzle_unique_constraint(self):
-        pump = self.pump_model.create({'name': 'UX5', 'order': 1})
+        pump = self.pump_model.create({'name': 'TEST-UX5', 'order': 1})
         self.nozzle_model.create({
             'pump_id': pump.id,
             'name': 'A',
@@ -65,8 +65,8 @@ class TestFMSPump(TransactionCase):
 
     def test_nozzle_same_letter_different_pump_allowed(self):
         """Same letter on different pumps must be allowed."""
-        pump1 = self.pump_model.create({'name': 'UX5', 'order': 1})
-        pump2 = self.pump_model.create({'name': 'UX6', 'order': 2})
+        pump1 = self.pump_model.create({'name': 'TEST-UX5', 'order': 1})
+        pump2 = self.pump_model.create({'name': 'TEST-UX6', 'order': 2})
         self.nozzle_model.create({
             'pump_id': pump1.id, 'name': 'A', 'letter': 'A',
             'order': 1, 'product_id': self.product.id,
@@ -155,7 +155,7 @@ class TestFMSMeterLog(TransactionCase):
             'label': '1_day',
             'supervisor_id': self.supervisor.id,
         })
-        self.pump = self.env['fms.pump'].create({'name': 'UX5', 'order': 1})
+        self.pump = self.env['fms.pump'].create({'name': 'TEST-UX5', 'order': 1})
         self.product = self.env['product.product'].create({
             'name': 'Diesel', 'fms_is_fuel': True, 'list_price': 222.8,
         })

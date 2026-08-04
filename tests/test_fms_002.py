@@ -30,7 +30,7 @@ class FMSBase(TransactionCase):
         self.product_vpower = self.env['product.product'].create({
             'name': 'V-Power', 'fms_is_fuel': True, 'list_price': 250.0,
         })
-        self.pump = self.env['fms.pump'].create({'name': 'UX5', 'order': 1})
+        self.pump = self.env['fms.pump'].create({'name': 'TEST-UX5', 'order': 1})
         self.nozzle_a = self.env['fms.pump.nozzle'].create({
             'pump_id': self.pump.id, 'name': 'A', 'letter': 'A',
             'order': 1, 'product_id': self.product_diesel.id,
