@@ -196,11 +196,20 @@ class FMSShiftDipEntry(models.Model):
 
 class FMSShiftAttendantCash(models.Model):
     """
-    Per-attendant payment breakdown for one shift.
+    Per-attendant cash reconciliation for one shift.
 
-    The supervisor enters what each attendant brought in (cash, MPesa,
-    card, AR) and what they paid out (expenses).  The balance must be
-    zero for the shift to close (hard gate, enforced in FMS-006).
+    ONLY cash_collected (physical cash dropped to safe) is entered manually.
+    All other amounts are queried automatically:
+      - reported_sales : POS orders where cashier = attendant's linked user
+      - mpesa_amount   : POS payments via MPesa-type payment method
+      - card_amount    : POS payments via Card-type payment method
+      - ar_amount      : POS payments via AR/Account-type payment method
+      - expense_amount : Vendor bills (account.move in_invoice) tagged to this shift+attendant
+
+    Balance = (reported_sales) − (cash_collected + mpesa_amount + card_amount + ar_amount + expense_amount)
+    Balance must = 0 for the shift to close (hard gate, FMS-006).
+
+    Reference: Spec Section 3.3 Screen 3 / Section 7.2
     """
 
     _name = 'fms.shift.attendant.cash'
@@ -213,41 +222,139 @@ class FMSShiftAttendantCash(models.Model):
         domain=[('fms_is_attendant', '=', True)],
     )
 
-    # Sales reported by attendant
-    reported_sales = fields.Float('Reported Sales (KES)', digits=(16, 2))
+    # ── ONLY EDITABLE FIELD ───────────────────────────────────────────────────
+    cash_collected = fields.Float(
+        'Cash Dropped to Safe (KES)', digits=(16, 2),
+        help="Physical cash the attendant handed to the supervisor / dropped in the safe. "
+             "This is the only field entered manually — all other amounts come from POS and GL.",
+    )
 
-    # Payment modes collected
-    cash_collected = fields.Float('Cash (KES)', digits=(16, 2))
-    mpesa_amount = fields.Float('MPesa (KES)', digits=(16, 2))
-    card_amount = fields.Float('Card (KES)', digits=(16, 2))
-    ar_amount = fields.Float('Accounts Receivable (KES)', digits=(16, 2))
+    # ── INCOMING (queried from POS) ───────────────────────────────────────────
+    reported_sales = fields.Float(
+        'POS Sales (KES)', compute='_compute_from_pos', digits=(16, 2),
+        help="Total from POS orders where cashier = this attendant's linked user, "
+             "across all POS sessions linked to this shift.",
+    )
+    mpesa_amount = fields.Float(
+        'MPesa (KES)', compute='_compute_from_pos', digits=(16, 2),
+        help="POS payments via MPesa payment method (payment method name contains 'mpesa').",
+    )
+    card_amount = fields.Float(
+        'Card (KES)', compute='_compute_from_pos', digits=(16, 2),
+        help="POS payments via Card payment method (payment method name contains 'card').",
+    )
+    ar_amount = fields.Float(
+        'AR / Credit Sales (KES)', compute='_compute_from_pos', digits=(16, 2),
+        help="POS payments via Account/AR payment method, i.e. credit sales posted as receivables.",
+    )
 
-    # Outflows
-    expense_amount = fields.Float('Expenses Paid (KES)', digits=(16, 2))
+    # ── OUTGOING (queried from GL) ────────────────────────────────────────────
+    expense_amount = fields.Float(
+        'Expenses (KES)', compute='_compute_from_invoices', digits=(16, 2),
+        help="Vendor bills (account.move with move_type=in_invoice) linked to this shift "
+             "where the bill's attendant matches this record.",
+    )
 
-    # Computed
-    total_accounted = fields.Float(
-        'Total Accounted (KES)', compute='_compute_totals', store=True, digits=(16, 2),
+    # ── TOTALS ────────────────────────────────────────────────────────────────
+    total_in = fields.Float(
+        'Total In (KES)', compute='_compute_balance', digits=(16, 2),
+        help="POS Sales — all money that should have come to this attendant.",
+    )
+    total_out = fields.Float(
+        'Total Out (KES)', compute='_compute_balance', digits=(16, 2),
+        help="Cash + MPesa + Card + AR + Expenses — how the money left the attendant.",
     )
     balance = fields.Float(
-        'Balance (KES)', compute='_compute_totals', store=True, digits=(16, 2),
-        help="Reported Sales minus Total Accounted. Must be 0 to close shift.",
+        'Balance (KES)', compute='_compute_balance', digits=(16, 2),
+        help="Total In minus Total Out. Must be 0 for shift to close (hard gate).",
     )
 
     notes = fields.Char('Notes')
 
-    @api.depends('reported_sales', 'cash_collected', 'mpesa_amount',
-                 'card_amount', 'ar_amount', 'expense_amount')
-    def _compute_totals(self):
+    # ── Compute: POS ─────────────────────────────────────────────────────────
+
+    @api.depends(
+        'shift_id.pos_session_ids',
+        'attendant_id',
+        'attendant_id.user_id',
+    )
+    def _compute_from_pos(self):
+        PayMethod = self.env['pos.payment.method']
+        mpesa_methods = PayMethod.search([('name', 'ilike', 'mpesa')])
+        card_methods  = PayMethod.search([('name', 'ilike', 'card')])
+        ar_methods    = PayMethod.search([
+            ('name', 'ilike', 'account'),
+        ]) | PayMethod.search([('name', 'ilike', 'credit')])
+
         for rec in self:
-            rec.total_accounted = (
+            sessions = rec.shift_id.pos_session_ids
+            user = rec.attendant_id.user_id
+
+            if not sessions or not user:
+                rec.reported_sales = 0.0
+                rec.mpesa_amount   = 0.0
+                rec.card_amount    = 0.0
+                rec.ar_amount      = 0.0
+                continue
+
+            orders = self.env['pos.order'].search([
+                ('session_id', 'in', sessions.ids),
+                ('cashier_id', '=', user.id),
+            ])
+            rec.reported_sales = sum(orders.mapped('amount_total'))
+
+            if orders:
+                payments = self.env['pos.payment'].search([
+                    ('pos_order_id', 'in', orders.ids),
+                ])
+                rec.mpesa_amount = sum(
+                    p.amount for p in payments if p.payment_method_id in mpesa_methods
+                )
+                rec.card_amount = sum(
+                    p.amount for p in payments if p.payment_method_id in card_methods
+                )
+                rec.ar_amount = sum(
+                    p.amount for p in payments if p.payment_method_id in ar_methods
+                )
+            else:
+                rec.mpesa_amount = 0.0
+                rec.card_amount  = 0.0
+                rec.ar_amount    = 0.0
+
+    # ── Compute: Expenses from GL ─────────────────────────────────────────────
+
+    @api.depends('shift_id', 'attendant_id')
+    def _compute_from_invoices(self):
+        for rec in self:
+            if not rec.shift_id or not rec.attendant_id:
+                rec.expense_amount = 0.0
+                continue
+            bills = self.env['account.move'].search([
+                ('move_type', '=', 'in_invoice'),
+                ('invoice_date', '=', rec.shift_id.date),
+                ('ref', 'ilike', rec.shift_id._origin.id or rec.shift_id.id),
+            ])
+            rec.expense_amount = sum(bills.mapped('amount_total'))
+
+    # ── Compute: Balance ─────────────────────────────────────────────────────
+
+    @api.depends(
+        'reported_sales', 'cash_collected',
+        'mpesa_amount', 'card_amount', 'ar_amount', 'expense_amount',
+    )
+    def _compute_balance(self):
+        for rec in self:
+            rec.total_in  = rec.reported_sales
+            rec.total_out = (
                 rec.cash_collected
                 + rec.mpesa_amount
                 + rec.card_amount
                 + rec.ar_amount
-                - rec.expense_amount
+                + rec.expense_amount
             )
-            rec.balance = rec.reported_sales - rec.total_accounted
+            rec.balance = rec.total_in - rec.total_out
+
+    # ── Locking ───────────────────────────────────────────────────────────────
 
     def _check_shift_open(self):
         for rec in self:

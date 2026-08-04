@@ -117,6 +117,13 @@ class FMSShift(models.Model):
     attendant_cash_ids = fields.One2many(
         'fms.shift.attendant.cash', 'shift_id', 'Attendant Cash',
     )
+    pos_session_ids = fields.Many2many(
+        'pos.session', 'fms_shift_pos_session_rel', 'shift_id', 'session_id',
+        string='POS Sessions',
+        help="POS sessions that occurred during this shift. "
+             "Linking sessions here auto-populates attendant sales, MPesa, card, and AR.",
+    )
+
     product_sales_ids = fields.One2many(
         'fms.shift.product.sales', 'shift_id', 'Product Sales',
         help="Computed rollup of meter entries per product. Refreshed on save.",
@@ -142,13 +149,14 @@ class FMSShift(models.Model):
 
     @api.depends(
         'meter_entry_ids.amount_elec',
-        'attendant_cash_ids.reported_sales',
+        'attendant_cash_ids.total_in',
+        'attendant_cash_ids.balance',
     )
     def _compute_totals(self):
         for shift in self:
             shift.total_meter_sales = sum(shift.meter_entry_ids.mapped('amount_elec'))
-            shift.total_reported_sales = sum(shift.attendant_cash_ids.mapped('reported_sales'))
-            shift.fc_cash_balance = shift.total_reported_sales - shift.total_meter_sales
+            shift.total_reported_sales = sum(shift.attendant_cash_ids.mapped('total_in'))
+            shift.fc_cash_balance = sum(shift.attendant_cash_ids.mapped('balance'))
 
     # ------------------------------------------------------------------
     # Notes

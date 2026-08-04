@@ -182,18 +182,25 @@ class TestFMSDipEntry(FMSBase):
 # ---------------------------------------------------------------------------
 
 class TestFMSAttendantCash(FMSBase):
+    """
+    Tests for fms.shift.attendant.cash.
 
-    def _add_cash(self, shift, reported=50000.0, cash=30000.0, mpesa=15000.0,
-                  card=0.0, ar=5000.0, expense=0.0):
+    Design constraint: only cash_collected is editable.
+    All other amounts (reported_sales, mpesa, card, ar, expense)
+    are computed from POS sessions / GL — they return 0 when no
+    POS session is linked (the normal state in unit tests).
+
+    Balance = total_in - total_out
+            = reported_sales - (cash_collected + mpesa + card + ar + expense)
+    Without POS: balance = 0 - cash_collected = -cash_collected
+    """
+
+    def _add_cash(self, shift, cash=0.0):
+        """Create a cash record with only the editable field."""
         return self.env['fms.shift.attendant.cash'].create({
             'shift_id': shift.id,
             'attendant_id': self.attendant.id,
-            'reported_sales': reported,
             'cash_collected': cash,
-            'mpesa_amount': mpesa,
-            'card_amount': card,
-            'ar_amount': ar,
-            'expense_amount': expense,
         })
 
     def test_attendant_cash_creation(self):
@@ -201,38 +208,55 @@ class TestFMSAttendantCash(FMSBase):
         rec = self._add_cash(shift)
         self.assertEqual(rec.attendant_id.id, self.attendant.id)
 
-    def test_total_accounted_computed(self):
+    def test_cash_collected_is_editable(self):
         shift = self._open_shift()
-        # 30k + 15k + 0 + 5k - 0 = 50k
-        rec = self._add_cash(shift, cash=30000.0, mpesa=15000.0, ar=5000.0)
-        self.assertAlmostEqual(rec.total_accounted, 50000.0)
+        rec = self._add_cash(shift, cash=10000.0)
+        self.assertAlmostEqual(rec.cash_collected, 10000.0)
+        rec.write({'cash_collected': 12000.0})
+        self.assertAlmostEqual(rec.cash_collected, 12000.0)
 
-    def test_balance_zero_when_balanced(self):
+    def test_reported_sales_zero_without_pos(self):
+        """Without linked POS sessions, reported_sales = 0."""
         shift = self._open_shift()
-        rec = self._add_cash(shift, reported=50000.0, cash=30000.0,
-                              mpesa=15000.0, ar=5000.0)
+        rec = self._add_cash(shift, cash=0.0)
+        self.assertAlmostEqual(rec.reported_sales, 0.0)
+
+    def test_balance_equals_negative_cash_without_pos(self):
+        """
+        Without POS: total_in=0, total_out=cash_collected
+        → balance = -cash_collected
+        """
+        shift = self._open_shift()
+        rec = self._add_cash(shift, cash=5000.0)
+        self.assertAlmostEqual(rec.balance, -5000.0)
+
+    def test_balance_zero_when_no_cash_no_pos(self):
+        """Zero cash + no POS = balanced (trivial case)."""
+        shift = self._open_shift()
+        rec = self._add_cash(shift, cash=0.0)
         self.assertAlmostEqual(rec.balance, 0.0)
 
-    def test_balance_nonzero_when_gap(self):
+    def test_total_in_equals_reported_sales(self):
         shift = self._open_shift()
-        rec = self._add_cash(shift, reported=50000.0, cash=20000.0,
-                              mpesa=10000.0, ar=5000.0)
-        # accounted = 35k, reported = 50k → balance = 15k
-        self.assertAlmostEqual(rec.balance, 15000.0)
+        rec = self._add_cash(shift)
+        self.assertAlmostEqual(rec.total_in, rec.reported_sales)
 
-    def test_expense_reduces_accounted(self):
+    def test_total_out_includes_cash(self):
         shift = self._open_shift()
-        rec = self._add_cash(shift, reported=45000.0, cash=50000.0,
-                              mpesa=0.0, ar=0.0, expense=5000.0)
-        # accounted = 50k - 5k = 45k, balance = 0
-        self.assertAlmostEqual(rec.total_accounted, 45000.0)
-        self.assertAlmostEqual(rec.balance, 0.0)
+        rec = self._add_cash(shift, cash=7500.0)
+        # Without POS: mpesa=card=ar=expense=0
+        self.assertAlmostEqual(rec.total_out, 7500.0)
 
     def test_cash_locked_on_closed_shift(self):
         shift = self._closed_shift()
-        rec = self._add_cash(shift)
+        rec = self._add_cash(shift, cash=1000.0)
         with self.assertRaises(ValidationError):
             rec.write({'cash_collected': 99999.0})
+
+    def test_pos_session_ids_exists_on_shift(self):
+        """pos_session_ids Many2many field exists on fms.shift."""
+        shift = self._open_shift()
+        self.assertIn('pos_session_ids', shift._fields)
 
 
 # ---------------------------------------------------------------------------
@@ -253,21 +277,19 @@ class TestFMSShiftSummary(FMSBase):
         self.assertAlmostEqual(shift.total_meter_sales, 100.0 * 222.8)
 
     def test_fc_cash_balance_computed(self):
+        """
+        fc_cash_balance = sum of attendant balances.
+        Without POS: reported_sales=0, balance = -(cash_collected).
+        fc_cash_balance = sum(-cash_collected) across all attendants.
+        """
         shift = self._open_shift()
-        self.env['fms.shift.meter.entry'].create({
-            'shift_id': shift.id,
-            'pump_id': self.pump.id,
-            'nozzle_id': self.nozzle_a.id,
-            'opening_elec_volume': 0.0,
-            'closing_elec_volume': 100.0,   # 22,280 KES
-        })
         self.env['fms.shift.attendant.cash'].create({
             'shift_id': shift.id,
             'attendant_id': self.attendant.id,
-            'reported_sales': 25000.0,       # attendant reported more
+            'cash_collected': 5000.0,    # no POS → total_in=0, balance=-5000
         })
-        # balance = 25,000 - 22,280 = 2,720
-        self.assertAlmostEqual(shift.fc_cash_balance, 25000.0 - (100.0 * 222.8))
+        # fc_cash_balance = sum of balances = -5000
+        self.assertAlmostEqual(shift.fc_cash_balance, -5000.0)
 
     def test_refresh_product_sales_creates_lines(self):
         shift = self._open_shift()

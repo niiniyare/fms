@@ -2,7 +2,9 @@
 <odoo>
 
     <!-- ================================================================
-         Main unified shift form — all data entry in one place
+         Main unified shift form — spec Section 3.3 / Section 10.2
+         Layout: Header → Meter Readings → Tank Dips →
+                 Attendant Cash → Sales Summary → Residual Allocations
     ================================================================ -->
 
     <record id="view_fms_shift_form" model="ir.ui.view">
@@ -11,7 +13,7 @@
         <field name="arch" type="xml">
             <form string="Shift">
 
-                <!-- Header: state bar + action buttons -->
+                <!-- ── Header bar ── -->
                 <header>
                     <button name="action_open_shift" string="Open Shift"
                             type="object" class="btn-primary"
@@ -32,7 +34,6 @@
                 </header>
 
                 <sheet>
-                    <!-- Title row -->
                     <div class="oe_title">
                         <h1>
                             <field name="date"/> —
@@ -40,7 +41,7 @@
                         </h1>
                     </div>
 
-                    <!-- Section 1: Shift identity -->
+                    <!-- ── Shift Identity ── -->
                     <group>
                         <group string="Shift Details">
                             <field name="date" readonly="state != 'draft'"/>
@@ -56,9 +57,19 @@
                         </group>
                     </group>
 
-                    <!-- Section 2: Meter readings (inline editable) -->
                     <notebook>
+
+                        <!-- ═══════════════════════════════════════════
+                             TAB 1: Pump Meter Readings
+                             Opening = readonly (fetched from prev shift)
+                             Closing = editable
+                        ═══════════════════════════════════════════ -->
                         <page string="Meter Readings" name="meters">
+                            <p class="text-muted">
+                                Opening totalizers carry over from the previous shift's
+                                closing figures — only the closing reading needs to be entered.
+                                Qty Sold and Amount are computed automatically.
+                            </p>
                             <field name="meter_entry_ids"
                                    readonly="state == 'closed'"
                                    context="{'default_shift_id': id}">
@@ -67,97 +78,227 @@
                                     <field name="nozzle_id"
                                            domain="[('pump_id','=',pump_id)]"/>
                                     <field name="product_id" readonly="1"/>
-                                    <field name="opening_elec_volume"/>
-                                    <field name="closing_elec_volume"/>
-                                    <field name="qty_sold_elec" readonly="1" sum="Total L"/>
-                                    <field name="amount_elec" readonly="1" sum="Total KES"/>
-                                    <field name="opening_man_mech" optional="hide"/>
-                                    <field name="closing_man_mech" optional="hide"/>
+                                    <field name="opening_elec_volume" readonly="1"
+                                           string="Opening (L)"/>
+                                    <field name="closing_elec_volume"
+                                           string="Closing (L)"/>
+                                    <field name="qty_sold_elec" readonly="1"
+                                           string="Qty Sold (L)" sum="Total L"/>
+                                    <field name="amount_elec" readonly="1"
+                                           string="Amount (KES)" sum="Total KES"/>
+                                    <field name="opening_man_mech" optional="hide"
+                                           string="Opening Manual" readonly="1"/>
+                                    <field name="closing_man_mech" optional="hide"
+                                           string="Closing Manual"/>
+                                    <field name="qty_sold_man" optional="hide"
+                                           string="Qty Sold Manual" readonly="1"/>
                                     <field name="notes" optional="hide"/>
                                 </list>
                             </field>
-                        </page>
-
-                        <!-- Section 3: Tank dips (inline editable) -->
-                        <page string="Tank Dips" name="dips">
-                            <field name="dip_entry_ids"
-                                   readonly="state == 'closed'"
-                                   context="{'default_shift_id': id}">
-                                <list editable="bottom" string="Tank Dip Readings">
-                                    <field name="location_id"/>
-                                    <field name="product_id" readonly="1"/>
-                                    <field name="opening_volume"/>
-                                    <field name="closing_volume"/>
-                                    <field name="qty_change" readonly="1"/>
-                                    <field name="variance_pct" readonly="1"
-                                           decoration-danger="variance_pct > 0.5"/>
-                                    <field name="notes" optional="hide"/>
-                                </list>
-                            </field>
-                        </page>
-
-                        <!-- Section 4: Attendant cash reconciliation -->
-                        <page string="Attendant Cash" name="cash">
-                            <field name="attendant_cash_ids"
-                                   readonly="state == 'closed'"
-                                   context="{'default_shift_id': id}">
-                                <list editable="bottom" string="Attendant Cash">
-                                    <field name="attendant_id"/>
-                                    <field name="reported_sales" sum="Total Reported"/>
-                                    <field name="cash_collected" sum="Cash"/>
-                                    <field name="mpesa_amount" sum="MPesa"/>
-                                    <field name="card_amount" sum="Card"/>
-                                    <field name="ar_amount" sum="AR"/>
-                                    <field name="expense_amount" sum="Expenses"/>
-                                    <field name="total_accounted" readonly="1" sum="Total Accounted"/>
-                                    <field name="balance" readonly="1" sum="Balance"
-                                           decoration-danger="balance != 0"/>
-                                    <field name="notes" optional="hide"/>
-                                </list>
-                            </field>
-                        </page>
-
-                        <!-- Section 5: Product sales summary (read-only) -->
-                        <page string="Sales Summary" name="sales">
-                            <field name="product_sales_ids" readonly="1">
-                                <list string="Product Sales Summary">
-                                    <field name="product_id"/>
-                                    <field name="qty_sold_elec" sum="Total L"/>
-                                    <field name="qty_sold_man" optional="hide" sum="Total L (Man)"/>
-                                    <field name="amount_elec" sum="Total KES"/>
-                                    <field name="residual_qty" optional="hide"/>
-                                    <field name="residual_amount" optional="hide"/>
-                                </list>
-                            </field>
-
                             <group>
-                                <group string="Totals">
-                                    <field name="total_meter_sales" readonly="1"/>
-                                    <field name="total_reported_sales" readonly="1"/>
-                                    <field name="fc_cash_balance" readonly="1"
-                                           decoration-danger="fc_cash_balance != 0"
-                                           decoration-success="fc_cash_balance == 0"/>
+                                <group string="Meter Totals">
+                                    <field name="total_meter_sales" readonly="1"
+                                           string="Total Meter Sales (KES)"/>
                                 </group>
                             </group>
                         </page>
 
-                        <!-- Section 6: Residual allocations (read-only, populated by FMS-003) -->
-                        <page string="Residual Allocations" name="residuals">
-                            <field name="residual_allocation_ids" readonly="1">
-                                <list string="Residual Allocations">
-                                    <field name="source_product_id"/>
-                                    <field name="target_product_id"/>
-                                    <field name="qty_litres"/>
-                                    <field name="amount"/>
-                                    <field name="journal_entry_id" optional="hide"/>
+                        <!-- ═══════════════════════════════════════════
+                             TAB 2: Tank Dips
+                             Opening = readonly (fetched from prev shift)
+                             Closing = editable
+                        ═══════════════════════════════════════════ -->
+                        <page string="Tank Dips" name="dips">
+                            <p class="text-muted">
+                                Enter the closing dip reading for each tank.
+                                Opening volume is auto-fetched from the previous shift's log.
+                                Variance % exceeding ±0.5% will block shift close (Gate 3).
+                            </p>
+                            <field name="dip_entry_ids"
+                                   readonly="state == 'closed'"
+                                   context="{'default_shift_id': id}">
+                                <list editable="bottom" string="Tank Dip Readings">
+                                    <field name="location_id" string="Tank"/>
+                                    <field name="product_id" readonly="1"
+                                           string="Product"/>
+                                    <field name="opening_volume" readonly="1"
+                                           string="Opening (L)"/>
+                                    <field name="closing_volume"
+                                           string="Closing Dip (L)"/>
+                                    <field name="qty_change" readonly="1"
+                                           string="Change (L)"/>
+                                    <field name="variance_pct" readonly="1"
+                                           string="Variance %"
+                                           decoration-success="variance_pct &lt;= 0.5"
+                                           decoration-warning="variance_pct &gt; 0.5 and variance_pct &lt;= 2.0"
+                                           decoration-danger="variance_pct &gt; 2.0"/>
                                     <field name="notes" optional="hide"/>
                                 </list>
                             </field>
                         </page>
 
-                        <!-- Notes -->
+                        <!-- ═══════════════════════════════════════════
+                             TAB 3: Attendant Cash Reconciliation
+                             Spec Section 3.3 Screen 3
+
+                             INCOMING (from POS — read-only):
+                               POS Sales, MPesa, Card, AR
+                             OUTGOING (manual entry):
+                               Cash Dropped to Safe  ← ONLY EDITABLE FIELD
+                             COMPUTED:
+                               Expenses (from vendor bills), Total In, Total Out, Balance
+
+                             Balance must = 0 for shift to close (Gate 1+2).
+                        ═══════════════════════════════════════════ -->
+                        <page string="Attendant Cash" name="cash">
+                            <p class="text-muted">
+                                Link POS sessions to this shift (header tab) to auto-populate
+                                Sales, MPesa, Card, and AR from POS data.
+                                <strong>Only "Cash Dropped to Safe" requires manual entry.</strong>
+                                Balance = POS Sales − (Cash + MPesa + Card + AR + Expenses).
+                                Every attendant's balance must be zero before the shift can close.
+                            </p>
+
+                            <!-- POS sessions link — visible to supervisors -->
+                            <group string="Linked POS Sessions" col="1">
+                                <field name="pos_session_ids" widget="many2many_tags"
+                                       string="POS Sessions (link to auto-fill sales data)"/>
+                            </group>
+
+                            <separator string="Per-Attendant Reconciliation"/>
+
+                            <field name="attendant_cash_ids"
+                                   readonly="state == 'closed'"
+                                   context="{'default_shift_id': id}">
+                                <list editable="bottom" string="Attendant Cash">
+                                    <!-- Identity -->
+                                    <field name="attendant_id" string="Attendant"/>
+
+                                    <!-- INCOMING — all read-only, from POS -->
+                                    <field name="reported_sales" readonly="1"
+                                           string="POS Sales (KES)"
+                                           sum="Total POS Sales"/>
+                                    <field name="mpesa_amount" readonly="1"
+                                           string="MPesa (KES)" sum="MPesa Total"
+                                           optional="show"/>
+                                    <field name="card_amount" readonly="1"
+                                           string="Card (KES)" sum="Card Total"
+                                           optional="show"/>
+                                    <field name="ar_amount" readonly="1"
+                                           string="AR/Credit (KES)" sum="AR Total"
+                                           optional="show"/>
+
+                                    <!-- OUTGOING — expense from GL, cash is MANUAL -->
+                                    <field name="expense_amount" readonly="1"
+                                           string="Expenses (KES)" sum="Expenses Total"
+                                           optional="show"/>
+                                    <field name="cash_collected"
+                                           string="Cash Dropped (KES)"
+                                           sum="Cash Total"/>
+
+                                    <!-- SUMMARY — all read-only computed -->
+                                    <field name="total_in" readonly="1"
+                                           string="Total In (KES)" sum="Grand In"/>
+                                    <field name="total_out" readonly="1"
+                                           string="Total Out (KES)" sum="Grand Out"/>
+                                    <field name="balance" readonly="1"
+                                           string="Balance (KES)" sum="Net Balance"
+                                           decoration-success="balance == 0"
+                                           decoration-danger="balance != 0"/>
+
+                                    <field name="notes" optional="hide"/>
+                                </list>
+                            </field>
+
+                            <!-- FC Cash gate status -->
+                            <group>
+                                <group string="FC Cash Gate">
+                                    <field name="total_reported_sales" readonly="1"
+                                           string="Total POS Sales (KES)"/>
+                                    <field name="total_meter_sales" readonly="1"
+                                           string="Total Meter Sales (KES)"/>
+                                    <field name="fc_cash_balance" readonly="1"
+                                           string="FC Cash Balance (KES)"
+                                           decoration-success="fc_cash_balance == 0"
+                                           decoration-danger="fc_cash_balance != 0"/>
+                                </group>
+                            </group>
+                        </page>
+
+                        <!-- ═══════════════════════════════════════════
+                             TAB 4: Sales Summary (read-only)
+                             Spec Section 3.3 Screen 4
+                        ═══════════════════════════════════════════ -->
+                        <page string="Sales Summary" name="sales">
+                            <p class="text-muted">
+                                Computed rollup of pump meter readings grouped by product.
+                                Use "Refresh Sales Summary" button after entering meter readings.
+                            </p>
+                            <field name="product_sales_ids" readonly="1">
+                                <list string="Product Sales">
+                                    <field name="product_id"/>
+                                    <field name="qty_sold_elec"
+                                           string="Qty Sold Elec (L)" sum="Total L"/>
+                                    <field name="qty_sold_man" optional="hide"
+                                           string="Qty Sold Manual (L)"/>
+                                    <field name="amount_elec"
+                                           string="Amount (KES)" sum="Total KES"/>
+                                    <field name="residual_qty" optional="hide"
+                                           string="Residual Qty (L)"
+                                           decoration-warning="residual_qty != 0"/>
+                                    <field name="residual_amount" optional="hide"
+                                           string="Residual Amt (KES)"
+                                           decoration-warning="residual_amount != 0"/>
+                                </list>
+                            </field>
+
+                            <group>
+                                <group string="Shift Totals">
+                                    <field name="total_meter_sales" readonly="1"
+                                           string="Total Meter Sales (KES)"/>
+                                    <field name="total_reported_sales" readonly="1"
+                                           string="Total Reported Sales (KES)"/>
+                                    <field name="fc_cash_balance" readonly="1"
+                                           string="FC Cash Balance (KES)"
+                                           decoration-success="fc_cash_balance == 0"
+                                           decoration-danger="fc_cash_balance != 0"/>
+                                </group>
+                            </group>
+                        </page>
+
+                        <!-- ═══════════════════════════════════════════
+                             TAB 5: Residual Allocations (FMS-003)
+                             Auto-populated by residual algorithm.
+                             Read-only.
+                        ═══════════════════════════════════════════ -->
+                        <page string="Residual Allocations" name="residuals">
+                            <p class="text-muted">
+                                Auto-calculated by the residual allocation algorithm (FMS-003).
+                                Records here show how over-reported products were reallocated
+                                to under-reported products (e.g., Diesel surplus → Carwash).
+                            </p>
+                            <field name="residual_allocation_ids" readonly="1">
+                                <list string="Residual Allocations">
+                                    <field name="source_product_id"
+                                           string="From (Over-reported)"/>
+                                    <field name="target_product_id"
+                                           string="To (Under-reported)"/>
+                                    <field name="qty_litres" string="Qty (L)"/>
+                                    <field name="amount" string="Amount (KES)"
+                                           sum="Total Reallocated"/>
+                                    <field name="journal_entry_id" optional="hide"
+                                           string="GL Entry"/>
+                                    <field name="notes" optional="hide"/>
+                                </list>
+                            </field>
+                        </page>
+
+                        <!-- ═══════════════════════════════════════════
+                             TAB 6: Supervisor Notes
+                        ═══════════════════════════════════════════ -->
                         <page string="Notes" name="notes">
-                            <field name="notes" placeholder="Supervisor notes..."/>
+                            <field name="notes"
+                                   placeholder="Supervisor investigation notes, variance explanations..."/>
                         </page>
 
                     </notebook>
