@@ -121,12 +121,17 @@
         <field name="order">1</field>
     </record>
 
+    <!-- current_* fields = the meter position at end of last shift.
+         These become opening readings when the next shift opens. -->
     <record id="nozzle_ux5_a" model="fms.pump.nozzle">
         <field name="pump_id" ref="pump_ux5"/>
         <field name="name">UX5-A</field>
         <field name="letter">A</field>
         <field name="order">1</field>
         <field name="product_id" ref="product_diesel"/>
+        <field name="current_elec_cash">27,694,880.00</field>
+        <field name="current_elec_volume">124500.00</field>
+        <field name="current_man_mech">124498.00</field>
     </record>
 
     <record id="nozzle_ux5_b" model="fms.pump.nozzle">
@@ -135,6 +140,9 @@
         <field name="letter">B</field>
         <field name="order">2</field>
         <field name="product_id" ref="product_super"/>
+        <field name="current_elec_cash">19,183,500.00</field>
+        <field name="current_elec_volume">88200.00</field>
+        <field name="current_man_mech">88198.00</field>
     </record>
 
     <record id="pump_dx6" model="fms.pump">
@@ -148,6 +156,9 @@
         <field name="letter">A</field>
         <field name="order">1</field>
         <field name="product_id" ref="product_diesel"/>
+        <field name="current_elec_cash">47,233,600.00</field>
+        <field name="current_elec_volume">212000.00</field>
+        <field name="current_man_mech">211997.00</field>
     </record>
 
     <record id="nozzle_dx6_b" model="fms.pump.nozzle">
@@ -156,6 +167,9 @@
         <field name="letter">B</field>
         <field name="order">2</field>
         <field name="product_id" ref="product_vpower"/>
+        <field name="current_elec_cash">11,275,000.00</field>
+        <field name="current_elec_volume">45100.00</field>
+        <field name="current_man_mech">45099.00</field>
     </record>
 
     <record id="pump_kx7" model="fms.pump">
@@ -169,6 +183,9 @@
         <field name="letter">A</field>
         <field name="order">1</field>
         <field name="product_id" ref="product_kerosene"/>
+        <field name="current_elec_cash">4,627,300.00</field>
+        <field name="current_elec_volume">31000.00</field>
+        <field name="current_man_mech">30999.00</field>
     </record>
 
     <!-- ============================================================
@@ -222,49 +239,69 @@
 
     <!-- Meter entries -->
 
+    <!-- UX5-A: Alice on Diesel — 850L sold, 189,380 KES cash -->
     <record id="meter_entry_ux5_a" model="fms.shift.meter.entry">
         <field name="shift_id" ref="shift_demo_day"/>
         <field name="pump_id" ref="pump_ux5"/>
         <field name="nozzle_id" ref="nozzle_ux5_a"/>
+        <field name="attendant_id" ref="employee_attendant_alice"/>
         <field name="opening_elec_volume">124500.00</field>
         <field name="closing_elec_volume">125350.00</field>
-        <!-- 850L × 222.80 = 189,380 KES -->
+        <field name="opening_elec_cash">27694880.00</field>
+        <field name="closing_elec_cash">27884260.00</field>
+        <!-- cash sold: 189,380 KES | vol sold: 850L -->
     </record>
 
+    <!-- UX5-B: Bob on Super — 440L sold, 95,700 KES cash -->
     <record id="meter_entry_ux5_b" model="fms.shift.meter.entry">
         <field name="shift_id" ref="shift_demo_day"/>
         <field name="pump_id" ref="pump_ux5"/>
         <field name="nozzle_id" ref="nozzle_ux5_b"/>
+        <field name="attendant_id" ref="employee_attendant_bob"/>
         <field name="opening_elec_volume">88200.00</field>
         <field name="closing_elec_volume">88640.00</field>
-        <!-- 440L × 217.50 = 95,700 KES -->
+        <field name="opening_elec_cash">19183500.00</field>
+        <field name="closing_elec_cash">19279200.00</field>
+        <!-- cash sold: 95,700 KES | vol sold: 440L -->
     </record>
 
+    <!-- DX6-A: Alice on Diesel — 750L sold, 167,100 KES cash -->
     <record id="meter_entry_dx6_a" model="fms.shift.meter.entry">
         <field name="shift_id" ref="shift_demo_day"/>
         <field name="pump_id" ref="pump_dx6"/>
         <field name="nozzle_id" ref="nozzle_dx6_a"/>
+        <field name="attendant_id" ref="employee_attendant_alice"/>
         <field name="opening_elec_volume">212000.00</field>
         <field name="closing_elec_volume">212750.00</field>
-        <!-- 750L × 222.80 = 167,100 KES -->
+        <field name="opening_elec_cash">47233600.00</field>
+        <field name="closing_elec_cash">47400700.00</field>
+        <!-- cash sold: 167,100 KES | vol sold: 750L -->
     </record>
 
+    <!-- DX6-B: Carol on V-Power — 120L sold, 30,000 KES cash -->
     <record id="meter_entry_dx6_b" model="fms.shift.meter.entry">
         <field name="shift_id" ref="shift_demo_day"/>
         <field name="pump_id" ref="pump_dx6"/>
         <field name="nozzle_id" ref="nozzle_dx6_b"/>
+        <field name="attendant_id" ref="employee_attendant_carol"/>
         <field name="opening_elec_volume">45100.00</field>
         <field name="closing_elec_volume">45220.00</field>
-        <!-- 120L × 250.00 = 30,000 KES -->
+        <field name="opening_elec_cash">11275000.00</field>
+        <field name="closing_elec_cash">11305000.00</field>
+        <!-- cash sold: 30,000 KES | vol sold: 120L -->
     </record>
 
+    <!-- KX7-A: Bob on Kerosene — 180L sold, 26,874 KES cash -->
     <record id="meter_entry_kx7_a" model="fms.shift.meter.entry">
         <field name="shift_id" ref="shift_demo_day"/>
         <field name="pump_id" ref="pump_kx7"/>
         <field name="nozzle_id" ref="nozzle_kx7_a"/>
+        <field name="attendant_id" ref="employee_attendant_bob"/>
         <field name="opening_elec_volume">31000.00</field>
         <field name="closing_elec_volume">31180.00</field>
-        <!-- 180L × 149.30 = 26,874 KES -->
+        <field name="opening_elec_cash">4627300.00</field>
+        <field name="closing_elec_cash">4654174.00</field>
+        <!-- cash sold: 26,874 KES | vol sold: 180L -->
     </record>
 
     <!-- Dip entries (tank stock readings) -->

@@ -63,6 +63,7 @@ Reference: Complete specification in FMS_Complete_Specification_Technical_Guide.
         
         # Reports
         "reports/fms_shift_report.xml",
+        "reports/fms_meter_movement_report.xml",
     ],
     "demo": [
         "demo/fms_demo_data.xml",

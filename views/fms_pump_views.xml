@@ -37,6 +37,12 @@
                             <field name="name"/>
                             <field name="product_id"
                                    domain="[('fms_is_fuel','=',True)]"/>
+                            <field name="current_elec_cash"
+                                   string="Elec Cash (KES)" readonly="1"/>
+                            <field name="current_elec_volume"
+                                   string="Elec Vol (L)" readonly="1"/>
+                            <field name="current_man_mech"
+                                   string="Manual (L)" readonly="1"/>
                             <field name="active"/>
                         </list>
                     </field>

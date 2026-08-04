@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ================================================================
+         Meter Movement Report
+         Shows opening + closing + RTT + net sold for every nozzle
+         on one or more shifts.  Accessible from the shift form and
+         the Shifts list (multi-select → Print Meter Movement).
+    ================================================================ -->
+
+    <record id="action_report_fms_meter_movement" model="ir.actions.report">
+        <field name="name">Meter Movement Report</field>
+        <field name="model">fms.shift</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">fms.report_fms_meter_movement</field>
+        <field name="report_file">fms.report_fms_meter_movement</field>
+        <field name="binding_model_id" ref="model_fms_shift"/>
+        <field name="groups_id" eval="[(4, ref('fms.group_fms_supervisor'))]"/>
+    </record>
+
+    <template id="report_fms_meter_movement">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="shift">
+                <t t-call="web.external_layout">
+                    <div class="page">
+
+                        <!-- Header -->
+                        <div class="row mb-4">
+                            <div class="col-8">
+                                <h2>Meter Movement Report</h2>
+                                <h4>
+                                    <t t-esc="shift.date"/> —
+                                    <t t-esc="shift.label"/>
+                                </h4>
+                            </div>
+                            <div class="col-4 text-end">
+                                <strong>Supervisor:</strong>
+                                <t t-esc="shift.supervisor_id.name or '—'"/>
+                                <br/>
+                                <strong>Status:</strong>
+                                <t t-esc="shift.state.upper()"/>
+                            </div>
+                        </div>
+
+                        <!-- Meter readings table -->
+                        <table class="table table-sm table-bordered fms-report-table">
+                            <thead class="fms-report-header">
+                                <tr>
+                                    <th>Pump</th>
+                                    <th>Nozzle</th>
+                                    <th>Product</th>
+                                    <th>Attendant</th>
+                                    <th class="text-end">Opening<br/>Elec Cash (KES)</th>
+                                    <th class="text-end">Closing<br/>Elec Cash (KES)</th>
+                                    <th class="text-end">Cash Sold (KES)</th>
+                                    <th class="text-end">Opening<br/>Elec Vol (L)</th>
+                                    <th class="text-end">Closing<br/>Elec Vol (L)</th>
+                                    <th class="text-end">RTT (L)</th>
+                                    <th class="text-end">Vol Sold (L)</th>
+                                    <th class="text-end">Opening<br/>Manual (L)</th>
+                                    <th class="text-end">Closing<br/>Manual (L)</th>
+                                    <th class="text-end">Man Sold (L)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <t t-foreach="shift.meter_entry_ids" t-as="entry">
+                                    <tr>
+                                        <td><t t-esc="entry.pump_id.name"/></td>
+                                        <td><t t-esc="entry.nozzle_id.letter"/></td>
+                                        <td><t t-esc="entry.product_id.name"/></td>
+                                        <td><t t-esc="entry.attendant_id.name or '—'"/></td>
+                                        <td class="text-end">
+                                            <t t-esc="entry.opening_elec_cash"
+                                               t-options="{'widget': 'monetary', 'display_currency': False}"/>
+                                        </td>
+                                        <td class="text-end">
+                                            <t t-esc="entry.closing_elec_cash"
+                                               t-options="{'widget': 'monetary', 'display_currency': False}"/>
+                                        </td>
+                                        <td class="text-end fw-bold">
+                                            <t t-esc="entry.elec_cash_sold"
+                                               t-options="{'widget': 'monetary', 'display_currency': False}"/>
+                                        </td>
+                                        <td class="text-end">
+                                            <t t-esc="'%.2f' % entry.opening_elec_volume"/>
+                                        </td>
+                                        <td class="text-end">
+                                            <t t-esc="'%.2f' % entry.closing_elec_volume"/>
+                                        </td>
+                                        <td class="text-end">
+                                            <t t-if="entry.rtt_volume">
+                                                <t t-esc="'%.2f' % entry.rtt_volume"/>
+                                            </t>
+                                            <t t-else="">—</t>
+                                        </td>
+                                        <td class="text-end fw-bold">
+                                            <t t-esc="'%.2f' % entry.qty_sold_elec"/>
+                                        </td>
+                                        <td class="text-end">
+                                            <t t-esc="'%.2f' % entry.opening_man_mech"/>
+                                        </td>
+                                        <td class="text-end">
+                                            <t t-esc="'%.2f' % entry.closing_man_mech"/>
+                                        </td>
+                                        <td class="text-end">
+                                            <t t-esc="'%.2f' % entry.qty_sold_man"/>
+                                        </td>
+                                    </tr>
+                                </t>
+                            </tbody>
+                            <tfoot class="fms-report-header">
+                                <tr>
+                                    <td colspan="6" class="text-end"><strong>Totals</strong></td>
+                                    <td class="text-end fw-bold">
+                                        <t t-esc="'%.2f' % sum(shift.meter_entry_ids.mapped('elec_cash_sold'))"/>
+                                    </td>
+                                    <td colspan="3"></td>
+                                    <td class="text-end fw-bold">
+                                        <t t-esc="'%.2f' % sum(shift.meter_entry_ids.mapped('qty_sold_elec'))"/>
+                                    </td>
+                                    <td colspan="2"></td>
+                                    <td class="text-end fw-bold">
+                                        <t t-esc="'%.2f' % sum(shift.meter_entry_ids.mapped('qty_sold_man'))"/>
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
+
+                        <!-- Per-attendant summary -->
+                        <h5 class="mt-4">Attendant Summary</h5>
+                        <table class="table table-sm table-bordered fms-report-table">
+                            <thead class="fms-report-header">
+                                <tr>
+                                    <th>Attendant</th>
+                                    <th class="text-end">Nozzles</th>
+                                    <th class="text-end">Total Cash Sold (KES)</th>
+                                    <th class="text-end">Total Vol Sold (L)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <t t-set="attendant_map" t-value="{}"/>
+                                <t t-foreach="shift.meter_entry_ids" t-as="entry">
+                                    <t t-set="akey" t-value="entry.attendant_id.id or 0"/>
+                                    <t t-if="akey not in attendant_map">
+                                        <t t-set="dummy" t-value="attendant_map.update({akey: {'name': entry.attendant_id.name or 'Unassigned', 'nozzles': [], 'cash': 0.0, 'vol': 0.0}})"/>
+                                    </t>
+                                    <t t-set="dummy" t-value="attendant_map[akey]['nozzles'].append(entry.pump_id.name + '-' + entry.nozzle_id.letter)"/>
+                                    <t t-set="dummy" t-value="attendant_map.__setitem__(akey, {**attendant_map[akey], 'cash': attendant_map[akey]['cash'] + entry.elec_cash_sold, 'vol': attendant_map[akey]['vol'] + entry.qty_sold_elec})"/>
+                                </t>
+                                <t t-foreach="attendant_map.values()" t-as="att">
+                                    <tr>
+                                        <td><t t-esc="att['name']"/></td>
+                                        <td class="text-end">
+                                            <t t-esc="', '.join(att['nozzles'])"/>
+                                        </td>
+                                        <td class="text-end fw-bold">
+                                            <t t-esc="'%.2f' % att['cash']"/>
+                                        </td>
+                                        <td class="text-end">
+                                            <t t-esc="'%.2f' % att['vol']"/>
+                                        </td>
+                                    </tr>
+                                </t>
+                            </tbody>
+                        </table>
+
+                        <!-- Footer -->
+                        <div class="row mt-4">
+                            <div class="col-6">
+                                <small class="text-muted">
+                                    Opened: <t t-esc="shift.opening_meter_date or '—'"/>
+                                </small>
+                            </div>
+                            <div class="col-6 text-end">
+                                <small class="text-muted">
+                                    Closed: <t t-esc="shift.closing_meter_date or '—'"/>
+                                </small>
+                            </div>
+                        </div>
+
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+
+</odoo>

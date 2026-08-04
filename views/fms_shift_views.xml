@@ -41,8 +41,14 @@
                             invisible="state not in ('open', 'closing')"
                             confirm="This will clear and rebuild all residual allocations. Continue?"/>
                     <button name="action_report_fms_shift"
-                            string="Print Report"
+                            string="Print Shift Report"
                             type="object"
+                            class="btn-secondary"
+                            groups="fms.group_fms_supervisor"
+                            invisible="state == 'draft'"/>
+                    <button name="%(fms.action_report_fms_meter_movement)d"
+                            string="Print Meter Movement"
+                            type="action"
                             class="btn-secondary"
                             groups="fms.group_fms_supervisor"
                             invisible="state == 'draft'"/>
