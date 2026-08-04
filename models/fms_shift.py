@@ -347,7 +347,9 @@ class FMSShift(models.Model):
                 self.env['fms.shift.dip.entry'].create(dip_entries)
 
     def action_start_closing(self):
-        """Move Open → Closing (supervisor initiates close process)."""
+        """
+        Move Open → Closing and auto-run residual allocation algorithm.
+        """
         self.ensure_one()
         if self.state != 'open':
             raise ValidationError(
@@ -358,6 +360,156 @@ class FMSShift(models.Model):
             'closing_meter_date': fields.Datetime.now(),
             'closing_meter_user_id': self.env.user.id,
         })
+        # Auto-calculate residuals on transition to closing
+        self._calculate_residuals()
+
+    # ------------------------------------------------------------------
+    # FMS-003: Residual Allocation Algorithm (Spec Section 7.1)
+    # ------------------------------------------------------------------
+
+    def action_calculate_residuals(self):
+        """Public button action — re-run residual allocation at any time."""
+        for shift in self:
+            count = shift._calculate_residuals()
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': 'Residual Allocation Complete',
+                'message': f'{count} allocation(s) created.',
+                'type': 'success',
+            },
+        }
+
+    def _calculate_residuals(self):
+        """
+        Full 5-step residual allocation algorithm (Spec Section 7.1).
+
+        Step 1: Rebuild product sales from meter entries.
+        Step 2: Compute accounted amounts per product from POS order lines.
+        Step 3: Residual = meter_amount − accounted_amount.
+                  < 0 → over-reported in POS (lumped non-fuel)
+                  > 0 → under-reported in POS (absorbed lumped sales)
+        Step 4: Greedy-match over-reported → under-reported products.
+        Step 5: Create fms.shift.residual.allocation records.
+
+        Returns count of allocation records created.
+        """
+        self.ensure_one()
+
+        # Clear existing allocations so re-runs are idempotent
+        self.residual_allocation_ids.unlink()
+
+        # Step 1: rebuild product sales
+        self._refresh_product_sales()
+
+        # Step 2: accounted amounts from POS order lines per product
+        accounted_by_product = self._get_accounted_by_product()
+
+        # Step 3: compute residuals and classify each product sales line
+        meter_by_product = {}
+        for ps in self.product_sales_ids:
+            pid = ps.product_id.id
+            meter_by_product[pid] = ps.amount_elec
+
+        over_reported  = {}   # pid → surplus amount (positive)
+        under_reported = {}   # pid → deficit amount (positive)
+
+        for ps in self.product_sales_ids:
+            pid      = ps.product_id.id
+            meter    = ps.amount_elec
+            acc      = accounted_by_product.get(pid, 0.0)
+            residual = meter - acc   # +ve = under, -ve = over
+
+            price = ps.product_id.list_price or 1.0
+            res_qty = residual / price if price else 0.0
+
+            if residual < -0.01:
+                rtype = 'over'
+                over_reported[pid] = abs(residual)
+            elif residual > 0.01:
+                rtype = 'under'
+                under_reported[pid] = residual
+            else:
+                rtype = 'none'
+
+            ps.write({
+                'residual_amount': residual,
+                'residual_qty': res_qty,
+                'residual_type': rtype,
+            })
+
+        # Step 4: greedy matching (largest over-reported first)
+        allocations = self._run_greedy_allocation(over_reported, under_reported)
+
+        # Step 5: create allocation records
+        alloc_vals = []
+        for (over_pid, under_pid, amt) in allocations:
+            under_product = self.env['product.product'].browse(under_pid)
+            price = under_product.list_price or 1.0
+            alloc_vals.append({
+                'shift_id':          self.id,
+                'source_product_id': over_pid,
+                'target_product_id': under_pid,
+                'qty_litres':        amt / price,
+                'amount':            amt,
+                'notes':             'Auto-calculated — residual reconciliation',
+            })
+        if alloc_vals:
+            self.env['fms.shift.residual.allocation'].create(alloc_vals)
+
+        return len(alloc_vals)
+
+    def _get_accounted_by_product(self):
+        """
+        Return {product_id: amount} from POS order lines for linked sessions.
+        Falls back to empty dict when no sessions linked (all residuals = meter).
+        """
+        sessions = self.pos_session_ids
+        if not sessions:
+            return {}
+        lines = self.env['pos.order.line'].search([
+            ('order_id.session_id', 'in', sessions.ids),
+        ])
+        result = {}
+        for line in lines:
+            pid = line.product_id.id
+            result[pid] = result.get(pid, 0.0) + line.price_subtotal_incl
+        return result
+
+    @staticmethod
+    def _run_greedy_allocation(over_reported, under_reported):
+        """
+        Pure algorithm: match over-reported to under-reported using greedy approach.
+
+        Args:
+            over_reported:  {product_id: surplus_amount}  — products POS over-credited
+            under_reported: {product_id: deficit_amount}  — products POS under-credited
+
+        Returns list of (over_pid, under_pid, qty_litres, amount) tuples.
+        NOTE: qty_litres here is amount/1 — caller must scale by product price.
+              We return (over_pid, under_pid, 0.0, amount) and let the caller
+              compute qty from the under_product's price.
+        """
+        # Work on copies, sorted largest-first so biggest gaps are matched first
+        over  = {k: v for k, v in sorted(over_reported.items(),  key=lambda x: -x[1])}
+        under = {k: v for k, v in sorted(under_reported.items(), key=lambda x: -x[1])}
+
+        allocations = []
+        for over_pid in list(over):
+            for under_pid in list(under):
+                if over.get(over_pid, 0.0) < 0.01:
+                    break  # this over-product is fully allocated
+                if under.get(under_pid, 0.0) < 0.01:
+                    continue  # this under-product is fully absorbed
+
+                alloc_amt = min(over[over_pid], under[under_pid])
+                allocations.append((over_pid, under_pid, alloc_amt))
+
+                over[over_pid]   -= alloc_amt
+                under[under_pid] -= alloc_amt
+
+        return allocations
 
     def action_close_shift(self):
         """

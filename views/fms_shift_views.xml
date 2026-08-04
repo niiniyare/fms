@@ -29,6 +29,11 @@
                             string="Refresh Sales Summary"
                             type="object" class="btn-secondary"
                             invisible="state not in ('open', 'closing')"/>
+                    <button name="action_calculate_residuals"
+                            string="Recalculate Residuals"
+                            type="object" class="btn-secondary"
+                            invisible="state not in ('open', 'closing')"
+                            confirm="This will clear and rebuild all residual allocations. Continue?"/>
                     <field name="state" widget="statusbar"
                            statusbar_visible="draft,open,closing,closed"/>
                 </header>
@@ -238,17 +243,33 @@
                                 <list string="Product Sales">
                                     <field name="product_id"/>
                                     <field name="qty_sold_elec"
-                                           string="Qty Sold Elec (L)" sum="Total L"/>
-                                    <field name="qty_sold_man" optional="hide"
-                                           string="Qty Sold Manual (L)"/>
+                                           string="Meter Qty (L)" sum="Total L"/>
                                     <field name="amount_elec"
-                                           string="Amount (KES)" sum="Total KES"/>
-                                    <field name="residual_qty" optional="hide"
+                                           string="Meter Amt (KES)" sum="Total KES"/>
+                                    <field name="accounted_qty"
+                                           string="POS Qty (L)" sum="POS Total L"
+                                           optional="show"/>
+                                    <field name="accounted_amount"
+                                           string="POS Amt (KES)" sum="POS Total KES"
+                                           optional="show"/>
+                                    <field name="residual_qty"
                                            string="Residual Qty (L)"
-                                           decoration-warning="residual_qty != 0"/>
-                                    <field name="residual_amount" optional="hide"
+                                           decoration-danger="residual_qty != 0"
+                                           optional="show"/>
+                                    <field name="residual_amount"
                                            string="Residual Amt (KES)"
-                                           decoration-warning="residual_amount != 0"/>
+                                           decoration-success="residual_amount == 0"
+                                           decoration-warning="residual_amount &gt; 0"
+                                           decoration-danger="residual_amount &lt; 0"
+                                           optional="show"/>
+                                    <field name="residual_type"
+                                           string="Status"
+                                           decoration-success="residual_type == 'none'"
+                                           decoration-warning="residual_type == 'under'"
+                                           decoration-danger="residual_type == 'over'"
+                                           optional="show"/>
+                                    <field name="qty_sold_man" optional="hide"
+                                           string="Manual Qty (L)"/>
                                 </list>
                             </field>
 
