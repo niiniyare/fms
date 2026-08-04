@@ -162,6 +162,13 @@ class FMSShift(models.Model):
     # Notes
     # ------------------------------------------------------------------
 
+    # GL journal entry created on shift close (FMS-005)
+    sales_journal_entry_id = fields.Many2one(
+        'account.move', 'Sales Journal Entry',
+        readonly=True, copy=False,
+        help="Account move posted when the shift is closed (fuel sales summary).",
+    )
+
     notes = fields.Text('Supervisor Notes')
 
     # ------------------------------------------------------------------
@@ -513,9 +520,16 @@ class FMSShift(models.Model):
 
     def action_close_shift(self):
         """
-        Move Closing → Closed after all hard gates pass.
+        Move Closing → Closed:
+          1. Snapshot meter and dip entries into immutable logs.
+          2. Post sales GL journal (DR Cash Clearing | CR Fuel Revenue per product).
+          3. Post residual reallocation journals (DR target COGS | CR source COGS).
+          4. Transition state to 'closed'.
 
-        Hard gate checks and GL posting are added in FMS-005 and FMS-006.
+        All steps are wrapped in a savepoint so any GL failure rolls back
+        the whole close, keeping shift in 'closing' for supervisor to fix.
+
+        Hard gate validation (FMS-006) will be added on top of this method.
         """
         self.ensure_one()
         if self.state != 'closing':
@@ -523,6 +537,227 @@ class FMSShift(models.Model):
                 f"Cannot close a shift that is '{self.state}'. "
                 "Use 'Start Closing' first."
             )
-        # FMS-006: hard gate validation goes here
-        # FMS-005: GL journal posting goes here
-        self.write({'state': 'closed'})
+        # FMS-006: hard gate validation goes here (balance checks, variance gates)
+
+        with self.env.cr.savepoint():
+            self._write_meter_logs()
+            self._write_dip_logs()
+            sales_move = self._post_sales_journal()
+            self._post_residual_allocation_journals()
+
+        vals = {'state': 'closed'}
+        if sales_move:
+            vals['sales_journal_entry_id'] = sales_move.id
+        self.write(vals)
+
+    # ------------------------------------------------------------------
+    # FMS-005: Audit log snapshots
+    # ------------------------------------------------------------------
+
+    def _write_meter_logs(self):
+        """Snapshot all meter entries to immutable fms.meter_log records."""
+        self.ensure_one()
+        existing_nozzle_ids = set(
+            self.env['fms.meter_log'].sudo()
+            .search([('shift_id', '=', self.id)])
+            .mapped('nozzle_id')
+            .ids
+        )
+        for entry in self.meter_entry_ids:
+            if entry.nozzle_id.id not in existing_nozzle_ids:
+                entry._create_meter_log()
+
+    def _write_dip_logs(self):
+        """Snapshot all dip entries to immutable fms.dip_log records."""
+        self.ensure_one()
+        existing_tank_ids = set(
+            self.env['fms.dip_log'].sudo()
+            .search([('shift_id', '=', self.id)])
+            .mapped('location_id')
+            .ids
+        )
+        for entry in self.dip_entry_ids:
+            if entry.location_id.id not in existing_tank_ids:
+                entry._create_dip_log()
+
+    # ------------------------------------------------------------------
+    # FMS-005: GL journal posting
+    # ------------------------------------------------------------------
+
+    def _get_fms_journal(self):
+        """
+        Return the GL journal to use for FMS shift entries.
+
+        Looks for a journal named 'Forecourt Sales' first; falls back to
+        the first sale-type journal in the company.  Raises if none found.
+        """
+        Journal = self.env['account.journal']
+        journal = Journal.search([
+            ('name', 'ilike', 'forecourt'),
+            ('type', '=', 'sale'),
+            ('company_id', '=', self.company_id.id),
+        ], limit=1)
+        if not journal:
+            journal = Journal.search([
+                ('type', '=', 'sale'),
+                ('company_id', '=', self.company_id.id),
+            ], limit=1)
+        if not journal:
+            raise ValidationError(
+                "No sale-type journal found for this company. "
+                "Create a 'Forecourt Sales' journal in Accounting → Journals."
+            )
+        return journal
+
+    def _get_clearing_account(self):
+        """
+        Return the cash-clearing account for the Debit side of the sales entry.
+
+        Tries to find an account with 'clearing' or 'forecourt' in its name
+        (type receivable or current asset).  Falls back to the journal's default
+        debit account, then to the first receivable account.
+        """
+        Account = self.env['account.account']
+        acc = Account.search([
+            ('name', 'ilike', 'clearing'),
+            ('company_id', '=', self.company_id.id),
+            ('account_type', 'in', ('asset_receivable', 'asset_current')),
+        ], limit=1)
+        if not acc:
+            acc = Account.search([
+                ('account_type', '=', 'asset_receivable'),
+                ('company_id', '=', self.company_id.id),
+            ], limit=1)
+        if not acc:
+            raise ValidationError(
+                "Cannot find a receivable/clearing account for the sales journal entry. "
+                "Configure accounts in Accounting → Chart of Accounts."
+            )
+        return acc
+
+    def _post_sales_journal(self):
+        """
+        Post a single account.move for all fuel sales in this shift.
+
+        Journal entry:
+          DR  Cash Clearing account    (total meter sales)
+          CR  Product Revenue account  (per product, fms_revenue_account_id)
+
+        Products without fms_revenue_account_id are skipped with a warning log.
+
+        Returns the created account.move or False if nothing to post.
+        """
+        self.ensure_one()
+        import logging
+        _logger = logging.getLogger(__name__)
+
+        if not self.product_sales_ids:
+            return False
+
+        journal = self._get_fms_journal()
+        clearing_account = self._get_clearing_account()
+
+        total_sales = sum(ps.amount_elec for ps in self.product_sales_ids)
+        if abs(total_sales) < 0.01:
+            return False
+
+        move_lines = []
+
+        # DR line: cash/clearing account for total sales
+        move_lines.append((0, 0, {
+            'account_id': clearing_account.id,
+            'name': f'Forecourt sales — {self.display_name}',
+            'debit': total_sales,
+            'credit': 0.0,
+        }))
+
+        # CR lines: one per product
+        for ps in self.product_sales_ids:
+            if abs(ps.amount_elec) < 0.01:
+                continue
+            revenue_account = ps.product_id.fms_revenue_account_id
+            if not revenue_account:
+                _logger.warning(
+                    "FMS-005: Product %s has no fms_revenue_account_id — "
+                    "skipped in sales journal for shift %s",
+                    ps.product_id.name, self.display_name,
+                )
+                continue
+            move_lines.append((0, 0, {
+                'account_id': revenue_account.id,
+                'name': f'{ps.product_id.name} — {self.display_name}',
+                'debit': 0.0,
+                'credit': ps.amount_elec,
+            }))
+
+        if not move_lines or len(move_lines) < 2:
+            return False
+
+        move = self.env['account.move'].sudo().create({
+            'move_type': 'entry',
+            'journal_id': journal.id,
+            'date': self.date,
+            'ref': f'FMS Shift: {self.display_name}',
+            'line_ids': move_lines,
+        })
+        move.action_post()
+        return move
+
+    def _post_residual_allocation_journals(self):
+        """
+        Post one account.move per residual allocation line.
+
+        Each allocation moves COGS from source (over-reported) → target (under-reported):
+          DR  target product fms_cogs_account_id
+          CR  source product fms_cogs_account_id
+
+        Allocation lines that already have a journal_entry_id are skipped (idempotent).
+        """
+        import logging
+        _logger = logging.getLogger(__name__)
+
+        journal = self._get_fms_journal()
+
+        for alloc in self.residual_allocation_ids:
+            if alloc.journal_entry_id:
+                continue
+            if abs(alloc.amount) < 0.01:
+                continue
+
+            src_acc = alloc.source_product_id.fms_cogs_account_id
+            tgt_acc = alloc.target_product_id.fms_cogs_account_id
+
+            if not src_acc or not tgt_acc:
+                _logger.warning(
+                    "FMS-005: Allocation %s→%s missing COGS account — skipped",
+                    alloc.source_product_id.name,
+                    alloc.target_product_id.name,
+                )
+                continue
+
+            move = self.env['account.move'].sudo().create({
+                'move_type': 'entry',
+                'journal_id': journal.id,
+                'date': self.date,
+                'ref': (
+                    f'FMS Residual: {alloc.source_product_id.name}'
+                    f' → {alloc.target_product_id.name}'
+                    f' ({self.display_name})'
+                ),
+                'line_ids': [
+                    (0, 0, {
+                        'account_id': tgt_acc.id,
+                        'name': f'Residual reallocation — {alloc.target_product_id.name}',
+                        'debit': alloc.amount,
+                        'credit': 0.0,
+                    }),
+                    (0, 0, {
+                        'account_id': src_acc.id,
+                        'name': f'Residual reallocation — {alloc.source_product_id.name}',
+                        'debit': 0.0,
+                        'credit': alloc.amount,
+                    }),
+                ],
+            })
+            move.action_post()
+            alloc.sudo().write({'journal_entry_id': move.id})
