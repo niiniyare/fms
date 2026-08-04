@@ -16,7 +16,6 @@
         <field name="binding_model_id" ref="model_fms_shift"/>
         <field name="binding_type">report</field>
         <field name="groups_id" eval="[(4, ref('fms.group_fms_supervisor'))]"/>
-        <field name="paperformat_id" ref="base.paperformat_a4"/>
     </record>
 
     <!-- QWeb report template -->
