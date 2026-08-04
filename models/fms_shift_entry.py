@@ -69,11 +69,6 @@ class FMSShiftMeterEntry(models.Model):
         help="Litres returned to tank (test pumping, nozzle priming, calibration). "
              "Deducted from effective qty sold.",
     )
-    rtt_cash = fields.Float(
-        'RTT Cash (KES)', digits=(16, 2),
-        help="Cash meter increment during RTT (if pump ran during return). "
-             "Deducted from effective cash sold.",
-    )
 
     # ── Computed quantities ───────────────────────────────────────────────────
     qty_sold_elec = fields.Float(
@@ -102,12 +97,12 @@ class FMSShiftMeterEntry(models.Model):
         'closing_elec_volume', 'opening_elec_volume',
         'closing_elec_cash', 'opening_elec_cash',
         'closing_man_mech', 'opening_man_mech',
-        'rtt_volume', 'rtt_cash',
+        'rtt_volume',
     )
     def _compute_qty(self):
         for e in self:
             e.qty_sold_elec  = (e.closing_elec_volume - (e.opening_elec_volume or 0.0)) - (e.rtt_volume or 0.0)
-            e.elec_cash_sold = (e.closing_elec_cash   - (e.opening_elec_cash   or 0.0)) - (e.rtt_cash   or 0.0)
+            e.elec_cash_sold = e.closing_elec_cash   - (e.opening_elec_cash   or 0.0)
             e.qty_sold_man   = e.closing_man_mech    - (e.opening_man_mech    or 0.0)
 
     @api.depends('qty_sold_elec', 'product_id', 'product_id.list_price')
@@ -163,7 +158,6 @@ class FMSShiftMeterEntry(models.Model):
             'opening_man_mech':    self.opening_man_mech,
             'closing_man_mech':    self.closing_man_mech,
             'rtt_volume':          self.rtt_volume,
-            'rtt_cash':            self.rtt_cash,
         })
 
 

@@ -113,9 +113,7 @@
 
                                     <!-- RTT -->
                                     <field name="rtt_volume"
-                                           string="RTT Vol (L)" optional="show"/>
-                                    <field name="rtt_cash"
-                                           string="RTT Cash (KES)" optional="show"/>
+                                           string="RTT (L)" optional="show"/>
 
                                     <!-- Hidden opening fields — carried from nozzle, not displayed -->
                                     <field name="opening_elec_cash" column_invisible="1"/>
