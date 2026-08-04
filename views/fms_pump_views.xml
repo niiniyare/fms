@@ -51,6 +51,48 @@
         </field>
     </record>
 
+    <!-- Nozzle standalone form (opened when clicking a nozzle row) -->
+    <record id="view_fms_pump_nozzle_form" model="ir.ui.view">
+        <field name="name">fms.pump.nozzle.form</field>
+        <field name="model">fms.pump.nozzle</field>
+        <field name="arch" type="xml">
+            <form string="Nozzle">
+                <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="pump_id" readonly="1"/> —
+                            Nozzle <field name="letter" readonly="1"/>
+                        </h1>
+                    </div>
+
+                    <group>
+                        <group string="Identity">
+                            <field name="pump_id"/>
+                            <field name="name"/>
+                            <field name="letter"/>
+                            <field name="order"/>
+                            <field name="product_id"
+                                   domain="[('fms_is_fuel','=',True)]"/>
+                            <field name="active"/>
+                        </group>
+                        <group string="Current Meter Positions">
+                            <p class="text-muted" colspan="2">
+                                Automatically updated when a shift closes.
+                                These become the opening readings for the next shift.
+                            </p>
+                            <field name="current_elec_cash"
+                                   string="Elec Cash (KES)" readonly="1"/>
+                            <field name="current_elec_volume"
+                                   string="Elec Volume (L)" readonly="1"/>
+                            <field name="current_man_mech"
+                                   string="Manual Meter (L)" readonly="1"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
     <record id="action_fms_pump" model="ir.actions.act_window">
         <field name="name">Pumps</field>
         <field name="res_model">fms.pump</field>

@@ -626,9 +626,12 @@ class FMSShift(models.Model):
     # FMS-006: Hard gate validators (Spec Section 7.2–7.3)
     # ------------------------------------------------------------------
 
-    # Default maximum allowed tank variance (±0.5% of closing dip volume).
-    # Overridable via ir.config_parameter 'fms.meniscus_pct' in future.
-    _MENISCUS_PCT = 0.5
+    _MENISCUS_PCT = 0.5  # fallback when no site preferences record exists
+
+    def _get_meniscus_pct(self):
+        """Return the configured meniscus % from site preferences, or class default."""
+        prefs = self.env['fms.site.preferences'].get_for_company(self.company_id)
+        return prefs.meniscus_pct if prefs.meniscus_pct > 0 else self._MENISCUS_PCT
 
     def _gate_check_fc_cash(self):
         """
@@ -679,7 +682,7 @@ class FMSShift(models.Model):
         investigate and post an adjustment or dip correction.
         """
         self.ensure_one()
-        meniscus = self._MENISCUS_PCT
+        meniscus = self._get_meniscus_pct()
         failing = []
         for dip in self.dip_entry_ids:
             if dip.closing_volume <= 0:
@@ -744,12 +747,10 @@ class FMSShift(models.Model):
     # ------------------------------------------------------------------
 
     def _get_fms_journal(self):
-        """
-        Return the GL journal to use for FMS shift entries.
-
-        Looks for a journal named 'Forecourt Sales' first; falls back to
-        the first sale-type journal in the company.  Raises if none found.
-        """
+        """Return the GL journal for FMS shift entries (site prefs → name search → fallback)."""
+        prefs = self.env['fms.site.preferences'].get_for_company(self.company_id)
+        if prefs.sales_journal_id:
+            return prefs.sales_journal_id
         Journal = self.env['account.journal']
         journal = Journal.search([
             ('name', 'ilike', 'forecourt'),
@@ -763,19 +764,16 @@ class FMSShift(models.Model):
             ], limit=1)
         if not journal:
             raise ValidationError(
-                "No sale-type journal found for this company. "
-                "Create a 'Forecourt Sales' journal in Accounting → Journals."
+                "No sale-type journal found. "
+                "Set one in Forecourt → Configuration → Site Preferences."
             )
         return journal
 
     def _get_clearing_account(self):
-        """
-        Return the cash-clearing account for the Debit side of the sales entry.
-
-        Tries to find an account with 'clearing' or 'forecourt' in its name
-        (type receivable or current asset).  Falls back to the journal's default
-        debit account, then to the first receivable account.
-        """
+        """Return the cash-clearing account (site prefs → name search → fallback)."""
+        prefs = self.env['fms.site.preferences'].get_for_company(self.company_id)
+        if prefs.clearing_account_id:
+            return prefs.clearing_account_id
         Account = self.env['account.account']
         acc = Account.search([
             ('name', 'ilike', 'clearing'),
@@ -810,25 +808,32 @@ class FMSShift(models.Model):
         import logging
         _logger = logging.getLogger(__name__)
 
-        if not self.product_sales_ids:
+        # Use elec_cash_sold (cash meter) as the authoritative revenue figure.
+        # vol×price (amount_elec) is theoretical; the cash meter is what the
+        # pump electronics actually recorded as collected.
+        total_cash = sum(self.meter_entry_ids.mapped('elec_cash_sold'))
+        if abs(total_cash) < 0.01:
             return False
 
-        total_sales = sum(ps.amount_elec for ps in self.product_sales_ids)
-        if abs(total_sales) < 0.01:
+        # Group elec_cash_sold by product for per-product CR lines.
+        cash_by_product = {}
+        for entry in self.meter_entry_ids:
+            if abs(entry.elec_cash_sold) < 0.01:
+                continue
+            pid = entry.product_id.id
+            cash_by_product[pid] = cash_by_product.get(pid, 0.0) + entry.elec_cash_sold
+
+        if not cash_by_product:
             return False
 
-        # Bail early if no products have GL accounts configured —
-        # avoids journal/account lookups when the chart of accounts is not yet wired.
-        has_revenue_accounts = any(
-            ps.product_id.fms_revenue_account_id
-            for ps in self.product_sales_ids
-            if abs(ps.amount_elec) >= 0.01
-        )
+        # Bail early if no products have GL accounts configured.
+        products = self.env['product.product'].browse(list(cash_by_product))
+        has_revenue_accounts = any(p.fms_revenue_account_id for p in products)
         if not has_revenue_accounts:
             _logger.warning(
-                "FMS-005: Shift %s has sales of KES %.2f but no fuel products "
+                "FMS-005: Shift %s has cash sales of KES %.2f but no fuel products "
                 "have fms_revenue_account_id configured — GL entry skipped.",
-                self.display_name, total_sales,
+                self.display_name, total_cash,
             )
             return False
 
@@ -837,35 +842,40 @@ class FMSShift(models.Model):
 
         move_lines = []
 
-        # DR line: cash/clearing account for total sales
+        # DR: cash clearing account for total cash collected per cash meters
         move_lines.append((0, 0, {
             'account_id': clearing_account.id,
-            'name': f'Forecourt sales — {self.display_name}',
-            'debit': total_sales,
+            'name': f'Forecourt cash sales — {self.display_name}',
+            'debit': total_cash,
             'credit': 0.0,
         }))
 
-        # CR lines: one per product
-        for ps in self.product_sales_ids:
-            if abs(ps.amount_elec) < 0.01:
+        # CR: one line per product
+        for product in products:
+            amount = cash_by_product.get(product.id, 0.0)
+            if abs(amount) < 0.01:
                 continue
-            revenue_account = ps.product_id.fms_revenue_account_id
-            if not revenue_account:
+            if not product.fms_revenue_account_id:
                 _logger.warning(
                     "FMS-005: Product %s has no fms_revenue_account_id — "
                     "skipped in sales journal for shift %s",
-                    ps.product_id.name, self.display_name,
+                    product.name, self.display_name,
                 )
+                total_cash -= amount  # keep DR balanced
                 continue
             move_lines.append((0, 0, {
-                'account_id': revenue_account.id,
-                'name': f'{ps.product_id.name} — {self.display_name}',
+                'account_id': product.fms_revenue_account_id.id,
+                'name': f'{product.name} — {self.display_name}',
                 'debit': 0.0,
-                'credit': ps.amount_elec,
+                'credit': amount,
             }))
 
-        if not move_lines or len(move_lines) < 2:
+        if len(move_lines) < 2:
             return False
+
+        # Rebalance DR to equal actual sum of CRs (after skipping unconfigured products)
+        cr_total = sum(l[2]['credit'] for l in move_lines if l[2]['credit'])
+        move_lines[0][2]['debit'] = cr_total
 
         move = self.env['account.move'].sudo().create({
             'move_type': 'entry',

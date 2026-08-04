@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_fms_site_preferences_form" model="ir.ui.view">
+        <field name="name">fms.site.preferences.form</field>
+        <field name="model">fms.site.preferences</field>
+        <field name="arch" type="xml">
+            <form string="Site Preferences">
+                <sheet>
+                    <div class="oe_title">
+                        <h1>FMS Site Preferences</h1>
+                        <h4>
+                            <field name="company_id" readonly="1"/>
+                        </h4>
+                    </div>
+
+                    <group string="Gate 3 — Stock Variance">
+                        <field name="meniscus_pct"
+                               string="Variance Meniscus (%)"
+                               widget="float"
+                               help="Shifts cannot close if any tank's dip variance exceeds this percentage."/>
+                    </group>
+
+                    <group string="Shift Labels">
+                        <group>
+                            <field name="shift_label_1" string="Shift 1"/>
+                            <field name="shift_label_2" string="Shift 2"/>
+                            <field name="shift_label_3" string="Shift 3"/>
+                        </group>
+                    </group>
+
+                    <group string="GL Accounts">
+                        <group string="Defaults for New Products">
+                            <field name="default_revenue_account_id"/>
+                            <field name="default_cogs_account_id"/>
+                        </group>
+                        <group string="Shift Posting">
+                            <field name="clearing_account_id"
+                                   help="Debited on shift close for cash meter sales total."/>
+                            <field name="sales_journal_id"/>
+                        </group>
+                    </group>
+
+                    <group string="Operational">
+                        <field name="auto_sync_attendants"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_fms_site_preferences" model="ir.actions.act_window">
+        <field name="name">Site Preferences</field>
+        <field name="res_model">fms.site.preferences</field>
+        <field name="view_mode">form</field>
+        <field name="target">inline</field>
+        <field name="context">{'form_view_initial_mode': 'edit'}</field>
+    </record>
+
+    <menuitem id="menu_fms_site_preferences"
+              name="Site Preferences"
+              parent="menu_fms_config"
+              action="action_fms_site_preferences"
+              groups="fms.group_fms_supervisor"
+              sequence="20"/>
+
+</odoo>

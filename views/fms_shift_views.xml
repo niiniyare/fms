@@ -208,10 +208,20 @@
                                 Every attendant's balance must be zero before the shift can close.
                             </p>
 
-                            <!-- POS sessions link — visible to supervisors -->
+                            <!-- POS sessions — filtered to the shift date for easy picking -->
                             <group string="Linked POS Sessions" col="1">
-                                <field name="pos_session_ids" widget="many2many_tags"
-                                       string="POS Sessions (link to auto-fill sales data)"/>
+                                <p class="text-muted">
+                                    Link POS sessions that ran during this shift.
+                                    Sessions are filtered to
+                                    <strong><field name="date" readonly="1" nolabel="1"/></strong>.
+                                    MPesa, Card and AR payment totals in the Attendant Cash tab
+                                    are computed from orders in these sessions.
+                                </p>
+                                <field name="pos_session_ids"
+                                       widget="many2many_tags"
+                                       string="POS Sessions"
+                                       domain="[('start_at', '&gt;=', date), ('start_at', '&lt;', date + ' 23:59:59')]"
+                                       context="{'tree_view_ref': 'point_of_sale.view_pos_session_tree'}"/>
                             </group>
 
                             <separator string="Per-Attendant Reconciliation"/>
