@@ -443,8 +443,10 @@ class FMSShift(models.Model):
             'closing_meter_date': fields.Datetime.now(),
             'closing_meter_user_id': self.env.user.id,
         })
-        # Ensure every attendant with a nozzle assignment has a cash line
-        self._sync_attendant_cash_lines()
+        # Conditionally sync attendant cash lines (controlled by site preferences)
+        prefs = self.env['fms.site.preferences'].get_for_company(self.company_id)
+        if prefs.auto_sync_attendants:
+            self._sync_attendant_cash_lines()
         # Auto-calculate residuals on transition to closing
         self._calculate_residuals()
 
