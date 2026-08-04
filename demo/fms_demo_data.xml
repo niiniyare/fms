@@ -216,7 +216,7 @@
         <field name="date">2026-01-15</field>
         <field name="label">1_day</field>
         <field name="supervisor_id" ref="employee_supervisor_john"/>
-        <field name="state">open</field>
+        <field name="state">draft</field>
         <field name="opening_meter_date">2026-01-15 06:00:00</field>
     </record>
 
