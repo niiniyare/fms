@@ -1,4 +1,172 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- TODO: Add view configuration -->
+
+    <!-- ================================================================
+         Main unified shift form — all data entry in one place
+    ================================================================ -->
+
+    <record id="view_fms_shift_form" model="ir.ui.view">
+        <field name="name">fms.shift.form</field>
+        <field name="model">fms.shift</field>
+        <field name="arch" type="xml">
+            <form string="Shift">
+
+                <!-- Header: state bar + action buttons -->
+                <header>
+                    <button name="action_open_shift" string="Open Shift"
+                            type="object" class="btn-primary"
+                            invisible="state != 'draft'"/>
+                    <button name="action_start_closing" string="Start Closing"
+                            type="object" class="btn-warning"
+                            invisible="state != 'open'"/>
+                    <button name="action_close_shift" string="Close Shift"
+                            type="object" class="btn-danger"
+                            invisible="state != 'closing'"
+                            confirm="This will lock the shift and post all journal entries. Continue?"/>
+                    <button name="action_refresh_product_sales"
+                            string="Refresh Sales Summary"
+                            type="object" class="btn-secondary"
+                            invisible="state not in ('open', 'closing')"/>
+                    <field name="state" widget="statusbar"
+                           statusbar_visible="draft,open,closing,closed"/>
+                </header>
+
+                <sheet>
+                    <!-- Title row -->
+                    <div class="oe_title">
+                        <h1>
+                            <field name="date"/> —
+                            <field name="label"/>
+                        </h1>
+                    </div>
+
+                    <!-- Section 1: Shift identity -->
+                    <group>
+                        <group string="Shift Details">
+                            <field name="date" readonly="state != 'draft'"/>
+                            <field name="label" readonly="state != 'draft'"/>
+                            <field name="supervisor_id"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                        </group>
+                        <group string="Timestamps">
+                            <field name="opening_meter_date" readonly="1"/>
+                            <field name="opening_meter_user_id" readonly="1"/>
+                            <field name="closing_meter_date" readonly="1"/>
+                            <field name="closing_meter_user_id" readonly="1"/>
+                        </group>
+                    </group>
+
+                    <!-- Section 2: Meter readings (inline editable) -->
+                    <notebook>
+                        <page string="Meter Readings" name="meters">
+                            <field name="meter_entry_ids"
+                                   readonly="state == 'closed'"
+                                   context="{'default_shift_id': id}">
+                                <list editable="bottom" string="Pump Meter Readings">
+                                    <field name="pump_id"/>
+                                    <field name="nozzle_id"
+                                           domain="[('pump_id','=',pump_id)]"/>
+                                    <field name="product_id" readonly="1"/>
+                                    <field name="opening_elec_volume"/>
+                                    <field name="closing_elec_volume"/>
+                                    <field name="qty_sold_elec" readonly="1" sum="Total L"/>
+                                    <field name="amount_elec" readonly="1" sum="Total KES"/>
+                                    <field name="opening_man_mech" optional="hide"/>
+                                    <field name="closing_man_mech" optional="hide"/>
+                                    <field name="notes" optional="hide"/>
+                                </list>
+                            </field>
+                        </page>
+
+                        <!-- Section 3: Tank dips (inline editable) -->
+                        <page string="Tank Dips" name="dips">
+                            <field name="dip_entry_ids"
+                                   readonly="state == 'closed'"
+                                   context="{'default_shift_id': id}">
+                                <list editable="bottom" string="Tank Dip Readings">
+                                    <field name="location_id"/>
+                                    <field name="product_id" readonly="1"/>
+                                    <field name="opening_volume"/>
+                                    <field name="closing_volume"/>
+                                    <field name="qty_change" readonly="1"/>
+                                    <field name="variance_pct" readonly="1"
+                                           decoration-danger="variance_pct > 0.5"/>
+                                    <field name="notes" optional="hide"/>
+                                </list>
+                            </field>
+                        </page>
+
+                        <!-- Section 4: Attendant cash reconciliation -->
+                        <page string="Attendant Cash" name="cash">
+                            <field name="attendant_cash_ids"
+                                   readonly="state == 'closed'"
+                                   context="{'default_shift_id': id}">
+                                <list editable="bottom" string="Attendant Cash">
+                                    <field name="attendant_id"/>
+                                    <field name="reported_sales" sum="Total Reported"/>
+                                    <field name="cash_collected" sum="Cash"/>
+                                    <field name="mpesa_amount" sum="MPesa"/>
+                                    <field name="card_amount" sum="Card"/>
+                                    <field name="ar_amount" sum="AR"/>
+                                    <field name="expense_amount" sum="Expenses"/>
+                                    <field name="total_accounted" readonly="1" sum="Total Accounted"/>
+                                    <field name="balance" readonly="1" sum="Balance"
+                                           decoration-danger="balance != 0"/>
+                                    <field name="notes" optional="hide"/>
+                                </list>
+                            </field>
+                        </page>
+
+                        <!-- Section 5: Product sales summary (read-only) -->
+                        <page string="Sales Summary" name="sales">
+                            <field name="product_sales_ids" readonly="1">
+                                <list string="Product Sales Summary">
+                                    <field name="product_id"/>
+                                    <field name="qty_sold_elec" sum="Total L"/>
+                                    <field name="qty_sold_man" optional="hide" sum="Total L (Man)"/>
+                                    <field name="amount_elec" sum="Total KES"/>
+                                    <field name="residual_qty" optional="hide"/>
+                                    <field name="residual_amount" optional="hide"/>
+                                </list>
+                            </field>
+
+                            <group>
+                                <group string="Totals">
+                                    <field name="total_meter_sales" readonly="1"/>
+                                    <field name="total_reported_sales" readonly="1"/>
+                                    <field name="fc_cash_balance" readonly="1"
+                                           decoration-danger="fc_cash_balance != 0"
+                                           decoration-success="fc_cash_balance == 0"/>
+                                </group>
+                            </group>
+                        </page>
+
+                        <!-- Section 6: Residual allocations (read-only, populated by FMS-003) -->
+                        <page string="Residual Allocations" name="residuals">
+                            <field name="residual_allocation_ids" readonly="1">
+                                <list string="Residual Allocations">
+                                    <field name="source_product_id"/>
+                                    <field name="target_product_id"/>
+                                    <field name="qty_litres"/>
+                                    <field name="amount"/>
+                                    <field name="journal_entry_id" optional="hide"/>
+                                    <field name="notes" optional="hide"/>
+                                </list>
+                            </field>
+                        </page>
+
+                        <!-- Notes -->
+                        <page string="Notes" name="notes">
+                            <field name="notes" placeholder="Supervisor notes..."/>
+                        </page>
+
+                    </notebook>
+                </sheet>
+
+                <chatter/>
+
+            </form>
+        </field>
+    </record>
+
 </odoo>

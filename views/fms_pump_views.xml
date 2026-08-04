@@ -1,4 +1,66 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- TODO: Add view configuration -->
+
+    <!-- ================================================================
+         Pump & Nozzle configuration views
+    ================================================================ -->
+
+    <!-- Pump list -->
+    <record id="view_fms_pump_tree" model="ir.ui.view">
+        <field name="name">fms.pump.tree</field>
+        <field name="model">fms.pump</field>
+        <field name="arch" type="xml">
+            <list string="Pumps" editable="top">
+                <field name="order"/>
+                <field name="name"/>
+                <field name="active"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Pump form with inline nozzles -->
+    <record id="view_fms_pump_form" model="ir.ui.view">
+        <field name="name">fms.pump.form</field>
+        <field name="model">fms.pump</field>
+        <field name="arch" type="xml">
+            <form string="Pump">
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                        <field name="order"/>
+                        <field name="active"/>
+                    </group>
+                    <field name="nozzle_ids">
+                        <list editable="bottom" string="Nozzles">
+                            <field name="order"/>
+                            <field name="letter"/>
+                            <field name="name"/>
+                            <field name="product_id"
+                                   domain="[('fms_is_fuel','=',True)]"/>
+                            <field name="active"/>
+                        </list>
+                    </field>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_fms_pump" model="ir.actions.act_window">
+        <field name="name">Pumps</field>
+        <field name="res_model">fms.pump</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <!-- Configuration sub-menu -->
+    <menuitem id="menu_fms_config"
+              name="Configuration"
+              parent="menu_fms_root"
+              sequence="90"/>
+
+    <menuitem id="menu_fms_pumps"
+              name="Pumps"
+              parent="menu_fms_config"
+              action="action_fms_pump"
+              sequence="10"/>
+
 </odoo>

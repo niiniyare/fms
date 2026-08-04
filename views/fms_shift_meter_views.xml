@@ -1,4 +1,59 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- TODO: Add view configuration -->
+
+    <!-- ================================================================
+         Standalone meter entry views (for direct access / debugging)
+    ================================================================ -->
+
+    <record id="view_fms_shift_meter_entry_tree" model="ir.ui.view">
+        <field name="name">fms.shift.meter.entry.tree</field>
+        <field name="model">fms.shift.meter.entry</field>
+        <field name="arch" type="xml">
+            <list string="Meter Entries">
+                <field name="shift_id"/>
+                <field name="pump_id"/>
+                <field name="nozzle_id"/>
+                <field name="product_id"/>
+                <field name="opening_elec_volume"/>
+                <field name="closing_elec_volume"/>
+                <field name="qty_sold_elec" sum="Total L"/>
+                <field name="amount_elec" sum="Total KES"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_fms_shift_meter_entry_form" model="ir.ui.view">
+        <field name="name">fms.shift.meter.entry.form</field>
+        <field name="model">fms.shift.meter.entry</field>
+        <field name="arch" type="xml">
+            <form string="Meter Entry">
+                <sheet>
+                    <group>
+                        <group string="Pump">
+                            <field name="shift_id"/>
+                            <field name="pump_id"/>
+                            <field name="nozzle_id"
+                                   domain="[('pump_id','=',pump_id)]"/>
+                            <field name="product_id" readonly="1"/>
+                        </group>
+                        <group string="Electronic Readings">
+                            <field name="opening_elec_volume"/>
+                            <field name="closing_elec_volume"/>
+                            <field name="qty_sold_elec" readonly="1"/>
+                            <field name="amount_elec" readonly="1"/>
+                        </group>
+                        <group string="Manual / Mechanical Readings">
+                            <field name="opening_man_mech"/>
+                            <field name="closing_man_mech"/>
+                            <field name="qty_sold_man" readonly="1"/>
+                        </group>
+                    </group>
+                    <group>
+                        <field name="notes"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
 </odoo>

@@ -108,7 +108,7 @@ class FMSShift(models.Model):
     )
 
     # ------------------------------------------------------------------
-    # Child tables (populated in FMS-002)
+    # Child tables
     # ------------------------------------------------------------------
 
     meter_entry_ids = fields.One2many('fms.shift.meter.entry', 'shift_id', 'Meter Entries')
@@ -116,12 +116,82 @@ class FMSShift(models.Model):
     attendant_cash_ids = fields.One2many(
         'fms.shift.attendant.cash', 'shift_id', 'Attendant Cash',
     )
+    product_sales_ids = fields.One2many(
+        'fms.shift.product.sales', 'shift_id', 'Product Sales',
+        help="Computed rollup of meter entries per product. Refreshed on save.",
+    )
+    residual_allocation_ids = fields.One2many(
+        'fms.shift.residual.allocation', 'shift_id', 'Residual Allocations',
+    )
+
+    # ------------------------------------------------------------------
+    # Summary computed fields
+    # ------------------------------------------------------------------
+
+    total_meter_sales = fields.Float(
+        'Total Meter Sales (KES)', compute='_compute_totals', store=True, digits=(16, 2),
+    )
+    total_reported_sales = fields.Float(
+        'Total Reported Sales (KES)', compute='_compute_totals', store=True, digits=(16, 2),
+    )
+    fc_cash_balance = fields.Float(
+        'FC Cash Balance (KES)', compute='_compute_totals', store=True, digits=(16, 2),
+        help="Total Reported Sales minus Total Meter Sales. Must be 0 to close.",
+    )
+
+    @api.depends(
+        'meter_entry_ids.amount_elec',
+        'attendant_cash_ids.reported_sales',
+    )
+    def _compute_totals(self):
+        for shift in self:
+            shift.total_meter_sales = sum(shift.meter_entry_ids.mapped('amount_elec'))
+            shift.total_reported_sales = sum(shift.attendant_cash_ids.mapped('reported_sales'))
+            shift.fc_cash_balance = shift.total_reported_sales - shift.total_meter_sales
 
     # ------------------------------------------------------------------
     # Notes
     # ------------------------------------------------------------------
 
     notes = fields.Text('Supervisor Notes')
+
+    # ------------------------------------------------------------------
+    # Product sales rollup
+    # ------------------------------------------------------------------
+
+    def action_refresh_product_sales(self):
+        """Re-aggregate meter entries into product sales summary lines."""
+        for shift in self:
+            shift._refresh_product_sales()
+
+    def _refresh_product_sales(self):
+        """
+        Delete existing product_sales_ids and rebuild from meter_entry_ids.
+        Called explicitly by the supervisor button or on shift close.
+        """
+        self.ensure_one()
+        self.product_sales_ids.unlink()
+
+        # Group meter entries by product
+        by_product = {}
+        for entry in self.meter_entry_ids:
+            if not entry.product_id:
+                continue
+            pid = entry.product_id.id
+            if pid not in by_product:
+                by_product[pid] = {'qty_elec': 0.0, 'qty_man': 0.0, 'amount': 0.0}
+            by_product[pid]['qty_elec'] += entry.qty_sold_elec
+            by_product[pid]['qty_man'] += entry.qty_sold_man
+            by_product[pid]['amount'] += entry.amount_elec
+
+        for product_id, totals in by_product.items():
+            self.env['fms.shift.product.sales'].create({
+                'shift_id': self.id,
+                'product_id': product_id,
+                'qty_sold_elec': totals['qty_elec'],
+                'qty_sold_man': totals['qty_man'],
+                'amount_elec': totals['amount'],
+            })
 
     # ------------------------------------------------------------------
     # Display name

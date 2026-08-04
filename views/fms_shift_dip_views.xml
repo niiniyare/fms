@@ -1,4 +1,53 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- TODO: Add view configuration -->
+
+    <!-- ================================================================
+         Standalone dip entry views
+    ================================================================ -->
+
+    <record id="view_fms_shift_dip_entry_tree" model="ir.ui.view">
+        <field name="name">fms.shift.dip.entry.tree</field>
+        <field name="model">fms.shift.dip.entry</field>
+        <field name="arch" type="xml">
+            <list string="Dip Entries">
+                <field name="shift_id"/>
+                <field name="location_id"/>
+                <field name="product_id"/>
+                <field name="opening_volume"/>
+                <field name="closing_volume"/>
+                <field name="qty_change"/>
+                <field name="variance_pct"
+                       decoration-danger="variance_pct > 0.5"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_fms_shift_dip_entry_form" model="ir.ui.view">
+        <field name="name">fms.shift.dip.entry.form</field>
+        <field name="model">fms.shift.dip.entry</field>
+        <field name="arch" type="xml">
+            <form string="Dip Entry">
+                <sheet>
+                    <group>
+                        <group string="Tank">
+                            <field name="shift_id"/>
+                            <field name="location_id"/>
+                            <field name="product_id" readonly="1"/>
+                        </group>
+                        <group string="Volumes">
+                            <field name="opening_volume"/>
+                            <field name="closing_volume"/>
+                            <field name="qty_change" readonly="1"/>
+                            <field name="variance_pct" readonly="1"
+                                   decoration-danger="variance_pct > 0.5"/>
+                        </group>
+                    </group>
+                    <group>
+                        <field name="notes"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
 </odoo>

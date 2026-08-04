@@ -105,4 +105,15 @@
         <field name="perm_create" eval="1"/>
         <field name="perm_unlink" eval="1"/>
     </record>
+
+    <!-- fms.shift.product.sales -->
+    <record id="access_fms_shift_product_sales_user" model="ir.model.access">
+        <field name="name">fms.shift.product.sales user</field>
+        <field name="model_id" ref="model_fms_shift_product_sales"/>
+        <field name="group_id" ref="base.group_user"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="1"/>
+        <field name="perm_create" eval="1"/>
+        <field name="perm_unlink" eval="1"/>
+    </record>
 </odoo>

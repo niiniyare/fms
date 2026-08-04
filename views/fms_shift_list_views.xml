@@ -1,4 +1,76 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- TODO: Add view configuration -->
+
+    <!-- ================================================================
+         Shift list (tree) view + search + action + menu
+    ================================================================ -->
+
+    <record id="view_fms_shift_tree" model="ir.ui.view">
+        <field name="name">fms.shift.tree</field>
+        <field name="model">fms.shift</field>
+        <field name="arch" type="xml">
+            <list string="Shifts" decoration-info="state == 'draft'"
+                  decoration-warning="state == 'closing'"
+                  decoration-success="state == 'closed'"
+                  decoration-muted="state == 'open'">
+                <field name="date"/>
+                <field name="label"/>
+                <field name="supervisor_id"/>
+                <field name="state" widget="badge"
+                       decoration-info="state == 'draft'"
+                       decoration-warning="state == 'closing'"
+                       decoration-success="state == 'closed'"/>
+                <field name="total_meter_sales" sum="Total Meter Sales"/>
+                <field name="total_reported_sales" sum="Total Reported Sales"/>
+                <field name="fc_cash_balance" sum="FC Cash Balance"/>
+                <field name="opening_meter_date" optional="hide"/>
+                <field name="closing_meter_date" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_fms_shift_search" model="ir.ui.view">
+        <field name="name">fms.shift.search</field>
+        <field name="model">fms.shift</field>
+        <field name="arch" type="xml">
+            <search string="Search Shifts">
+                <field name="date"/>
+                <field name="supervisor_id"/>
+                <field name="label"/>
+                <filter name="draft"   string="Draft"   domain="[('state','=','draft')]"/>
+                <filter name="open"    string="Open"    domain="[('state','=','open')]"/>
+                <filter name="closing" string="Closing" domain="[('state','=','closing')]"/>
+                <filter name="closed"  string="Closed"  domain="[('state','=','closed')]"/>
+                <separator/>
+                <filter name="today" string="Today"
+                        domain="[('date','=', context_today().strftime('%Y-%m-%d'))]"/>
+                <group expand="0" string="Group By">
+                    <filter name="by_date"       string="Date"       context="{'group_by': 'date'}"/>
+                    <filter name="by_supervisor"  string="Supervisor" context="{'group_by': 'supervisor_id'}"/>
+                    <filter name="by_state"       string="Status"     context="{'group_by': 'state'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_fms_shift" model="ir.actions.act_window">
+        <field name="name">Shifts</field>
+        <field name="res_model">fms.shift</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_fms_shift_search"/>
+        <field name="context">{'search_default_open': 1}</field>
+    </record>
+
+    <!-- Top-level menu -->
+    <menuitem id="menu_fms_root"
+              name="Forecourt"
+              sequence="50"
+              web_icon="fms,static/description/icon.png"/>
+
+    <menuitem id="menu_fms_shifts"
+              name="Shifts"
+              parent="menu_fms_root"
+              action="action_fms_shift"
+              sequence="10"/>
+
 </odoo>
