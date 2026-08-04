@@ -26,19 +26,34 @@ class FMSMeterLog(models.Model):
         related='nozzle_id.product_id', store=True, readonly=True,
     )
 
-    opening_elec_volume = fields.Float('Opening Electronic (L)', digits=(16, 2))
-    opening_man_mech = fields.Float('Opening Manual/Mech (L)', digits=(16, 2))
-    closing_elec_volume = fields.Float('Closing Electronic (L)', required=True, digits=(16, 2))
-    closing_man_mech = fields.Float('Closing Manual/Mech (L)', digits=(16, 2))
+    attendant_id = fields.Many2one(
+        'hr.employee', 'Attendant', readonly=True,
+        help="Attendant who was responsible for this nozzle during this shift.",
+    )
+
+    # Meter 1: Electronic Volume
+    opening_elec_volume = fields.Float('Opening Elec Vol (L)', digits=(16, 2))
+    closing_elec_volume = fields.Float('Closing Elec Vol (L)', required=True, digits=(16, 2))
+
+    # Meter 2: Electronic Cash (KES totalizer)
+    opening_elec_cash = fields.Float('Opening Elec Cash (KES)', digits=(16, 2))
+    closing_elec_cash = fields.Float('Closing Elec Cash (KES)', digits=(16, 2))
+    elec_cash_sold = fields.Float(
+        'Cash Sold (KES)', compute='_compute_qty', store=True, digits=(16, 2),
+    )
+
+    # Meter 3: Manual Mechanical
+    opening_man_mech = fields.Float('Opening Manual (L)', digits=(16, 2))
+    closing_man_mech = fields.Float('Closing Manual (L)', digits=(16, 2))
 
     qty_sold_elec = fields.Float(
-        'Qty Sold Electronic (L)', compute='_compute_qty', store=True, digits=(16, 2),
+        'Qty Sold Elec (L)', compute='_compute_qty', store=True, digits=(16, 2),
     )
     qty_sold_man = fields.Float(
         'Qty Sold Manual (L)', compute='_compute_qty', store=True, digits=(16, 2),
     )
     amount_elec = fields.Float(
-        'Amount Electronic', compute='_compute_amount', store=True, digits=(16, 2),
+        'Volume × Price (KES)', compute='_compute_amount', store=True, digits=(16, 2),
     )
 
     recorded_date = fields.Datetime('Recorded At', default=fields.Datetime.now, readonly=True)
@@ -47,12 +62,16 @@ class FMSMeterLog(models.Model):
         default=lambda self: self.env.user, readonly=True,
     )
 
-    @api.depends('closing_elec_volume', 'opening_elec_volume',
-                 'closing_man_mech', 'opening_man_mech')
+    @api.depends(
+        'closing_elec_volume', 'opening_elec_volume',
+        'closing_elec_cash', 'opening_elec_cash',
+        'closing_man_mech', 'opening_man_mech',
+    )
     def _compute_qty(self):
         for log in self:
-            log.qty_sold_elec = log.closing_elec_volume - (log.opening_elec_volume or 0.0)
-            log.qty_sold_man = log.closing_man_mech - (log.opening_man_mech or 0.0)
+            log.qty_sold_elec  = log.closing_elec_volume - (log.opening_elec_volume or 0.0)
+            log.elec_cash_sold = log.closing_elec_cash   - (log.opening_elec_cash   or 0.0)
+            log.qty_sold_man   = log.closing_man_mech    - (log.opening_man_mech    or 0.0)
 
     @api.depends('qty_sold_elec', 'product_id', 'product_id.list_price')
     def _compute_amount(self):

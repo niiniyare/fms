@@ -311,24 +311,28 @@ class FMSShift(models.Model):
             meter_entries = []
             for pump in pumps:
                 for nozzle in pump.nozzle_ids.filtered('active'):
-                    opening_elec = 0.0
-                    opening_man  = 0.0
+                    opening_elec      = 0.0
+                    opening_elec_cash = 0.0
+                    opening_man       = 0.0
                     if prev:
                         log = self.env['fms.meter_log'].search([
                             ('shift_id', '=', prev.id),
                             ('nozzle_id', '=', nozzle.id),
                         ], limit=1)
                         if log:
-                            opening_elec = log.closing_elec_volume
-                            opening_man  = log.closing_man_mech
+                            opening_elec      = log.closing_elec_volume
+                            opening_elec_cash = log.closing_elec_cash
+                            opening_man       = log.closing_man_mech
                     meter_entries.append({
-                        'shift_id':             self.id,
-                        'pump_id':              pump.id,
-                        'nozzle_id':            nozzle.id,
-                        'opening_elec_volume':  opening_elec,
-                        'closing_elec_volume':  opening_elec,  # placeholder until close
-                        'opening_man_mech':     opening_man,
-                        'closing_man_mech':     opening_man,
+                        'shift_id':            self.id,
+                        'pump_id':             pump.id,
+                        'nozzle_id':           nozzle.id,
+                        'opening_elec_volume': opening_elec,
+                        'closing_elec_volume': opening_elec,   # placeholder until close
+                        'opening_elec_cash':   opening_elec_cash,
+                        'closing_elec_cash':   opening_elec_cash,  # placeholder until close
+                        'opening_man_mech':    opening_man,
+                        'closing_man_mech':    opening_man,
                     })
             if meter_entries:
                 self.env['fms.shift.meter.entry'].create(meter_entries)

@@ -98,20 +98,37 @@
                                     <field name="nozzle_id"
                                            domain="[('pump_id','=',pump_id)]"/>
                                     <field name="product_id" readonly="1"/>
+                                    <field name="attendant_id"
+                                           string="Attendant"
+                                           domain="[('fms_is_attendant','=',True)]"/>
+
+                                    <!-- Meter 1: Electronic Volume -->
                                     <field name="opening_elec_volume" readonly="1"
-                                           string="Opening (L)"/>
+                                           string="Vol Open (L)"/>
                                     <field name="closing_elec_volume"
-                                           string="Closing (L)"/>
+                                           string="Vol Close (L)"/>
                                     <field name="qty_sold_elec" readonly="1"
-                                           string="Qty Sold (L)" sum="Total L"/>
-                                    <field name="amount_elec" readonly="1"
-                                           string="Amount (KES)" sum="Total KES"/>
+                                           string="Vol Sold (L)" sum="Total L"/>
+
+                                    <!-- Meter 2: Electronic Cash (KES) -->
+                                    <field name="opening_elec_cash" readonly="1"
+                                           string="Cash Open (KES)" optional="show"/>
+                                    <field name="closing_elec_cash"
+                                           string="Cash Close (KES)" optional="show"/>
+                                    <field name="elec_cash_sold" readonly="1"
+                                           string="Cash Sold (KES)" sum="Total Cash KES"/>
+
+                                    <!-- Meter 3: Manual Mechanical -->
                                     <field name="opening_man_mech" optional="hide"
-                                           string="Opening Manual" readonly="1"/>
+                                           string="Man Open (L)" readonly="1"/>
                                     <field name="closing_man_mech" optional="hide"
-                                           string="Closing Manual"/>
+                                           string="Man Close (L)"/>
                                     <field name="qty_sold_man" optional="hide"
-                                           string="Qty Sold Manual" readonly="1"/>
+                                           string="Man Sold (L)" readonly="1"/>
+
+                                    <field name="amount_elec" readonly="1"
+                                           string="Vol×Price (KES)" sum="Total Vol×Price"
+                                           optional="show"/>
                                     <field name="notes" optional="hide"/>
                                 </list>
                             </field>
@@ -172,10 +189,11 @@
                         ═══════════════════════════════════════════ -->
                         <page string="Attendant Cash" name="cash">
                             <p class="text-muted">
-                                Link POS sessions to this shift (header tab) to auto-populate
-                                Sales, MPesa, Card, and AR from POS data.
+                                <strong>Meter Sales</strong> is auto-computed from the
+                                Electronic Cash meter totals of each nozzle assigned to
+                                the attendant in the Meter Readings tab.
                                 <strong>Only "Cash Dropped to Safe" requires manual entry.</strong>
-                                Balance = POS Sales − (Cash + MPesa + Card + AR + Expenses).
+                                Balance = Meter Sales − (Cash + MPesa + Card + AR + Expenses).
                                 Every attendant's balance must be zero before the shift can close.
                             </p>
 
@@ -194,10 +212,10 @@
                                     <!-- Identity -->
                                     <field name="attendant_id" string="Attendant"/>
 
-                                    <!-- INCOMING — all read-only, from POS -->
+                                    <!-- INCOMING — auto-computed from nozzle cash meters -->
                                     <field name="reported_sales" readonly="1"
-                                           string="POS Sales (KES)"
-                                           sum="Total POS Sales"/>
+                                           string="Meter Sales (KES)"
+                                           sum="Total Meter Sales"/>
                                     <field name="mpesa_amount" readonly="1"
                                            string="MPesa (KES)" sum="MPesa Total"
                                            optional="show"/>
@@ -234,7 +252,7 @@
                             <group>
                                 <group string="FC Cash Gate">
                                     <field name="total_reported_sales" readonly="1"
-                                           string="Total POS Sales (KES)"/>
+                                           string="Total Meter Sales (KES)"/>
                                     <field name="total_meter_sales" readonly="1"
                                            string="Total Meter Sales (KES)"/>
                                     <field name="fc_cash_balance" readonly="1"

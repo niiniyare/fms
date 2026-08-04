@@ -39,14 +39,35 @@ class FMSShiftMeterEntry(models.Model):
         'product.product', 'Product',
         related='nozzle_id.product_id', store=True, readonly=True,
     )
+    attendant_id = fields.Many2one(
+        'hr.employee', 'Attendant',
+        domain=[('fms_is_attendant', '=', True)],
+        help="Attendant responsible for money collected on this nozzle this shift.",
+    )
 
-    # Readings
-    opening_elec_volume = fields.Float('Opening Electronic (L)', digits=(16, 2))
-    closing_elec_volume = fields.Float('Closing Electronic (L)', digits=(16, 2))
+    # ── Meter 1: Electronic Volume (litres) ──────────────────────────────────
+    opening_elec_volume = fields.Float('Opening Elec Vol (L)', digits=(16, 2))
+    closing_elec_volume = fields.Float('Closing Elec Vol (L)', digits=(16, 2))
+
+    # ── Meter 2: Electronic Cash (KES totalizer) ─────────────────────────────
+    opening_elec_cash = fields.Float(
+        'Opening Elec Cash (KES)', digits=(16, 2),
+        help="Electronic cash totalizer reading at shift start (KES).",
+    )
+    closing_elec_cash = fields.Float(
+        'Closing Elec Cash (KES)', digits=(16, 2),
+        help="Electronic cash totalizer reading at shift end (KES).",
+    )
+    elec_cash_sold = fields.Float(
+        'Cash Sold (KES)', compute='_compute_qty', store=True, digits=(16, 2),
+        help="Closing − Opening elec cash. This is the amount the attendant must account for.",
+    )
+
+    # ── Meter 3: Manual Mechanical (litres) ──────────────────────────────────
     opening_man_mech = fields.Float('Opening Manual (L)', digits=(16, 2))
     closing_man_mech = fields.Float('Closing Manual (L)', digits=(16, 2))
 
-    # Computed sales quantities
+    # ── Computed quantities ───────────────────────────────────────────────────
     qty_sold_elec = fields.Float(
         'Qty Sold Elec (L)', compute='_compute_qty', store=True, digits=(16, 2),
     )
@@ -54,7 +75,8 @@ class FMSShiftMeterEntry(models.Model):
         'Qty Sold Manual (L)', compute='_compute_qty', store=True, digits=(16, 2),
     )
     amount_elec = fields.Float(
-        'Amount (Elec)', compute='_compute_amount', store=True, digits=(16, 2),
+        'Volume × Price (KES)', compute='_compute_amount', store=True, digits=(16, 2),
+        help="Theoretical value: qty_sold_elec × product list price.",
     )
 
     notes = fields.Char('Notes')
@@ -63,12 +85,16 @@ class FMSShiftMeterEntry(models.Model):
     # Computed fields
     # ------------------------------------------------------------------
 
-    @api.depends('closing_elec_volume', 'opening_elec_volume',
-                 'closing_man_mech', 'opening_man_mech')
+    @api.depends(
+        'closing_elec_volume', 'opening_elec_volume',
+        'closing_elec_cash', 'opening_elec_cash',
+        'closing_man_mech', 'opening_man_mech',
+    )
     def _compute_qty(self):
         for e in self:
-            e.qty_sold_elec = e.closing_elec_volume - (e.opening_elec_volume or 0.0)
-            e.qty_sold_man = e.closing_man_mech - (e.opening_man_mech or 0.0)
+            e.qty_sold_elec  = e.closing_elec_volume - (e.opening_elec_volume or 0.0)
+            e.elec_cash_sold = e.closing_elec_cash   - (e.opening_elec_cash   or 0.0)
+            e.qty_sold_man   = e.closing_man_mech    - (e.opening_man_mech    or 0.0)
 
     @api.depends('qty_sold_elec', 'product_id', 'product_id.list_price')
     def _compute_amount(self):
@@ -112,13 +138,16 @@ class FMSShiftMeterEntry(models.Model):
         """Copy this entry to fms.meter_log (called by shift on close)."""
         self.ensure_one()
         return self.env['fms.meter_log'].sudo().create({
-            'shift_id': self.shift_id.id,
-            'pump_id': self.pump_id.id,
-            'nozzle_id': self.nozzle_id.id,
+            'shift_id':            self.shift_id.id,
+            'pump_id':             self.pump_id.id,
+            'nozzle_id':           self.nozzle_id.id,
+            'attendant_id':        self.attendant_id.id or False,
             'opening_elec_volume': self.opening_elec_volume,
-            'opening_man_mech': self.opening_man_mech,
             'closing_elec_volume': self.closing_elec_volume,
-            'closing_man_mech': self.closing_man_mech,
+            'opening_elec_cash':   self.opening_elec_cash,
+            'closing_elec_cash':   self.closing_elec_cash,
+            'opening_man_mech':    self.opening_man_mech,
+            'closing_man_mech':    self.closing_man_mech,
         })
 
 
@@ -229,11 +258,11 @@ class FMSShiftAttendantCash(models.Model):
              "This is the only field entered manually — all other amounts come from POS and GL.",
     )
 
-    # ── INCOMING (queried from POS) ───────────────────────────────────────────
+    # ── INCOMING (from nozzle elec cash meters) ───────────────────────────────
     reported_sales = fields.Float(
-        'POS Sales (KES)', compute='_compute_from_pos', digits=(16, 2),
-        help="Total from POS orders where cashier = this attendant's linked user, "
-             "across all POS sessions linked to this shift.",
+        'Meter Sales (KES)', compute='_compute_from_meters', store=True, digits=(16, 2),
+        help="Sum of elec_cash_sold across all meter entries where attendant = this attendant. "
+             "This is the cash the pump electronics say this attendant collected.",
     )
     mpesa_amount = fields.Float(
         'MPesa (KES)', compute='_compute_from_pos', digits=(16, 2),
@@ -271,7 +300,24 @@ class FMSShiftAttendantCash(models.Model):
 
     notes = fields.Char('Notes')
 
-    # ── Compute: POS ─────────────────────────────────────────────────────────
+    # ── Compute: Meter-based reported sales ──────────────────────────────────
+
+    @api.depends(
+        'shift_id.meter_entry_ids.attendant_id',
+        'shift_id.meter_entry_ids.elec_cash_sold',
+        'attendant_id',
+    )
+    def _compute_from_meters(self):
+        for rec in self:
+            if not rec.shift_id or not rec.attendant_id:
+                rec.reported_sales = 0.0
+                continue
+            nozzle_entries = rec.shift_id.meter_entry_ids.filtered(
+                lambda e: e.attendant_id == rec.attendant_id
+            )
+            rec.reported_sales = sum(nozzle_entries.mapped('elec_cash_sold'))
+
+    # ── Compute: POS payment breakdown (MPesa / Card / AR) ───────────────────
 
     @api.depends(
         'shift_id.pos_session_ids',
@@ -341,6 +387,8 @@ class FMSShiftAttendantCash(models.Model):
     @api.depends(
         'reported_sales', 'cash_collected',
         'mpesa_amount', 'card_amount', 'ar_amount', 'expense_amount',
+        'shift_id.meter_entry_ids.elec_cash_sold',
+        'shift_id.meter_entry_ids.attendant_id',
     )
     def _compute_balance(self):
         for rec in self:
