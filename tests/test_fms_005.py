@@ -24,17 +24,46 @@ class FMSGLBase(TransactionCase):
 
     def setUp(self):
         super().setUp()
-        # Products with GL accounts
+        company = self.env.company
+
+        # Reuse or create a revenue account
         self.revenue_account = self.env['account.account'].search([
             ('account_type', 'in', ('income', 'income_other')),
-            ('company_id', '=', self.env.company.id),
+            ('company_id', '=', company.id),
         ], limit=1)
+        if not self.revenue_account:
+            self.revenue_account = self.env['account.account'].create({
+                'name': 'FMS Test Revenue',
+                'code': 'FMS9001',
+                'account_type': 'income',
+                'company_id': company.id,
+            })
+
+        # Reuse or create a COGS account
         self.cogs_account = self.env['account.account'].search([
             ('account_type', 'in', ('expense', 'expense_direct_cost')),
-            ('company_id', '=', self.env.company.id),
+            ('company_id', '=', company.id),
         ], limit=1)
-        if not self.revenue_account or not self.cogs_account:
-            self.skipTest("No income/expense accounts found — chart of accounts not installed")
+        if not self.cogs_account:
+            self.cogs_account = self.env['account.account'].create({
+                'name': 'FMS Test COGS',
+                'code': 'FMS9002',
+                'account_type': 'expense',
+                'company_id': company.id,
+            })
+
+        # Reuse or create a sale-type journal
+        self.journal = self.env['account.journal'].search([
+            ('type', '=', 'sale'),
+            ('company_id', '=', company.id),
+        ], limit=1)
+        if not self.journal:
+            self.journal = self.env['account.journal'].create({
+                'name': 'FMS Test Sales Journal',
+                'code': 'FMSSJ',
+                'type': 'sale',
+                'company_id': company.id,
+            })
 
         self.product_diesel = self.env['product.product'].create({
             'name': 'GL-Diesel',
@@ -65,13 +94,6 @@ class FMSGLBase(TransactionCase):
             'fms_is_fuel_tank': True,
             'fms_fuel_product_id': self.product_diesel.id,
         })
-        # Sales journal
-        self.journal = self.env['account.journal'].search([
-            ('type', '=', 'sale'),
-            ('company_id', '=', self.env.company.id),
-        ], limit=1)
-        if not self.journal:
-            self.skipTest("No sale-type journal found — cannot test GL posting")
 
     def _make_closing_shift(self, closing_vol=100.0, opening_vol=0.0, dip_closing=9000.0):
         """Create a shift with one meter entry and one dip, transition to closing."""

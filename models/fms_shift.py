@@ -537,7 +537,10 @@ class FMSShift(models.Model):
                 f"Cannot close a shift that is '{self.state}'. "
                 "Use 'Start Closing' first."
             )
-        # FMS-006: hard gate validation goes here (balance checks, variance gates)
+        # FMS-006: Hard gate validation — all must pass before shift can close
+        self._gate_check_fc_cash()
+        self._gate_check_attendant_balances()
+        self._gate_check_stock_variance()
 
         with self.env.cr.savepoint():
             self._write_meter_logs()
@@ -549,6 +552,83 @@ class FMSShift(models.Model):
         if sales_move:
             vals['sales_journal_entry_id'] = sales_move.id
         self.write(vals)
+
+    # ------------------------------------------------------------------
+    # FMS-006: Hard gate validators (Spec Section 7.2–7.3)
+    # ------------------------------------------------------------------
+
+    # Default maximum allowed tank variance (±0.5% of closing dip volume).
+    # Overridable via ir.config_parameter 'fms.meniscus_pct' in future.
+    _MENISCUS_PCT = 0.5
+
+    def _gate_check_fc_cash(self):
+        """
+        GATE 1: Forecourt cash balance must be exactly zero.
+
+        fc_cash_balance = sum of all attendant balances.
+        If it is non-zero the supervisor has not resolved a discrepancy —
+        they must post a correction before the shift can close.
+        """
+        self.ensure_one()
+        # Re-compute to get latest value from computed fields
+        balance = sum(c.balance for c in self.attendant_cash_ids)
+        if abs(balance) > 0.01:
+            raise ValidationError(
+                f"GATE 1 FAILED — Forecourt Cash Balance is KES {balance:,.2f} "
+                "(must be exactly 0).\n"
+                "Resolve all attendant discrepancies before closing the shift."
+            )
+
+    def _gate_check_attendant_balances(self):
+        """
+        GATE 2: Every individual attendant's balance must be zero.
+
+        Even if the FC total nets to zero, individual discrepancies must
+        be resolved one-by-one.  The error lists every failing attendant.
+        """
+        self.ensure_one()
+        failing = []
+        for cash in self.attendant_cash_ids:
+            if abs(cash.balance) > 0.01:
+                failing.append(
+                    f"  • {cash.attendant_id.name}: KES {cash.balance:,.2f}"
+                )
+        if failing:
+            lines = "\n".join(failing)
+            raise ValidationError(
+                f"GATE 2 FAILED — {len(failing)} attendant(s) have unresolved balances:\n"
+                f"{lines}\n\n"
+                "Each attendant balance must be 0 before the shift can close."
+            )
+
+    def _gate_check_stock_variance(self):
+        """
+        GATE 3: Tank dip variance must be within the allowed meniscus.
+
+        Default meniscus: ±0.5% of closing dip volume.
+        If a tank's variance_pct exceeds this, the supervisor must
+        investigate and post an adjustment or dip correction.
+        """
+        self.ensure_one()
+        meniscus = self._MENISCUS_PCT
+        failing = []
+        for dip in self.dip_entry_ids:
+            if dip.closing_volume <= 0:
+                continue  # Skip tanks with no reading — not an error
+            if dip.variance_pct > meniscus:
+                failing.append(
+                    f"  • {dip.location_id.name}: "
+                    f"variance {dip.variance_pct:.4f}% "
+                    f"(limit ±{meniscus}%)"
+                )
+        if failing:
+            lines = "\n".join(failing)
+            raise ValidationError(
+                f"GATE 3 FAILED — {len(failing)} tank(s) exceed the "
+                f"±{meniscus}% variance meniscus:\n"
+                f"{lines}\n\n"
+                "Investigate the variance or post a dip adjustment before closing."
+            )
 
     # ------------------------------------------------------------------
     # FMS-005: Audit log snapshots
@@ -654,12 +734,27 @@ class FMSShift(models.Model):
         if not self.product_sales_ids:
             return False
 
-        journal = self._get_fms_journal()
-        clearing_account = self._get_clearing_account()
-
         total_sales = sum(ps.amount_elec for ps in self.product_sales_ids)
         if abs(total_sales) < 0.01:
             return False
+
+        # Bail early if no products have GL accounts configured —
+        # avoids journal/account lookups when the chart of accounts is not yet wired.
+        has_revenue_accounts = any(
+            ps.product_id.fms_revenue_account_id
+            for ps in self.product_sales_ids
+            if abs(ps.amount_elec) >= 0.01
+        )
+        if not has_revenue_accounts:
+            _logger.warning(
+                "FMS-005: Shift %s has sales of KES %.2f but no fuel products "
+                "have fms_revenue_account_id configured — GL entry skipped.",
+                self.display_name, total_sales,
+            )
+            return False
+
+        journal = self._get_fms_journal()
+        clearing_account = self._get_clearing_account()
 
         move_lines = []
 
