@@ -235,17 +235,116 @@ class FMSShift(models.Model):
     # ------------------------------------------------------------------
 
     def action_open_shift(self):
-        """Move Draft → Open and stamp opening time."""
+        """
+        Move Draft → Open:
+          1. Enforce single-open-shift constraint (same company).
+          2. Auto-populate meter entries for every active pump nozzle,
+             with opening volumes taken from the previous shift's meter logs.
+          3. Auto-populate dip entries for every active fuel tank,
+             with opening volumes taken from the previous shift's dip logs.
+          4. If no previous shift exists, all opening values default to 0.
+        """
         self.ensure_one()
         if self.state != 'draft':
             raise ValidationError(
                 f"Cannot open a shift that is already '{self.state}'."
             )
+
+        # ── Gate: only one shift open per company ────────────────────────────
+        conflict = self.search([
+            ('company_id', '=', self.company_id.id),
+            ('state', 'in', ('open', 'closing')),
+            ('id', '!=', self.id),
+        ], limit=1)
+        if conflict:
+            raise ValidationError(
+                f"Shift '{conflict.display_name}' is already open at "
+                f"{self.company_id.name}. Close it before opening a new one."
+            )
+
+        # ── Auto-populate entries from previous shift's closing logs ──────────
+        self._populate_opening_entries()
+
         self.write({
             'state': 'open',
             'opening_meter_date': fields.Datetime.now(),
             'opening_meter_user_id': self.env.user.id,
         })
+
+    def _get_previous_shift(self):
+        """Return the most-recently closed shift for this company, or False."""
+        return self.search([
+            ('company_id', '=', self.company_id.id),
+            ('state', '=', 'closed'),
+            ('id', '!=', self.id),
+        ], order='date desc, label desc', limit=1)
+
+    def _populate_opening_entries(self):
+        """
+        Build meter entries for every active nozzle and dip entries for every
+        active fuel tank.
+
+        Opening values come from the previous shift's immutable logs
+        (fms.meter_log.closing_elec_volume / fms.dip_log.closing_volume).
+        Falls back to 0 when no previous shift or no matching log exists.
+
+        Skips creation if entries already exist on this shift (idempotent).
+        """
+        self.ensure_one()
+        prev = self._get_previous_shift()
+
+        # ── Meter entries ────────────────────────────────────────────────────
+        if not self.meter_entry_ids:
+            pumps = self.env['fms.pump'].search([('active', '=', True)])
+            meter_entries = []
+            for pump in pumps:
+                for nozzle in pump.nozzle_ids.filtered('active'):
+                    opening_elec = 0.0
+                    opening_man  = 0.0
+                    if prev:
+                        log = self.env['fms.meter_log'].search([
+                            ('shift_id', '=', prev.id),
+                            ('nozzle_id', '=', nozzle.id),
+                        ], limit=1)
+                        if log:
+                            opening_elec = log.closing_elec_volume
+                            opening_man  = log.closing_man_mech
+                    meter_entries.append({
+                        'shift_id':             self.id,
+                        'pump_id':              pump.id,
+                        'nozzle_id':            nozzle.id,
+                        'opening_elec_volume':  opening_elec,
+                        'closing_elec_volume':  opening_elec,  # placeholder until close
+                        'opening_man_mech':     opening_man,
+                        'closing_man_mech':     opening_man,
+                    })
+            if meter_entries:
+                self.env['fms.shift.meter.entry'].create(meter_entries)
+
+        # ── Dip entries ──────────────────────────────────────────────────────
+        if not self.dip_entry_ids:
+            tanks = self.env['stock.location'].search([
+                ('fms_is_fuel_tank', '=', True),
+                ('active', '=', True),
+            ])
+            dip_entries = []
+            for tank in tanks:
+                opening_vol = 0.0
+                if prev:
+                    log = self.env['fms.dip_log'].search([
+                        ('shift_id', '=', prev.id),
+                        ('location_id', '=', tank.id),
+                    ], limit=1)
+                    if log:
+                        opening_vol = log.closing_volume
+                dip_entries.append({
+                    'shift_id':      self.id,
+                    'location_id':   tank.id,
+                    'opening_volume': opening_vol,
+                    'closing_volume': 0.0,  # entered at shift end
+                })
+            if dip_entries:
+                self.env['fms.shift.dip.entry'].create(dip_entries)
 
     def action_start_closing(self):
         """Move Open → Closing (supervisor initiates close process)."""

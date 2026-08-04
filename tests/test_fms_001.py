@@ -144,6 +144,85 @@ class TestFMSShift(TransactionCase):
         shift.unlink()
         self.assertFalse(self.shift_model.browse(shift_id).exists())
 
+    def test_cannot_open_second_shift_same_company(self):
+        """Only one shift may be open per company at a time."""
+        shift1 = self._make_shift(date='2026-01-15', label='1_day')
+        shift1.action_open_shift()
+        shift2 = self._make_shift(date='2026-01-15', label='2_evening')
+        with self.assertRaises(ValidationError):
+            shift2.action_open_shift()
+
+    def test_closing_shift_blocks_new_open(self):
+        """A shift in 'closing' state also blocks a new open."""
+        shift1 = self._make_shift(date='2026-01-15', label='1_day')
+        shift1.action_open_shift()
+        shift1.action_start_closing()
+        shift2 = self._make_shift(date='2026-01-15', label='2_evening')
+        with self.assertRaises(ValidationError):
+            shift2.action_open_shift()
+
+    def test_auto_populate_meter_entries_on_open(self):
+        """Opening a shift auto-creates meter entries for every active nozzle."""
+        # Create pump + nozzle master data
+        product = self.env['product.product'].create({
+            'name': 'TEST-Diesel', 'fms_is_fuel': True, 'list_price': 222.8,
+        })
+        pump = self.env['fms.pump'].create({'name': 'TEST-AUTO-UX1', 'order': 1})
+        self.env['fms.pump.nozzle'].create({
+            'pump_id': pump.id, 'name': 'A', 'letter': 'A',
+            'order': 1, 'product_id': product.id,
+        })
+        shift = self._make_shift()
+        self.assertEqual(len(shift.meter_entry_ids), 0)
+        shift.action_open_shift()
+        # Should have at least one entry for the nozzle above
+        self.assertGreater(len(shift.meter_entry_ids), 0)
+
+    def test_auto_populate_dip_entries_on_open(self):
+        """Opening a shift auto-creates dip entries for every active fuel tank."""
+        product = self.env['product.product'].create({
+            'name': 'TEST-Diesel2', 'fms_is_fuel': True,
+        })
+        self.env['stock.location'].create({
+            'name': 'TEST-AUTO-Tank1', 'usage': 'internal',
+            'fms_is_fuel_tank': True, 'fms_fuel_product_id': product.id,
+        })
+        shift = self._make_shift()
+        shift.action_open_shift()
+        self.assertGreater(len(shift.dip_entry_ids), 0)
+
+    def test_opening_values_from_previous_shift_logs(self):
+        """Meter entry opening volume = previous closed shift's closing log value."""
+        product = self.env['product.product'].create({
+            'name': 'TEST-VPwr', 'fms_is_fuel': True, 'list_price': 250.0,
+        })
+        pump = self.env['fms.pump'].create({'name': 'TEST-AUTO-VP1', 'order': 99})
+        nozzle = self.env['fms.pump.nozzle'].create({
+            'pump_id': pump.id, 'name': 'A', 'letter': 'A',
+            'order': 1, 'product_id': product.id,
+        })
+        # Build previous closed shift with a meter log closing at 9500 L
+        prev = self._make_shift(date='2026-01-14', label='1_day')
+        prev.action_open_shift()
+        prev.action_start_closing()
+        prev.action_close_shift()
+        # Write log directly (sudo to bypass immutability guard on fresh create)
+        self.env['fms.meter_log'].sudo().create({
+            'shift_id': prev.id,
+            'pump_id': pump.id,
+            'nozzle_id': nozzle.id,
+            'opening_elec_volume': 9000.0,
+            'closing_elec_volume': 9500.0,
+        })
+        # Now open next shift and verify opening = 9500
+        shift = self._make_shift(date='2026-01-15', label='1_day')
+        shift.action_open_shift()
+        entry = shift.meter_entry_ids.filtered(
+            lambda e: e.nozzle_id.id == nozzle.id
+        )
+        self.assertTrue(entry)
+        self.assertAlmostEqual(entry[0].opening_elec_volume, 9500.0)
+
 
 class TestFMSMeterLog(TransactionCase):
 
