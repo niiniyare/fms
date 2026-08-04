@@ -3,3 +3,4 @@
 from . import test_fms_001
 from . import test_fms_002
 from . import test_fms_003
+from . import test_fms_004

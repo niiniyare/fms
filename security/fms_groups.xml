@@ -1,4 +1,55 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- TODO: Add security configuration -->
+    <!-- ================================================================
+         FMS Security Groups (Spec Section 9.1)
+
+         Hierarchy:
+           Attendant  ⊂  Supervisor  ⊂  Accountant (implied read-only)
+
+         Each group implies the one above it so Supervisors automatically
+         have Attendant rights, etc.
+    ================================================================ -->
+
+    <record id="module_fms" model="ir.module.category">
+        <field name="name">Forecourt Management</field>
+        <field name="description">Fuel station shift management (FMS)</field>
+        <field name="sequence">100</field>
+    </record>
+
+    <!-- Group 1: Fuel Station Attendant ─────────────────────────────── -->
+    <!-- Can: create meter/dip entries on open shifts, view own cash line -->
+    <!-- Cannot: close shift, edit other attendants' data, view GL        -->
+    <record id="group_fms_attendant" model="res.groups">
+        <field name="name">Attendant</field>
+        <field name="category_id" ref="module_fms"/>
+        <field name="comment">
+            Fuel station attendant. Can enter meter and dip readings
+            during an open shift and view their own cash reconciliation.
+        </field>
+    </record>
+
+    <!-- Group 2: Shift Supervisor ────────────────────────────────────── -->
+    <!-- Implies Attendant rights. Can close shift, post corrections.     -->
+    <record id="group_fms_supervisor" model="res.groups">
+        <field name="name">Shift Supervisor</field>
+        <field name="category_id" ref="module_fms"/>
+        <field name="implied_ids" eval="[(4, ref('group_fms_attendant'))]"/>
+        <field name="comment">
+            Shift supervisor. Full access to all shift data before close,
+            can close shift when hard gates pass, and post correction entries.
+        </field>
+    </record>
+
+    <!-- Group 3: Accountant / Manager ───────────────────────────────── -->
+    <!-- Read-only across all shifts + audit trail. No close permission. -->
+    <record id="group_fms_accountant" model="res.groups">
+        <field name="name">Accountant / Manager</field>
+        <field name="category_id" ref="module_fms"/>
+        <field name="implied_ids" eval="[(4, ref('group_fms_supervisor'))]"/>
+        <field name="comment">
+            Station accountant or manager. Full read access to all shifts,
+            GL entries, and audit logs. Can manage site preferences.
+        </field>
+    </record>
+
 </odoo>

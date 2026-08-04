@@ -15,23 +15,29 @@
 
                 <!-- ── Header bar ── -->
                 <header>
+                    <!-- Supervisors only: shift lifecycle buttons -->
                     <button name="action_open_shift" string="Open Shift"
                             type="object" class="btn-primary"
+                            groups="fms.group_fms_supervisor"
                             invisible="state != 'draft'"/>
                     <button name="action_start_closing" string="Start Closing"
                             type="object" class="btn-warning"
+                            groups="fms.group_fms_supervisor"
                             invisible="state != 'open'"/>
                     <button name="action_close_shift" string="Close Shift"
                             type="object" class="btn-danger"
+                            groups="fms.group_fms_supervisor"
                             invisible="state != 'closing'"
                             confirm="This will lock the shift and post all journal entries. Continue?"/>
                     <button name="action_refresh_product_sales"
                             string="Refresh Sales Summary"
                             type="object" class="btn-secondary"
+                            groups="fms.group_fms_supervisor"
                             invisible="state not in ('open', 'closing')"/>
                     <button name="action_calculate_residuals"
                             string="Recalculate Residuals"
                             type="object" class="btn-secondary"
+                            groups="fms.group_fms_supervisor"
                             invisible="state not in ('open', 'closing')"
                             confirm="This will clear and rebuild all residual allocations. Continue?"/>
                     <field name="state" widget="statusbar"

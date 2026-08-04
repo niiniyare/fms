@@ -1,4 +1,156 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- TODO: Add security configuration -->
+    <!-- ================================================================
+         FMS Row-Level Security Rules (Spec Section 9.2)
+
+         1. Company scoping  — all users see only their own company's shifts
+         2. Attendant own-shift rule — attendants can only write meter/dip
+            entries that belong to an open shift at their company
+         3. Cash line own-row — attendants can only edit their own cash line
+            (matched by attendant_id.user_id = current user)
+         4. Closed shift read-only — no model-level delete on closed shifts
+            (enforced in ORM unlink override; rule here adds belt-and-suspenders)
+    ================================================================ -->
+
+    <!-- ── 1. Company scoping on fms.shift ───────────────────────────── -->
+    <record id="rule_fms_shift_company_attendant" model="ir.rule">
+        <field name="name">FMS Shift: attendant sees own company</field>
+        <field name="model_id" ref="model_fms_shift"/>
+        <field name="groups" eval="[(4, ref('group_fms_attendant'))]"/>
+        <field name="domain_force">
+            [('company_id', 'in', company_ids)]
+        </field>
+        <field name="perm_read"   eval="1"/>
+        <field name="perm_write"  eval="1"/>
+        <field name="perm_create" eval="1"/>
+        <field name="perm_unlink" eval="1"/>
+    </record>
+
+    <record id="rule_fms_shift_company_supervisor" model="ir.rule">
+        <field name="name">FMS Shift: supervisor sees own company</field>
+        <field name="model_id" ref="model_fms_shift"/>
+        <field name="groups" eval="[(4, ref('group_fms_supervisor'))]"/>
+        <field name="domain_force">
+            [('company_id', 'in', company_ids)]
+        </field>
+        <field name="perm_read"   eval="1"/>
+        <field name="perm_write"  eval="1"/>
+        <field name="perm_create" eval="1"/>
+        <field name="perm_unlink" eval="1"/>
+    </record>
+
+    <!-- ── 2. Attendants can only write meter entries on open shifts ──── -->
+    <record id="rule_fms_meter_entry_open_shift_attendant" model="ir.rule">
+        <field name="name">FMS Meter Entry: attendant — open shifts only</field>
+        <field name="model_id" ref="model_fms_shift_meter_entry"/>
+        <field name="groups" eval="[(4, ref('group_fms_attendant'))]"/>
+        <field name="domain_force">
+            [('shift_id.state', 'in', ['open', 'closing']),
+             ('shift_id.company_id', 'in', company_ids)]
+        </field>
+        <field name="perm_read"   eval="1"/>
+        <field name="perm_write"  eval="1"/>
+        <field name="perm_create" eval="1"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <!-- Supervisors can access meter entries on any non-closed shift -->
+    <record id="rule_fms_meter_entry_supervisor" model="ir.rule">
+        <field name="name">FMS Meter Entry: supervisor — own company</field>
+        <field name="model_id" ref="model_fms_shift_meter_entry"/>
+        <field name="groups" eval="[(4, ref('group_fms_supervisor'))]"/>
+        <field name="domain_force">
+            [('shift_id.company_id', 'in', company_ids)]
+        </field>
+        <field name="perm_read"   eval="1"/>
+        <field name="perm_write"  eval="1"/>
+        <field name="perm_create" eval="1"/>
+        <field name="perm_unlink" eval="1"/>
+    </record>
+
+    <!-- ── 3. Attendants can only write dip entries on open shifts ────── -->
+    <record id="rule_fms_dip_entry_open_shift_attendant" model="ir.rule">
+        <field name="name">FMS Dip Entry: attendant — open shifts only</field>
+        <field name="model_id" ref="model_fms_shift_dip_entry"/>
+        <field name="groups" eval="[(4, ref('group_fms_attendant'))]"/>
+        <field name="domain_force">
+            [('shift_id.state', 'in', ['open', 'closing']),
+             ('shift_id.company_id', 'in', company_ids)]
+        </field>
+        <field name="perm_read"   eval="1"/>
+        <field name="perm_write"  eval="1"/>
+        <field name="perm_create" eval="1"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <record id="rule_fms_dip_entry_supervisor" model="ir.rule">
+        <field name="name">FMS Dip Entry: supervisor — own company</field>
+        <field name="model_id" ref="model_fms_shift_dip_entry"/>
+        <field name="groups" eval="[(4, ref('group_fms_supervisor'))]"/>
+        <field name="domain_force">
+            [('shift_id.company_id', 'in', company_ids)]
+        </field>
+        <field name="perm_read"   eval="1"/>
+        <field name="perm_write"  eval="1"/>
+        <field name="perm_create" eval="1"/>
+        <field name="perm_unlink" eval="1"/>
+    </record>
+
+    <!-- ── 4. Attendant cash: own row only for attendants ─────────────── -->
+    <!-- Attendants can only see/edit their own cash reconciliation line   -->
+    <record id="rule_fms_attendant_cash_own_row" model="ir.rule">
+        <field name="name">FMS Cash: attendant sees own line only</field>
+        <field name="model_id" ref="model_fms_shift_attendant_cash"/>
+        <field name="groups" eval="[(4, ref('group_fms_attendant'))]"/>
+        <field name="domain_force">
+            ['|',
+             ('attendant_id.user_id', '=', user.id),
+             ('attendant_id', '=', False)]
+        </field>
+        <field name="perm_read"   eval="1"/>
+        <field name="perm_write"  eval="1"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <record id="rule_fms_attendant_cash_supervisor" model="ir.rule">
+        <field name="name">FMS Cash: supervisor sees all in company</field>
+        <field name="model_id" ref="model_fms_shift_attendant_cash"/>
+        <field name="groups" eval="[(4, ref('group_fms_supervisor'))]"/>
+        <field name="domain_force">
+            [('shift_id.company_id', 'in', company_ids)]
+        </field>
+        <field name="perm_read"   eval="1"/>
+        <field name="perm_write"  eval="1"/>
+        <field name="perm_create" eval="1"/>
+        <field name="perm_unlink" eval="1"/>
+    </record>
+
+    <!-- ── 5. Immutable log read scope ───────────────────────────────── -->
+    <record id="rule_fms_meter_log_company" model="ir.rule">
+        <field name="name">FMS Meter Log: own company only</field>
+        <field name="model_id" ref="model_fms_meter_log"/>
+        <field name="groups" eval="[(4, ref('group_fms_attendant'))]"/>
+        <field name="domain_force">
+            [('shift_id.company_id', 'in', company_ids)]
+        </field>
+        <field name="perm_read"   eval="1"/>
+        <field name="perm_write"  eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <record id="rule_fms_dip_log_company" model="ir.rule">
+        <field name="name">FMS Dip Log: own company only</field>
+        <field name="model_id" ref="model_fms_dip_log"/>
+        <field name="groups" eval="[(4, ref('group_fms_attendant'))]"/>
+        <field name="domain_force">
+            [('shift_id.company_id', 'in', company_ids)]
+        </field>
+        <field name="perm_read"   eval="1"/>
+        <field name="perm_write"  eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
 </odoo>

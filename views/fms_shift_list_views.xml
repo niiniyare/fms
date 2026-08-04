@@ -61,16 +61,18 @@
         <field name="context">{'search_default_open': 1}</field>
     </record>
 
-    <!-- Top-level menu -->
+    <!-- Top-level menu — visible to all FMS groups -->
     <menuitem id="menu_fms_root"
               name="Forecourt"
               sequence="50"
+              groups="fms.group_fms_attendant"
               web_icon="fms,static/description/icon.png"/>
 
     <menuitem id="menu_fms_shifts"
               name="Shifts"
               parent="menu_fms_root"
               action="action_fms_shift"
+              groups="fms.group_fms_attendant"
               sequence="10"/>
 
 </odoo>
