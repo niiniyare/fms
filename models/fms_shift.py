@@ -782,7 +782,7 @@ class FMSShift(models.Model):
 
     def _gate_check_fc_cash(self):
         """
-        GATE 1: Forecourt cash balance must be exactly zero.
+        GATE 4 (FC Cash): Forecourt cash balance must be exactly zero.
 
         fc_cash_balance = sum of all attendant balances.
         If it is non-zero the supervisor has not resolved a discrepancy —
@@ -793,14 +793,14 @@ class FMSShift(models.Model):
         balance = sum(c.balance for c in self.attendant_cash_ids)
         if abs(balance) > 0.01:
             raise ValidationError(
-                f"GATE 1 FAILED — Forecourt Cash Balance is KES {balance:,.2f} "
+                f"GATE 4 FAILED (FC Cash) — Forecourt Cash Balance is KES {balance:,.2f} "
                 "(must be exactly 0).\n"
                 "Resolve all attendant discrepancies before closing the shift."
             )
 
     def _gate_check_attendant_balances(self):
         """
-        GATE 2: Every individual attendant's balance must be zero.
+        GATE 3 (Attendants): Every individual attendant's balance must be zero.
 
         Even if the FC total nets to zero, individual discrepancies must
         be resolved one-by-one.  The error lists every failing attendant.
@@ -815,14 +815,14 @@ class FMSShift(models.Model):
         if failing:
             lines = "\n".join(failing)
             raise ValidationError(
-                f"GATE 2 FAILED — {len(failing)} attendant(s) have unresolved balances:\n"
+                f"GATE 3 FAILED (Attendants) — {len(failing)} attendant(s) have unresolved balances:\n"
                 f"{lines}\n\n"
                 "Each attendant balance must be 0 before the shift can close."
             )
 
     def _gate_check_stock_variance(self):
         """
-        GATE 3: Tank dip variance must be within the allowed meniscus.
+        GATE 5 (Variance): Tank dip variance must be within the allowed meniscus.
 
         Default meniscus: ±0.5% of closing dip volume.
         If a tank's variance_pct exceeds this, the supervisor must
@@ -843,7 +843,7 @@ class FMSShift(models.Model):
         if failing:
             lines = "\n".join(failing)
             raise ValidationError(
-                f"GATE 3 FAILED — {len(failing)} tank(s) exceed the "
+                f"GATE 5 FAILED (Variance) — {len(failing)} tank(s) exceed the "
                 f"±{meniscus}% variance meniscus:\n"
                 f"{lines}\n\n"
                 "Investigate the variance or post a dip adjustment before closing."
@@ -852,6 +852,7 @@ class FMSShift(models.Model):
     def _gate_check_volume_reconciliation(self):
         """
         GATE 1 (Volume): Total pump meter volume ≈ total POS-accounted volume.
+        Numbered first in the gate sequence (called before cash, attendant, FC cash, variance).
 
         Tolerance: 0.5L across all products. This confirms that the inventory
         picture is consistent — meter litres dispensed = POS litres sold +

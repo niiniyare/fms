@@ -1,17 +1,27 @@
 """
 test_fms_008.py — UAT (User Acceptance Tests) for FMS: End-to-End Scenarios
 
-Five scenarios that mirror real supervisor workflows at a fuel station:
+Gate numbering (matches action_close_shift call order):
+  Gate 1 (Volume)     — meter L ≈ POS L
+  Gate 2 (Cash)       — cash meter KES ≈ POS KES
+  Gate 3 (Attendants) — each attendant balance = 0
+  Gate 4 (FC Cash)    — FC cash total = 0
+  Gate 5 (Variance)   — tank dip within meniscus
 
+Scenarios:
   UAT-1: Normal shift close — no residuals, all gates pass, GL posted
   UAT-2: Residual allocation — diesel over-reported, carwash under-reported
-  UAT-3: Gate 1 block — FC cash variance prevents close
-  UAT-4: Gate 3 block — tank variance > 0.5% prevents close
+  UAT-3: Gate 4 (FC Cash) block — FC cash variance prevents close
+  UAT-4: Gate 5 (Variance) block — tank variance > 0.5% prevents close
   UAT-5: Sequential shifts — second shift picks up closing readings from first
+  UAT-6: Gate 1 (Volume) — meter vs POS volume gap blocks close
+  UAT-7: Gate 2 (Cash) — cash meter vs POS revenue gap blocks close
+  UAT-8: Shift lifecycle — empty auto-close, supervisor rules, auto-open next shift
 
 Run: make odoo-test
 """
 
+from datetime import date, timedelta
 from odoo.tests import TransactionCase
 from odoo.exceptions import ValidationError
 
@@ -82,10 +92,16 @@ class FMSUATBase(TransactionCase):
             'name': 'UAT-Attendant', 'fms_is_attendant': True,
         })
 
-    def _make_shift(self, date='2026-06-15', label='1_day'):
-        return self.env['fms.shift'].create({
-            'date': date, 'label': label, 'supervisor_id': self.supervisor.id,
-        })
+        # Disable auto-open by default so tests don't trigger extra shifts
+        prefs = self.env['fms.site.preferences'].get_for_company()
+        prefs.auto_open_next_shift = False
+
+    def _make_shift(self, date='2026-06-15', label='1_day', supervisor=True):
+        """Create a shift in draft state. Pass supervisor=False to omit supervisor_id."""
+        vals = {'date': date, 'label': label}
+        if supervisor:
+            vals['supervisor_id'] = self.supervisor.id
+        return self.env['fms.shift'].create(vals)
 
     def _open_shift(self, shift):
         shift.action_open_shift()
@@ -251,15 +267,15 @@ class TestUAT2ResidualAllocation(FMSUATBase):
 
 
 # ---------------------------------------------------------------------------
-# UAT-3: Gate 1 block — FC cash variance prevents close
+# UAT-3: Gate 4 (FC Cash) — FC cash variance prevents close
 # ---------------------------------------------------------------------------
 
-class TestUAT3Gate1Block(FMSUATBase):
+class TestUAT3Gate4FCCashBlock(FMSUATBase):
 
     def test_uat3_fc_cash_variance_blocks_close(self):
         """
         Attendant dropped KES 10,000 cash but POS shows zero sales.
-        FC balance = -10,000. Shift cannot close.
+        FC balance = -10,000. Shift cannot close (Gate 4).
         """
         shift = self._make_shift()
         self._open_shift(shift)
@@ -274,11 +290,11 @@ class TestUAT3Gate1Block(FMSUATBase):
 
         with self.assertRaises(ValidationError) as ctx:
             shift.action_close_shift()
-        self.assertIn('GATE 1', str(ctx.exception))
+        self.assertIn('GATE 4', str(ctx.exception))
         self.assertEqual(shift.state, 'closing')
 
     def test_uat3_resolving_cash_allows_close(self):
-        """Zeroing out cash collected clears the gate."""
+        """Zeroing out cash collected clears Gate 4."""
         shift = self._make_shift()
         self._open_shift(shift)
         shift.action_start_closing()
@@ -301,14 +317,14 @@ class TestUAT3Gate1Block(FMSUATBase):
 
 
 # ---------------------------------------------------------------------------
-# UAT-4: Gate 3 block — dip variance > 0.5% prevents close
+# UAT-4: Gate 5 (Variance) — dip variance > 0.5% prevents close
 # ---------------------------------------------------------------------------
 
-class TestUAT4Gate3Block(FMSUATBase):
+class TestUAT4Gate5VarianceBlock(FMSUATBase):
 
     def test_uat4_dip_variance_blocks_close(self):
         """
-        Tank dip shows variance of 2% (> 0.5% meniscus). Shift blocked.
+        Tank dip shows variance of 2% (> 0.5% meniscus). Shift blocked (Gate 5).
         opening=10000L, closing=9800L → change=200L → variance=200/9800≈2.04%
         """
         shift = self._make_shift()
@@ -318,7 +334,7 @@ class TestUAT4Gate3Block(FMSUATBase):
 
         with self.assertRaises(ValidationError) as ctx:
             shift.action_close_shift()
-        self.assertIn('GATE 3', str(ctx.exception))
+        self.assertIn('GATE 5', str(ctx.exception))
         self.assertEqual(shift.state, 'closing')
 
     def test_uat4_dip_within_meniscus_allows_close(self):
@@ -366,7 +382,7 @@ class TestUAT5SequentialShifts(FMSUATBase):
         self.assertEqual(shift1.state, 'closed')
 
         # Shift 2 — opening readings should come from shift1's closing
-        shift2 = self._make_shift(date='2026-06-15', label='2_night')
+        shift2 = self._make_shift(date='2026-06-15', label='3_night')
         self._open_shift(shift2)
 
         diesel_entry = shift2.meter_entry_ids.filtered(
@@ -390,7 +406,7 @@ class TestUAT5SequentialShifts(FMSUATBase):
         shift1.action_close_shift()
 
         # Shift 2
-        shift2 = self._make_shift(date='2026-06-16', label='2_night')
+        shift2 = self._make_shift(date='2026-06-16', label='3_night')
         self._open_shift(shift2)
 
         dip_entry = shift2.dip_entry_ids.filtered(
@@ -407,7 +423,7 @@ class TestUAT5SequentialShifts(FMSUATBase):
         shift1 = self._make_shift(date='2026-06-17', label='1_day')
         self._open_shift(shift1)
 
-        shift2 = self._make_shift(date='2026-06-17', label='2_night')
+        shift2 = self._make_shift(date='2026-06-17', label='3_night')
         with self.assertRaises(ValidationError):
             self._open_shift(shift2)
 
@@ -590,9 +606,9 @@ class TestUAT7Gate2CashBlock(FMSUATBase):
             diesel_ps.elec_cash_sold = 50.0  # 50 KES vs 0 POS = within tolerance
             shift._gate_check_cash_reconciliation()  # must not raise
 
-    def test_uat7_gate2_runs_before_gate3_in_close_sequence(self):
+    def test_uat7_gate2_runs_before_gate5_in_close_sequence(self):
         """
-        Gate 2 (cash) fires before Gate 3 (dip variance) in action_close_shift.
+        Gate 2 (cash) fires before Gate 5 (dip variance) in action_close_shift.
         Set up a shift where both would fail; ensure error mentions GATE 2.
         """
         shift = self._make_shift(date='2026-07-11', label='1_day')
@@ -604,13 +620,146 @@ class TestUAT7Gate2CashBlock(FMSUATBase):
         )
         entry.write({'closing_elec_cash': 100_000.0})
 
-        # Set a bad dip (would trigger Gate 3/dip variance gate)
+        # Set a bad dip (would trigger Gate 5/dip variance gate)
         self._set_closing_dip(shift, self.tank_diesel, 10_000.0, 9_500.0)
 
         shift.write({'state': 'closing'})
         shift._refresh_product_sales()
 
-        # Should fail on Gate 2 (cash) before ever reaching Gate 3 (dip)
+        # Should fail on Gate 2 (cash) before ever reaching Gate 5 (dip)
         with self.assertRaises(ValidationError) as ctx:
             shift.action_close_shift()
         self.assertIn('GATE 2', str(ctx.exception))
+
+
+# ---------------------------------------------------------------------------
+# UAT-8: Shift lifecycle — new behaviour
+# ---------------------------------------------------------------------------
+
+class TestUAT8ShiftLifecycle(FMSUATBase):
+    """
+    Tests for the revised shift model:
+      - Supervisor optional at open, required at close only when sales exist
+      - Empty shift (no sales, zero balances) closes without gates or supervisor
+      - Auto-open next shift creates successor in 'open' state
+      - planned_open / planned_close set on create
+      - company_id forced from env.company
+      - _next_label_and_date for 8hr/12hr/24hr sequences
+      - auto_open_next_shift=False disables auto-open
+    """
+
+    def test_uat8_empty_shift_closes_without_supervisor(self):
+        """Shift with no sales and no cash closes automatically — no supervisor needed."""
+        shift = self._make_shift(supervisor=False)
+        self._open_shift(shift)
+        shift.action_start_closing()
+        shift.action_close_shift()  # must not raise
+        self.assertEqual(shift.state, 'closed')
+
+    def test_uat8_empty_shift_skips_all_gate_checks(self):
+        """
+        Empty shift close bypasses gate sequence even when skipped via write().
+        No dip entries, no attendant cash, no meter sales.
+        """
+        shift = self._make_shift(supervisor=False)
+        self._open_shift(shift)
+        shift.write({'state': 'closing'})
+        shift.action_close_shift()
+        self.assertEqual(shift.state, 'closed')
+
+    def test_uat8_shift_with_sales_requires_supervisor_at_close(self):
+        """A shift that has meter sales must have a supervisor before action_close_shift."""
+        shift = self._make_shift(supervisor=False)
+        self._open_shift(shift)
+
+        self._set_closing_meter(shift, self.nozzle_diesel, closing_elec=100.0)
+        shift.action_start_closing()
+
+        with self.assertRaises(ValidationError) as ctx:
+            shift.action_close_shift()
+        self.assertIn('supervisor', str(ctx.exception).lower())
+
+    def test_uat8_supervisor_can_be_set_after_open(self):
+        """Supervisor field can be assigned at any point while the shift is running."""
+        shift = self._make_shift(supervisor=False)
+        self._open_shift(shift)
+
+        shift.supervisor_id = self.supervisor.id
+        self.assertEqual(shift.supervisor_id, self.supervisor)
+
+    def test_uat8_planned_times_set_on_create(self):
+        """planned_open and planned_close are populated when a shift is created."""
+        shift = self._make_shift(date='2026-08-01', label='1_day')
+        self.assertIsNotNone(shift.planned_open,  "planned_open must be set on create")
+        self.assertIsNotNone(shift.planned_close, "planned_close must be set on create")
+        self.assertGreater(shift.planned_close, shift.planned_open)
+
+    def test_uat8_company_forced_from_env(self):
+        """company_id is always env.company regardless of what is passed."""
+        shift = self.env['fms.shift'].create({'date': '2026-08-01', 'label': '1_day'})
+        self.assertEqual(shift.company_id, self.env.company)
+
+    def test_uat8_auto_open_next_shift_creates_successor(self):
+        """On close, auto_open_next_shift=True creates a new shift in 'open' state."""
+        prefs = self.env['fms.site.preferences'].get_for_company()
+        prefs.auto_open_next_shift = True
+
+        shift = self._make_shift(date='2026-08-01', label='1_day')
+        self._open_shift(shift)
+        shift.action_start_closing()
+        shift.action_close_shift()
+
+        next_shift = self.env['fms.shift'].search([
+            ('date', '>=', '2026-08-01'),
+            ('id', '!=', shift.id),
+        ], order='id desc', limit=1)
+
+        self.assertTrue(next_shift, "A successor shift must be created after auto-open")
+        self.assertEqual(next_shift.state, 'open')
+
+    def test_uat8_auto_open_disabled_no_successor(self):
+        """When auto_open_next_shift=False, no successor shift is created."""
+        prefs = self.env['fms.site.preferences'].get_for_company()
+        prefs.auto_open_next_shift = False
+
+        before_ids = self.env['fms.shift'].search([]).ids
+
+        shift = self._make_shift(date='2026-08-02', label='1_day')
+        self._open_shift(shift)
+        shift.action_start_closing()
+        shift.action_close_shift()
+
+        after = self.env['fms.shift'].search([('id', 'not in', before_ids + [shift.id])])
+        self.assertFalse(after, "No new shift when auto_open_next_shift=False")
+
+    def test_uat8_next_label_8hr_day_to_evening(self):
+        """8hr schedule: Day → Evening on the same date."""
+        shift = self._make_shift(date='2026-08-01', label='1_day')
+        from datetime import date as date_
+        next_label, next_date = shift._next_label_and_date('8')
+        self.assertEqual(next_label, '2_evening')
+        self.assertEqual(next_date, date_(2026, 8, 1))
+
+    def test_uat8_next_label_8hr_night_wraps_to_next_day(self):
+        """8hr schedule: Night → Day on the following date."""
+        shift = self._make_shift(date='2026-08-01', label='3_night')
+        from datetime import date as date_
+        next_label, next_date = shift._next_label_and_date('8')
+        self.assertEqual(next_label, '1_day')
+        self.assertEqual(next_date, date_(2026, 8, 2))
+
+    def test_uat8_next_label_12hr_day_to_night(self):
+        """12hr schedule: Day → Night on the same date."""
+        shift = self._make_shift(date='2026-08-01', label='1_day')
+        from datetime import date as date_
+        next_label, next_date = shift._next_label_and_date('12')
+        self.assertEqual(next_label, '3_night')
+        self.assertEqual(next_date, date_(2026, 8, 1))
+
+    def test_uat8_next_label_24hr_always_next_day(self):
+        """24hr schedule: next shift is always Day + 1."""
+        shift = self._make_shift(date='2026-08-01', label='1_day')
+        from datetime import date as date_
+        next_label, next_date = shift._next_label_and_date('24')
+        self.assertEqual(next_label, '1_day')
+        self.assertEqual(next_date, date_(2026, 8, 2))
