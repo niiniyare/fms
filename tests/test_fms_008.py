@@ -32,26 +32,30 @@ class FMSUATBase(TransactionCase):
     def setUp(self):
         super().setUp()
 
+        # Reset any open shifts so the single-open-shift constraint doesn't block tests
+        self.env['fms.shift'].search([('state', '=', 'open')]).write({'state': 'draft'})
+
         # Revenue account for GL posting
+        # Note: Odoo 18 uses company_ids (Many2many) on account.account
         company = self.env.company
         self.revenue_account = self.env['account.account'].search([
             ('account_type', 'in', ('income', 'income_other')),
-            ('company_id', '=', company.id),
+            ('company_ids', 'in', company.id),
         ], limit=1)
         if not self.revenue_account:
             self.revenue_account = self.env['account.account'].create({
                 'name': 'UAT Revenue', 'code': 'UAT9001',
-                'account_type': 'income', 'company_id': company.id,
+                'account_type': 'income', 'company_ids': [(4, company.id)],
             })
 
         self.cogs_account = self.env['account.account'].search([
             ('account_type', 'in', ('expense', 'expense_direct_cost')),
-            ('company_id', '=', company.id),
+            ('company_ids', 'in', company.id),
         ], limit=1)
         if not self.cogs_account:
             self.cogs_account = self.env['account.account'].create({
                 'name': 'UAT COGS', 'code': 'UAT9002',
-                'account_type': 'expense', 'company_id': company.id,
+                'account_type': 'expense', 'company_ids': [(4, company.id)],
             })
 
         # Fuel products
