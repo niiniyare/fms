@@ -1002,13 +1002,13 @@ class FMSShift(models.Model):
         Account = self.env['account.account']
         acc = Account.search([
             ('name', 'ilike', 'clearing'),
-            ('company_id', '=', self.company_id.id),
+            ('company_ids', 'in', self.company_id.id),
             ('account_type', 'in', ('asset_receivable', 'asset_current')),
         ], limit=1)
         if not acc:
             acc = Account.search([
                 ('account_type', '=', 'asset_receivable'),
-                ('company_id', '=', self.company_id.id),
+                ('company_ids', 'in', self.company_id.id),
             ], limit=1)
         if not acc:
             raise ValidationError(
