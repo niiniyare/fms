@@ -99,12 +99,12 @@
         <field name="view_mode">list,form</field>
     </record>
 
-    <!-- Configuration sub-menu -->
+    <!-- Configuration submenu (mirrors Inventory > Configuration) -->
     <menuitem id="menu_fms_config"
               name="Configuration"
               parent="menu_fms_root"
               groups="fms.group_fms_supervisor"
-              sequence="90"/>
+              sequence="99"/>
 
     <menuitem id="menu_fms_pumps"
               name="Pumps"

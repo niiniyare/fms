@@ -53,6 +53,50 @@
         </field>
     </record>
 
+    <!-- Kanban view for Overview tab -->
+    <record id="view_fms_shift_kanban" model="ir.ui.view">
+        <field name="name">fms.shift.kanban</field>
+        <field name="model">fms.shift</field>
+        <field name="arch" type="xml">
+            <kanban default_group_by="state" class="o_kanban_small_column">
+                <field name="date"/>
+                <field name="label"/>
+                <field name="supervisor_id"/>
+                <field name="state"/>
+                <field name="total_meter_sales"/>
+                <field name="fc_cash_balance"/>
+                <templates>
+                    <t t-name="card">
+                        <div class="oe_kanban_global_click">
+                            <strong><field name="date"/> — <field name="label"/></strong>
+                            <div class="text-muted">
+                                <field name="supervisor_id"/>
+                            </div>
+                            <div class="mt-1">
+                                Sales: <field name="total_meter_sales" widget="monetary"/>
+                            </div>
+                            <div>
+                                <field name="state" widget="badge"
+                                       decoration-info="state == 'draft'"
+                                       decoration-warning="state == 'closing'"
+                                       decoration-success="state == 'closed'"/>
+                            </div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <!-- Overview action (kanban + list, no default filter) -->
+    <record id="action_fms_shift_overview" model="ir.actions.act_window">
+        <field name="name">Forecourt Overview</field>
+        <field name="res_model">fms.shift</field>
+        <field name="view_mode">kanban,list,form</field>
+        <field name="search_view_id" ref="view_fms_shift_search"/>
+    </record>
+
+    <!-- Shifts list action (Operations > Shifts — default filter: open) -->
     <record id="action_fms_shift" model="ir.actions.act_window">
         <field name="name">Shifts</field>
         <field name="res_model">fms.shift</field>
@@ -61,18 +105,72 @@
         <field name="context">{'search_default_open': 1}</field>
     </record>
 
-    <!-- Top-level menu — visible to all FMS groups -->
+    <!-- Meter log list action (Reporting) -->
+    <record id="action_fms_meter_log" model="ir.actions.act_window">
+        <field name="name">Meter Logs</field>
+        <field name="res_model">fms.meter_log</field>
+        <field name="view_mode">list</field>
+    </record>
+
+    <!-- Dip log list action (Reporting) -->
+    <record id="action_fms_dip_log" model="ir.actions.act_window">
+        <field name="name">Dip Logs</field>
+        <field name="res_model">fms.dip_log</field>
+        <field name="view_mode">list</field>
+    </record>
+
+    <!-- ================================================================
+         Menu structure (mirrors Inventory):
+           Forecourt > Overview | Operations | Reporting | Configuration
+    ================================================================ -->
+
     <menuitem id="menu_fms_root"
               name="Forecourt"
               sequence="50"
               groups="fms.group_fms_attendant"
               web_icon="fms,static/description/icon.png"/>
 
+    <!-- 1. Overview -->
+    <menuitem id="menu_fms_overview"
+              name="Overview"
+              parent="menu_fms_root"
+              action="action_fms_shift_overview"
+              groups="fms.group_fms_attendant"
+              sequence="5"/>
+
+    <!-- 2. Operations -->
+    <menuitem id="menu_fms_operations"
+              name="Operations"
+              parent="menu_fms_root"
+              groups="fms.group_fms_attendant"
+              sequence="10"/>
+
     <menuitem id="menu_fms_shifts"
               name="Shifts"
-              parent="menu_fms_root"
+              parent="menu_fms_operations"
               action="action_fms_shift"
               groups="fms.group_fms_attendant"
               sequence="10"/>
+
+    <!-- 3. Reporting (supervisor+) -->
+    <menuitem id="menu_fms_reporting"
+              name="Reporting"
+              parent="menu_fms_root"
+              groups="fms.group_fms_supervisor"
+              sequence="90"/>
+
+    <menuitem id="menu_fms_meter_logs"
+              name="Meter Logs"
+              parent="menu_fms_reporting"
+              action="action_fms_meter_log"
+              groups="fms.group_fms_supervisor"
+              sequence="10"/>
+
+    <menuitem id="menu_fms_dip_logs"
+              name="Dip Logs"
+              parent="menu_fms_reporting"
+              action="action_fms_dip_log"
+              groups="fms.group_fms_supervisor"
+              sequence="20"/>
 
 </odoo>
