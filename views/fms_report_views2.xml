@@ -11,8 +11,8 @@
         <field name="arch" type="xml">
             <list string="Meter Variance Log" create="false" edit="false" delete="false"
                   default_order="shift_date desc, pump_name, nozzle_name"
-                  decoration-danger="abs(variance_pct) &gt; 1"
-                  decoration-warning="abs(variance_pct) &gt; 0.5 and abs(variance_pct) &lt;= 1">
+                  decoration-danger="variance_pct &gt; 1 or variance_pct &lt; -1"
+                  decoration-warning="(variance_pct &gt; 0.5 or variance_pct &lt; -0.5) and variance_pct &lt;= 1 and variance_pct &gt;= -1">
                 <field name="shift_date" string="Date"/>
                 <field name="shift_label" string="Period"/>
                 <field name="pump_id" string="Pump"/>
@@ -22,11 +22,11 @@
                 <field name="qty_sold_elec" string="Elec (L)" sum="Total Elec"/>
                 <field name="qty_sold_man" string="Manual (L)" sum="Total Manual"/>
                 <field name="variance_l" string="Variance (L)"
-                       decoration-danger="abs(variance_l) &gt; 10"
-                       decoration-warning="abs(variance_l) &gt; 5 and abs(variance_l) &lt;= 10"
+                       decoration-danger="variance_l &gt; 10 or variance_l &lt; -10"
+                       decoration-warning="(variance_l &gt; 5 or variance_l &lt; -5) and variance_l &lt;= 10 and variance_l &gt;= -10"
                        sum="Total Variance"/>
                 <field name="variance_pct" string="Variance %"
-                       decoration-danger="abs(variance_pct) &gt; 1"/>
+                       decoration-danger="variance_pct &gt; 1 or variance_pct &lt; -1"/>
                 <field name="rtt_volume" string="RTT (L)" optional="show" sum="Total RTT"/>
                 <field name="elec_cash_sold" string="Cash Meter (KES)" optional="show"/>
                 <field name="shift_id" string="Shift" optional="hide"/>
@@ -123,10 +123,10 @@
                        decoration-danger="residual_type == 'under'"/>
                 <field name="meter_volume" string="Meter (L)" sum="Total Meter"/>
                 <field name="volume_residual" string="Volume Residual (L)"
-                       decoration-danger="abs(volume_residual) &gt; 50"
+                       decoration-danger="volume_residual &gt; 50 or volume_residual &lt; -50"
                        sum="Total Volume Residual"/>
                 <field name="cash_residual" string="Cash Residual (KES)"
-                       decoration-danger="abs(cash_residual) &gt; 5000"
+                       decoration-danger="cash_residual &gt; 5000 or cash_residual &lt; -5000"
                        sum="Total Cash Residual"/>
                 <field name="is_allocated" string="Allocated" widget="boolean"/>
                 <field name="shift_id" string="Shift" optional="show"/>
@@ -446,7 +446,7 @@
                 <field name="total_cash" string="Total Cash (KES)" sum="Total" optional="show"/>
                 <field name="total_rtt" string="Total RTT (L)" sum="Total" optional="show"/>
                 <field name="avg_variance" string="Avg Mech Variance (L)"
-                       decoration-warning="abs(avg_variance) &gt; 5"
+                       decoration-warning="avg_variance &gt; 5 or avg_variance &lt; -5"
                        optional="show"/>
             </list>
         </field>

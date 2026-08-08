@@ -314,8 +314,8 @@
                                            optional="show"/>
                                     <field name="volume_residual"
                                            string="Vol Residual (L)"
-                                           decoration-success="abs(volume_residual) &lt; 0.1"
-                                           decoration-warning="abs(volume_residual) &gt;= 0.1"
+                                           decoration-success="volume_residual &gt; -0.1 and volume_residual &lt; 0.1"
+                                           decoration-warning="volume_residual &gt;= 0.1 or volume_residual &lt;= -0.1"
                                            optional="show"/>
                                     <!-- Cash side -->
                                     <field name="elec_cash_sold"
@@ -325,8 +325,8 @@
                                            optional="show"/>
                                     <field name="cash_residual"
                                            string="Cash Residual (KES)"
-                                           decoration-success="abs(cash_residual) &lt; 100"
-                                           decoration-warning="abs(cash_residual) &gt;= 100"
+                                           decoration-success="cash_residual &gt; -100 and cash_residual &lt; 100"
+                                           decoration-warning="cash_residual &gt;= 100 or cash_residual &lt;= -100"
                                            optional="show"/>
                                     <!-- Allocation result -->
                                     <field name="allocated_volume"
