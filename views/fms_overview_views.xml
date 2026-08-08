@@ -354,14 +354,17 @@
     </record>
 
     <!-- ================================================================
-         Server action — entry point from the Overview menu
+         Window action — opens a new fms.overview record.
+         default_get() auto-computes all tile values on create.
     ================================================================ -->
 
-    <record id="action_fms_overview_dashboard" model="ir.actions.server">
+    <record id="action_fms_overview_dashboard" model="ir.actions.act_window">
         <field name="name">Forecourt Overview</field>
-        <field name="model_id" ref="model_fms_overview"/>
-        <field name="state">code</field>
-        <field name="code">action = model.action_open_overview()</field>
+        <field name="res_model">fms.overview</field>
+        <field name="view_mode">form</field>
+        <field name="view_id" ref="view_fms_overview_form"/>
+        <field name="target">main</field>
+        <field name="context">{'create': False}</field>
     </record>
 
 </odoo>
