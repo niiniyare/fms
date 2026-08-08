@@ -70,6 +70,27 @@ class FMSOverview(models.TransientModel):
     # Singleton entry point — action opens (or refreshes) one record
     # ------------------------------------------------------------------
 
+    def action_refresh(self):
+        """Re-compute and reload — called by the Refresh button on the form."""
+        rec = self._compute_overview()
+        return {
+            'type':      'ir.actions.act_window',
+            'name':      'Forecourt Overview',
+            'res_model': 'fms.overview',
+            'res_id':    rec.id,
+            'view_mode': 'form',
+            'view_id':   self.env.ref('fms.view_fms_overview_form').id,
+            'target':    'main',
+            'flags':     {'mode': 'readonly'},
+        }
+
+    def action_open_debtors(self):
+        """Open Debtor Aging report — gracefully absent if fms_accounting not installed."""
+        try:
+            return self.env.ref('fms_accounting.action_fms_debtor_aging').read()[0]
+        except Exception:
+            return {'type': 'ir.actions.act_window_close'}
+
     @api.model
     def action_open_overview(self):
         rec = self._compute_overview()
