@@ -106,18 +106,176 @@
         <field name="context">{'search_default_open': 1}</field>
     </record>
 
-    <!-- Meter log list action (Reporting) -->
-    <record id="action_fms_meter_log" model="ir.actions.act_window">
-        <field name="name">Meter Logs</field>
-        <field name="res_model">fms.meter_log</field>
-        <field name="view_mode">list</field>
+    <!-- ================================================================
+         Meter Log — pivot + graph + list + search
+    ================================================================ -->
+
+    <record id="view_fms_meter_log_list" model="ir.ui.view">
+        <field name="name">fms.meter_log.list</field>
+        <field name="model">fms.meter_log</field>
+        <field name="arch" type="xml">
+            <list string="Meter Movement Log" create="false" edit="false" delete="false"
+                  default_order="recorded_date desc">
+                <field name="shift_id"    string="Shift"/>
+                <field name="recorded_date" string="Date"/>
+                <field name="pump_id"/>
+                <field name="nozzle_id"/>
+                <field name="product_id"/>
+                <field name="attendant_id"/>
+                <field name="opening_elec_volume" string="Open Elec (L)"  optional="show"/>
+                <field name="closing_elec_volume" string="Close Elec (L)" optional="show"/>
+                <field name="qty_sold_elec"       string="Elec Sold (L)"  sum="Elec Sold (L)"/>
+                <field name="qty_sold_man"        string="Man Sold (L)"   sum="Man Sold (L)" optional="show"/>
+                <field name="amount_elec"         string="Sales (KES)"    sum="Sales (KES)"/>
+                <field name="rtt_volume"          string="RTT (L)"        sum="RTT (L)" optional="show"/>
+            </list>
+        </field>
     </record>
 
-    <!-- Dip log list action (Reporting) -->
+    <record id="view_fms_meter_log_pivot" model="ir.ui.view">
+        <field name="name">fms.meter_log.pivot</field>
+        <field name="model">fms.meter_log</field>
+        <field name="arch" type="xml">
+            <pivot string="Meter Movement" disable_linking="false">
+                <field name="recorded_date" type="row" interval="day"/>
+                <field name="product_id"    type="row"/>
+                <field name="qty_sold_elec" type="measure" string="Elec Sold (L)"/>
+                <field name="amount_elec"   type="measure" string="Sales (KES)"/>
+                <field name="rtt_volume"    type="measure" string="RTT (L)"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="view_fms_meter_log_graph" model="ir.ui.view">
+        <field name="name">fms.meter_log.graph</field>
+        <field name="model">fms.meter_log</field>
+        <field name="arch" type="xml">
+            <graph string="Meter Sales" type="bar" stacked="0">
+                <field name="recorded_date" type="row" interval="day"/>
+                <field name="qty_sold_elec" type="measure"/>
+            </graph>
+        </field>
+    </record>
+
+    <record id="view_fms_meter_log_search" model="ir.ui.view">
+        <field name="name">fms.meter_log.search</field>
+        <field name="model">fms.meter_log</field>
+        <field name="arch" type="xml">
+            <search string="Meter Logs">
+                <field name="pump_id"/>
+                <field name="nozzle_id"/>
+                <field name="product_id"/>
+                <field name="attendant_id"/>
+                <field name="shift_id" string="Shift"/>
+                <filter string="This Month" name="this_month"
+                        domain="[('recorded_date','&gt;=', context_today().replace(day=1))]"/>
+                <filter string="Last 30 Days" name="last_30"
+                        domain="[('recorded_date','&gt;=',(context_today() + relativedelta(days=-30)))]"/>
+                <separator/>
+                <group expand="1" string="Group By">
+                    <filter string="Date"      name="group_date"      context="{'group_by':'recorded_date:day'}"/>
+                    <filter string="Product"   name="group_product"   context="{'group_by':'product_id'}"/>
+                    <filter string="Pump"      name="group_pump"      context="{'group_by':'pump_id'}"/>
+                    <filter string="Nozzle"    name="group_nozzle"    context="{'group_by':'nozzle_id'}"/>
+                    <filter string="Attendant" name="group_attendant" context="{'group_by':'attendant_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_fms_meter_log" model="ir.actions.act_window">
+        <field name="name">Meter Movement Log</field>
+        <field name="res_model">fms.meter_log</field>
+        <field name="view_mode">pivot,graph,list</field>
+        <field name="context">{'search_default_this_month': 1, 'search_default_group_date': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No meter logs yet.</p>
+            <p>Meter logs are written automatically when a shift is closed.</p>
+        </field>
+    </record>
+
+    <!-- ================================================================
+         Dip Log — pivot + graph + list + search
+    ================================================================ -->
+
+    <record id="view_fms_dip_log_list" model="ir.ui.view">
+        <field name="name">fms.dip_log.list</field>
+        <field name="model">fms.dip_log</field>
+        <field name="arch" type="xml">
+            <list string="Dip (Tank) Log" create="false" edit="false" delete="false"
+                  default_order="recorded_date desc"
+                  decoration-danger="variance_pct &gt; 0.5 or variance_pct &lt; -0.5">
+                <field name="shift_id"       string="Shift"/>
+                <field name="recorded_date"  string="Date"/>
+                <field name="location_id"    string="Tank"/>
+                <field name="product_id"/>
+                <field name="opening_volume" string="Opening (L)"  optional="show"/>
+                <field name="closing_volume" string="Closing (L)"/>
+                <field name="qty_change"     string="Change (L)"   sum="Change (L)"/>
+                <field name="variance_pct"   string="Variance %"
+                       decoration-danger="variance_pct &gt; 0.5 or variance_pct &lt; -0.5"
+                       decoration-warning="(variance_pct &gt; 0.2 or variance_pct &lt; -0.2) and not (variance_pct &gt; 0.5 or variance_pct &lt; -0.5)"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_fms_dip_log_pivot" model="ir.ui.view">
+        <field name="name">fms.dip_log.pivot</field>
+        <field name="model">fms.dip_log</field>
+        <field name="arch" type="xml">
+            <pivot string="Tank Dip Log" disable_linking="false">
+                <field name="recorded_date"  type="row" interval="day"/>
+                <field name="location_id"    type="row"/>
+                <field name="closing_volume" type="measure" string="Closing Stock (L)"/>
+                <field name="qty_change"     type="measure" string="Stock Change (L)"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="view_fms_dip_log_graph" model="ir.ui.view">
+        <field name="name">fms.dip_log.graph</field>
+        <field name="model">fms.dip_log</field>
+        <field name="arch" type="xml">
+            <graph string="Tank Stock" type="line">
+                <field name="recorded_date"  type="row" interval="day"/>
+                <field name="closing_volume" type="measure"/>
+            </graph>
+        </field>
+    </record>
+
+    <record id="view_fms_dip_log_search" model="ir.ui.view">
+        <field name="name">fms.dip_log.search</field>
+        <field name="model">fms.dip_log</field>
+        <field name="arch" type="xml">
+            <search string="Dip Logs">
+                <field name="location_id" string="Tank"/>
+                <field name="product_id"/>
+                <field name="shift_id"    string="Shift"/>
+                <filter string="Variance &gt; 0.5%" name="exception"
+                        domain="['|',('variance_pct','&gt;',0.5),('variance_pct','&lt;',-0.5)]"/>
+                <filter string="This Month" name="this_month"
+                        domain="[('recorded_date','&gt;=', context_today().replace(day=1))]"/>
+                <filter string="Last 30 Days" name="last_30"
+                        domain="[('recorded_date','&gt;=',(context_today() + relativedelta(days=-30)))]"/>
+                <separator/>
+                <group expand="1" string="Group By">
+                    <filter string="Date"    name="group_date"    context="{'group_by':'recorded_date:day'}"/>
+                    <filter string="Tank"    name="group_tank"    context="{'group_by':'location_id'}"/>
+                    <filter string="Product" name="group_product" context="{'group_by':'product_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
     <record id="action_fms_dip_log" model="ir.actions.act_window">
-        <field name="name">Dip Logs</field>
+        <field name="name">Tank Dip Log</field>
         <field name="res_model">fms.dip_log</field>
-        <field name="view_mode">list</field>
+        <field name="view_mode">pivot,graph,list</field>
+        <field name="context">{'search_default_this_month': 1, 'search_default_group_date': 1, 'search_default_group_tank': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No dip logs yet.</p>
+            <p>Dip logs are written automatically when a shift is closed.</p>
+        </field>
     </record>
 
     <!-- ================================================================

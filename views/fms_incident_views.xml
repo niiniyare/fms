@@ -190,14 +190,53 @@
               sequence="20"/>
 
     <!-- ================================================================
-         Reporting sub-menu (R9 — under Wetstock section)
-         Parent menu_fms_reporting already defined in fms_shift_list_views.xml
+         R9 Reporting view — pivot + graph + list (summary for the report)
+         Separate action from Operations so it opens on exception state
+         and has pivot/graph modes upfront.
     ================================================================ -->
 
+    <record id="view_fms_incident_report_pivot" model="ir.ui.view">
+        <field name="name">fms.incident.report.pivot</field>
+        <field name="model">fms.incident</field>
+        <field name="arch" type="xml">
+            <pivot string="Incident Register" disable_linking="false">
+                <field name="date"          type="row" interval="month"/>
+                <field name="incident_type" type="row"/>
+                <field name="litres"        type="measure" string="Litres Lost"/>
+                <field name="amount"        type="measure" string="Value (KES)"/>
+                <field name="recovery_amount" type="measure" string="Recovered (KES)"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="view_fms_incident_report_graph" model="ir.ui.view">
+        <field name="name">fms.incident.report.graph</field>
+        <field name="model">fms.incident</field>
+        <field name="arch" type="xml">
+            <graph string="Incidents by Type" type="bar" stacked="0">
+                <field name="incident_type" type="row"/>
+                <field name="amount"        type="measure"/>
+            </graph>
+        </field>
+    </record>
+
+    <record id="action_fms_incident_report" model="ir.actions.act_window">
+        <field name="name">Drive-off &amp; Incident Register</field>
+        <field name="res_model">fms.incident</field>
+        <field name="view_mode">pivot,graph,list</field>
+        <field name="search_view_id" ref="view_fms_incident_search"/>
+        <field name="context">{'search_default_this_month': 1, 'search_default_group_type': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No incidents recorded this month.</p>
+            <p>Record incidents in Operations → Incidents.</p>
+        </field>
+    </record>
+
+    <!-- Reporting sub-menu — uses the reporting action (pivot first) -->
     <menuitem id="menu_fms_report_incidents"
               name="Drive-off &amp; Incident Register"
               parent="menu_fms_reporting"
-              action="action_fms_incident"
+              action="action_fms_incident_report"
               sequence="25"/>
 
 </odoo>
