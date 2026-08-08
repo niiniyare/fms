@@ -60,13 +60,23 @@
                     </field>
 
                     <!-- Quick-fix buttons -->
-                    <group string="Quick Links" invisible="ok">
+                    <group string="Quick Links">
                         <div>
+                            <button name="action_fix_product_accounts"
+                                    string="Fix Product Accounts"
+                                    type="object" class="btn-primary me-2"
+                                    confirm="This will set Revenue + COGS accounts on all fuel products that are missing them. Continue?"
+                                    title="Auto-assign GL accounts from Site Preferences to all fuel products"/>
+                            <button name="action_create_opening_equity"
+                                    string="Create Opening Equity"
+                                    type="object" class="btn-secondary me-2"
+                                    confirm="This creates a KES 500,000 opening DR Bank / CR 301000-Capital entry dated 2026-01-01. Continue?"
+                                    title="Creates an opening balance entry so Equity appears on the Balance Sheet"/>
                             <button name="action_open_site_prefs"
-                                    string="Open Site Preferences"
+                                    string="Site Preferences"
                                     type="object" class="btn-secondary me-2"/>
                             <button name="action_open_products"
-                                    string="Open Fuel Products"
+                                    string="Fuel Products"
                                     type="object" class="btn-secondary"/>
                         </div>
                     </group>

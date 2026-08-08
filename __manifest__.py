@@ -85,6 +85,7 @@ Reference: Complete specification in FMS_Complete_Specification_Technical_Guide.
     "installable": True,
     "application": True,
     "auto_install": False,
+    "post_init_hook": "post_init_hook",
     "assets": {
         "web.assets_backend": [
             "fms/static/src/css/fms_responsive.css",

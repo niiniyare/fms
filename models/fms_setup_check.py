@@ -8,6 +8,87 @@ Also called automatically before shift close to surface issues early.
 from odoo import api, fields, models
 
 
+# ── Module-level helpers (also called from post_init_hook) ────────────────────
+
+def fms_fix_product_accounts(env, company=None):
+    """Set fms_revenue_account_id + fms_cogs_account_id on fuel products missing them.
+    Returns list of product names that were updated."""
+    company = company or env.company
+    prefs = env['fms.site.preferences'].get_for_company(company)
+    revenue_acc = prefs.default_revenue_account_id
+    cogs_acc    = prefs.default_cogs_account_id
+    if not revenue_acc and not cogs_acc:
+        return []
+    products = env['product.product'].search([('fms_is_fuel', '=', True)])
+    fixed = []
+    for p in products:
+        vals = {}
+        if not p.fms_revenue_account_id and revenue_acc:
+            vals['fms_revenue_account_id'] = revenue_acc.id
+        if not p.fms_cogs_account_id and cogs_acc:
+            vals['fms_cogs_account_id'] = cogs_acc.id
+        if vals:
+            p.write(vals)
+            fixed.append(p.name)
+    return fixed
+
+
+def fms_create_opening_equity(env, company=None):
+    """Create DR Bank / CR 301000-Capital opening balance entry if none exists yet."""
+    company = company or env.company
+    existing = env['account.move'].search([
+        ('ref', 'ilike', 'Opening Balance'),
+        ('move_type', '=', 'entry'),
+        ('state', '=', 'posted'),
+        ('company_id', '=', company.id),
+    ], limit=1)
+    if existing:
+        return f"Opening balance entry already exists: {existing.ref} ({existing.name})"
+
+    capital_acc = env['account.account'].search(
+        [('code', '=', '301000'), ('company_ids', 'in', company.id)], limit=1
+    )
+    bank_acc = env['account.account'].search(
+        [('code', '=', '101401'), ('company_ids', 'in', company.id)], limit=1
+    )
+    gen_journal = env['account.journal'].search([
+        ('type', '=', 'general'),
+        ('company_id', '=', company.id),
+        ('name', 'not ilike', 'Exchange'),
+        ('name', 'not ilike', 'Cash Basis'),
+        ('name', 'not ilike', 'Inventory'),
+        ('name', 'not ilike', 'Point of Sale'),
+    ], limit=1)
+
+    if not capital_acc or not bank_acc or not gen_journal:
+        return "Could not find required accounts (301000, 101401) or a general journal."
+
+    opening_amount = 500_000.0
+    move = env['account.move'].create({
+        'move_type': 'entry',
+        'journal_id': gen_journal.id,
+        'date': fields.Date.from_string('2026-01-01'),
+        'ref': 'Opening Balance — Station Capital',
+        'company_id': company.id,
+        'line_ids': [
+            (0, 0, {
+                'account_id': bank_acc.id,
+                'name': 'Opening — Cash at bank',
+                'debit': opening_amount,
+                'credit': 0.0,
+            }),
+            (0, 0, {
+                'account_id': capital_acc.id,
+                'name': 'Opening — Owner paid-in capital',
+                'debit': 0.0,
+                'credit': opening_amount,
+            }),
+        ],
+    })
+    move.action_post()
+    return f"Created opening equity entry {move.name} — KES {opening_amount:,.2f} capital"
+
+
 class FMSSetupCheck(models.TransientModel):
     _name = 'fms.setup.check'
     _description = 'FMS GL Account Setup Check'
@@ -69,6 +150,36 @@ class FMSSetupCheck(models.TransientModel):
             'domain': [('id', 'in', fuel_ids)],
             'view_mode': 'list,form',
             'target': 'current',
+        }
+
+    def action_fix_product_accounts(self):
+        """Auto-assign revenue + COGS accounts from site prefs to all fuel products missing them."""
+        fixed = fms_fix_product_accounts(self.env, self.company_id)
+        # Refresh the check
+        new_check = self.env['fms.setup.check'].run_check(self.company_id)
+        return {
+            'type': 'ir.actions.act_window',
+            'name': 'GL Account Setup Check',
+            'res_model': 'fms.setup.check',
+            'res_id': new_check.id,
+            'view_mode': 'form',
+            'view_id': self.env.ref('fms.view_fms_setup_check_form').id,
+            'target': 'new',
+            'context': {'fixed_count': len(fixed), 'fixed_names': ', '.join(fixed)},
+        }
+
+    def action_create_opening_equity(self):
+        """Create DR Bank / CR 301000-Capital opening balance entry if none exists."""
+        msg = fms_create_opening_equity(self.env, self.company_id)
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': 'Opening Balance',
+                'message': msg,
+                'type': 'success' if 'Created' in msg else 'warning',
+                'sticky': False,
+            },
         }
 
     # ------------------------------------------------------------------
