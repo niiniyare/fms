@@ -348,6 +348,31 @@ class FMSShift(models.Model):
         return super().unlink()
 
     # ------------------------------------------------------------------
+    # Project-wide helper — single source of truth for "which shift?"
+    # ------------------------------------------------------------------
+
+    @api.model
+    def _get_current_shift(self, date=None, company_id=None):
+        """Return the active shift for date + company.
+
+        Call this from any FMS document (receipt, payment, expense, dip) to
+        resolve the shift from a transaction date.  Returns an empty recordset
+        when no open shift exists — callers must handle that gracefully.
+
+        Usage:
+            shift = self.env['fms.shift']._get_current_shift(
+                date=self.invoice_date, company_id=self.company_id.id
+            )
+        """
+        date       = date       or fields.Date.today()
+        company_id = company_id or self.env.company.id
+        return self.search([
+            ('date',       '=',  date),
+            ('state',      'in', ('open', 'closing')),
+            ('company_id', '=',  company_id),
+        ], limit=1)
+
+    # ------------------------------------------------------------------
     # State transitions
     # ------------------------------------------------------------------
 
