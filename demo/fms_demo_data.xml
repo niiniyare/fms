@@ -129,7 +129,7 @@
         <field name="letter">A</field>
         <field name="order">1</field>
         <field name="product_id" ref="product_diesel"/>
-        <field name="current_elec_cash">27,694,880.00</field>
+        <field name="current_elec_cash">27694880.00</field>
         <field name="current_elec_volume">124500.00</field>
         <field name="current_mech_volume">124498.00</field>
     </record>
@@ -140,7 +140,7 @@
         <field name="letter">B</field>
         <field name="order">2</field>
         <field name="product_id" ref="product_super"/>
-        <field name="current_elec_cash">19,183,500.00</field>
+        <field name="current_elec_cash">19183500.00</field>
         <field name="current_elec_volume">88200.00</field>
         <field name="current_mech_volume">88198.00</field>
     </record>
@@ -156,7 +156,7 @@
         <field name="letter">A</field>
         <field name="order">1</field>
         <field name="product_id" ref="product_diesel"/>
-        <field name="current_elec_cash">47,233,600.00</field>
+        <field name="current_elec_cash">47233600.00</field>
         <field name="current_elec_volume">212000.00</field>
         <field name="current_mech_volume">211997.00</field>
     </record>
@@ -167,7 +167,7 @@
         <field name="letter">B</field>
         <field name="order">2</field>
         <field name="product_id" ref="product_vpower"/>
-        <field name="current_elec_cash">11,275,000.00</field>
+        <field name="current_elec_cash">11275000.00</field>
         <field name="current_elec_volume">45100.00</field>
         <field name="current_mech_volume">45099.00</field>
     </record>
@@ -183,7 +183,7 @@
         <field name="letter">A</field>
         <field name="order">1</field>
         <field name="product_id" ref="product_kerosene"/>
-        <field name="current_elec_cash">4,627,300.00</field>
+        <field name="current_elec_cash">4627300.00</field>
         <field name="current_elec_volume">31000.00</field>
         <field name="current_mech_volume">30999.00</field>
     </record>
