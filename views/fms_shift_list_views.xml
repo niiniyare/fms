@@ -289,12 +289,12 @@
               groups="fms.group_fms_attendant"
               web_icon="fms,static/description/icon.png"/>
 
-    <!-- 1. Overview -->
+    <!-- 1. Overview — server action computes fresh tile values on each open -->
     <menuitem id="menu_fms_overview"
               name="Overview"
               parent="menu_fms_root"
-              action="action_fms_shift_overview"
-              groups="fms.group_fms_attendant"
+              action="fms.action_fms_overview_dashboard"
+              groups="fms.group_fms_supervisor"
               sequence="5"/>
 
     <!-- 2. Operations -->
