@@ -235,8 +235,8 @@
     <!-- Reporting sub-menu — uses the reporting action (pivot first) -->
     <menuitem id="menu_fms_report_incidents"
               name="Drive-off &amp; Incident Register"
-              parent="menu_fms_reporting"
+              parent="menu_fms_section_wetstock"
               action="action_fms_incident_report"
-              sequence="25"/>
+              sequence="50"/>
 
 </odoo>

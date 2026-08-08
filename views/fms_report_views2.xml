@@ -2,37 +2,6 @@
 <odoo>
 
     <!-- ================================================================
-         SECTION MENUS under menu_fms_reporting
-         (parent exists in fms_shift_list_views.xml)
-    ================================================================ -->
-
-    <menuitem id="menu_fms_section_wetstock"
-              name="Wetstock"
-              parent="menu_fms_reporting"
-              sequence="30"/>
-
-    <menuitem id="menu_fms_section_attendants"
-              name="Attendants"
-              parent="menu_fms_reporting"
-              sequence="40"/>
-
-    <menuitem id="menu_fms_section_cash_credit"
-              name="Cash &amp; Credit"
-              parent="menu_fms_reporting"
-              sequence="50"/>
-
-    <menuitem id="menu_fms_section_sales_margin"
-              name="Sales &amp; Margin"
-              parent="menu_fms_reporting"
-              sequence="60"/>
-
-    <menuitem id="menu_fms_section_compliance"
-              name="Compliance &amp; Audit"
-              parent="menu_fms_reporting"
-              sequence="70"/>
-
-
-    <!-- ================================================================
          R7 · Meter Variance Log
     ================================================================ -->
 
@@ -888,29 +857,5 @@
               sequence="70"/>
 
 
-    <!-- ================================================================
-         Existing reports — wire into section menus
-    ================================================================ -->
-
-    <!-- R4 Attendant Sales & Cash → Attendants section -->
-    <menuitem id="menu_fms_report_attendant_sec"
-              name="Attendant Sales &amp; Cash"
-              parent="menu_fms_section_attendants"
-              action="action_fms_attendant_sales_report"
-              sequence="10"/>
-
-    <!-- R3 Wetstock → Wetstock section -->
-    <menuitem id="menu_fms_report_wetstock_sec"
-              name="Wetstock Reconciliation"
-              parent="menu_fms_section_wetstock"
-              action="action_fms_wetstock_report"
-              sequence="10"/>
-
-    <!-- R9 Incidents → Wetstock section -->
-    <menuitem id="menu_fms_report_incidents_sec"
-              name="Drive-off &amp; Incident Register"
-              parent="menu_fms_section_wetstock"
-              action="action_fms_incident_report"
-              sequence="50"/>
 
 </odoo>

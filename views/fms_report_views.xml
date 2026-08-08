@@ -2,6 +2,37 @@
 <odoo>
 
     <!-- ================================================================
+         SECTION MENUS — defined here so fms_incident_views.xml and
+         fms_shift_list_views.xml (which load before fms_report_views2.xml)
+         can reference them as parents.
+    ================================================================ -->
+
+    <menuitem id="menu_fms_section_wetstock"
+              name="Wetstock"
+              parent="menu_fms_reporting"
+              sequence="30"/>
+
+    <menuitem id="menu_fms_section_attendants"
+              name="Attendants"
+              parent="menu_fms_reporting"
+              sequence="40"/>
+
+    <menuitem id="menu_fms_section_cash_credit"
+              name="Cash &amp; Credit"
+              parent="menu_fms_reporting"
+              sequence="50"/>
+
+    <menuitem id="menu_fms_section_sales_margin"
+              name="Sales &amp; Margin"
+              parent="menu_fms_reporting"
+              sequence="60"/>
+
+    <menuitem id="menu_fms_section_compliance"
+              name="Compliance &amp; Audit"
+              parent="menu_fms_reporting"
+              sequence="70"/>
+
+    <!-- ================================================================
          R2 · Daily Station Report — on-screen views
     ================================================================ -->
 
@@ -244,21 +275,21 @@
 
     <menuitem id="menu_fms_report_daily"
               name="Daily Station Report"
-              parent="menu_fms_reporting"
+              parent="menu_fms_section_sales_margin"
               action="action_fms_daily_station_report"
               sequence="5"/>
 
     <menuitem id="menu_fms_report_wetstock"
               name="Wetstock Reconciliation"
-              parent="menu_fms_reporting"
+              parent="menu_fms_section_wetstock"
               action="action_fms_wetstock_report"
               sequence="10"/>
 
     <menuitem id="menu_fms_report_attendant"
               name="Attendant Sales &amp; Cash"
-              parent="menu_fms_reporting"
+              parent="menu_fms_section_attendants"
               action="action_fms_attendant_sales_report"
-              sequence="15"/>
+              sequence="10"/>
 
     <!-- ================================================================
          R5 · Stock Position &amp; Days of Cover
@@ -363,7 +394,7 @@
 
     <menuitem id="menu_fms_report_stock_position"
               name="Stock Position"
-              parent="menu_fms_reporting"
+              parent="menu_fms_section_wetstock"
               action="action_fms_stock_position"
               sequence="20"/>
 

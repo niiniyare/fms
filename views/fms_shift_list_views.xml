@@ -320,16 +320,16 @@
 
     <menuitem id="menu_fms_meter_logs"
               name="Meter Logs"
-              parent="menu_fms_reporting"
+              parent="menu_fms_section_compliance"
               action="action_fms_meter_log"
               groups="fms.group_fms_supervisor"
               sequence="10"/>
 
     <menuitem id="menu_fms_dip_logs"
               name="Dip Logs"
-              parent="menu_fms_reporting"
+              parent="menu_fms_section_wetstock"
               action="action_fms_dip_log"
               groups="fms.group_fms_supervisor"
-              sequence="20"/>
+              sequence="40"/>
 
 </odoo>
