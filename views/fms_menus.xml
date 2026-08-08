@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Leaf menus — loaded LAST after all action records are defined -->
+<odoo>
+    <!-- Overview (references action_fms_overview_server from fms_overview_views.xml) -->
+    <menuitem id="menu_fms_overview"
+              name="Overview"
+              parent="menu_fms_root"
+              action="fms.action_fms_overview_server"
+              groups="fms.group_fms_attendant"
+              sequence="5"/>
+
+    <!-- Shifts (references action_fms_shift from fms_shift_list_views.xml) -->
+    <menuitem id="menu_fms_shifts"
+              name="Shifts"
+              parent="menu_fms_operations"
+              action="action_fms_shift"
+              groups="fms.group_fms_attendant"
+              sequence="10"/>
+
+    <!-- Compliance sub-items -->
+    <menuitem id="menu_fms_meter_logs"
+              name="Meter Logs"
+              parent="menu_fms_section_compliance"
+              action="action_fms_meter_log"
+              groups="fms.group_fms_supervisor"
+              sequence="10"/>
+
+    <menuitem id="menu_fms_dip_logs"
+              name="Dip Logs"
+              parent="menu_fms_section_wetstock"
+              action="action_fms_dip_log"
+              groups="fms.group_fms_supervisor"
+              sequence="40"/>
+</odoo>

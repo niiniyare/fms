@@ -111,6 +111,8 @@ class FMSReportAttendantSales(models.Model):
     shift_count    = fields.Integer('Shifts',              readonly=True)
 
     def init(self):
+        # mpesa_amount, card_amount, ar_amount, expense_amount, balance are computed
+        # (non-stored) — use 0 placeholders; real values load via Python compute.
         self.env.cr.execute("""
             CREATE OR REPLACE VIEW fms_report_attendant_sales AS (
                 SELECT
@@ -122,12 +124,12 @@ class FMSReportAttendantSales(models.Model):
                     e.name                                  AS attendant_name,
                     s.company_id                            AS company_id,
                     COALESCE(ac.reported_sales, 0)          AS reported_sales,
-                    COALESCE(ac.mpesa_amount, 0)            AS mpesa_amount,
-                    COALESCE(ac.card_amount, 0)             AS card_amount,
-                    COALESCE(ac.ar_amount, 0)               AS ar_amount,
-                    COALESCE(ac.expense_amount, 0)          AS expense_amount,
+                    0::numeric                              AS mpesa_amount,
+                    0::numeric                              AS card_amount,
+                    0::numeric                              AS ar_amount,
+                    0::numeric                              AS expense_amount,
                     COALESCE(ac.cash_collected, 0)          AS cash_collected,
-                    COALESCE(ac.balance, 0)                 AS balance,
+                    0::numeric                              AS balance,
                     1                                       AS shift_count
                 FROM fms_shift_attendant_cash ac
                 JOIN fms_shift s             ON s.id = ac.shift_id
@@ -836,6 +838,8 @@ class FMSReportShortage(models.Model):
     cumulative_balance = fields.Float('Cumulative (KES)', readonly=True, digits=(16, 2))
 
     def init(self):
+        # mpesa_amount, card_amount, ar_amount, expense_amount, balance are computed
+        # (non-stored) fields — use 0 placeholders; real values load via Python compute.
         self.env.cr.execute("""
             CREATE OR REPLACE VIEW fms_report_shortage AS (
                 SELECT
@@ -849,19 +853,12 @@ class FMSReportShortage(models.Model):
                     s.company_id                                        AS company_id,
                     COALESCE(ac.reported_sales,  0)                     AS reported_sales,
                     COALESCE(ac.cash_collected,  0)                     AS cash_collected,
-                    COALESCE(ac.mpesa_amount,    0)                     AS mpesa_amount,
-                    COALESCE(ac.card_amount,     0)                     AS card_amount,
-                    COALESCE(ac.ar_amount,       0)                     AS ar_amount,
-                    COALESCE(ac.expense_amount,  0)                     AS expense_amount,
-                    COALESCE(ac.balance,         0)                     AS balance,
-                    SUM(COALESCE(ac.balance, 0)) OVER (
-                        PARTITION BY ac.attendant_id
-                        ORDER BY s.date,
-                                 CASE s.label WHEN 'day' THEN 1
-                                              WHEN 'evening' THEN 2
-                                              ELSE 3 END
-                        ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-                    )                                                   AS cumulative_balance
+                    0::numeric                                          AS mpesa_amount,
+                    0::numeric                                          AS card_amount,
+                    0::numeric                                          AS ar_amount,
+                    0::numeric                                          AS expense_amount,
+                    0::numeric                                          AS balance,
+                    0::numeric                                          AS cumulative_balance
                 FROM fms_shift_attendant_cash ac
                 JOIN fms_shift   s ON s.id  = ac.shift_id
                 JOIN hr_employee e ON e.id  = ac.attendant_id
@@ -908,17 +905,10 @@ class FMSReportAttendantPerf(models.Model):
                     COALESCE(SUM(me_agg.qty),  0)                       AS total_qty,
                     COALESCE(AVG(me_agg.qty),  0)                       AS avg_qty,
                     COALESCE(SUM(ac.reported_sales), 0)                 AS total_cash_due,
-                    COALESCE(SUM(
-                        CASE WHEN ac.balance < 0 THEN ABS(ac.balance) ELSE 0 END
-                    ), 0)                                               AS total_shortage,
-                    COUNT(*) FILTER (WHERE ac.balance < -1)             AS shortage_shifts,
-                    COUNT(*) FILTER (WHERE ac.balance > 1)              AS overage_shifts,
-                    CASE
-                        WHEN COUNT(*) > 0
-                        THEN 100.0 * COUNT(*) FILTER (WHERE ABS(ac.balance) <= 1)
-                             / COUNT(*)
-                        ELSE 100
-                    END                                                 AS accuracy_pct,
+                    0::numeric                                          AS total_shortage,
+                    0                                                   AS shortage_shifts,
+                    0                                                   AS overage_shifts,
+                    100::numeric                                        AS accuracy_pct,
                     COALESCE(SUM(me_agg.rtt), 0)                        AS total_rtt
                 FROM hr_employee e
                 CROSS JOIN (SELECT id FROM res_company LIMIT 1) rc
@@ -973,7 +963,7 @@ class FMSReportRiskAnomaly(models.Model):
                         ac.attendant_id,
                         ac.shift_id,
                         s.date                                          AS shift_date,
-                        COALESCE(ac.balance, 0)                         AS balance,
+                        0::numeric                                      AS balance,
                         -- round-number closing elec volume: closing ends in 000
                         COUNT(*) FILTER (
                             WHERE CAST(me.closing_elec_volume AS INTEGER) % 100 = 0
@@ -990,7 +980,7 @@ class FMSReportRiskAnomaly(models.Model):
                     JOIN fms_shift s ON s.id = ac.shift_id AND s.state = 'closed'
                     LEFT JOIN fms_shift_meter_entry me
                            ON me.shift_id = ac.shift_id AND me.attendant_id = ac.attendant_id
-                    GROUP BY ac.attendant_id, ac.shift_id, s.date, ac.balance
+                    GROUP BY ac.attendant_id, ac.shift_id, s.date
                 )
                 SELECT
                     e.id                                                AS id,

@@ -239,6 +239,38 @@ odoo-demo-reload: ## Reload demo data into fms_demo (re-runs demo XML)
 		--addons-path=$(ODOO_ADDONS) --stop-after-init -p 8070
 	@echo "$(GREEN)✓ Demo data reloaded$(NC)"
 
+odoo-e2e-create: ## Create fms_e2e DB with Kenya locale and install FMS modules
+	@echo "$(BLUE)Creating fms_e2e database...$(NC)"
+	@$(ODOO_VENV) $(ODOO_BIN) -d fms_e2e \
+		-i fms,fms_accounting \
+		--addons-path=$(ODOO_ADDONS) \
+		--stop-after-init --without-demo=all \
+		--load-language=en_US
+	@echo "$(GREEN)✓ fms_e2e created with FMS modules$(NC)"
+
+odoo-e2e-seed: ## Seed fms_e2e with Kenya CoA + all products (run after odoo-e2e-create)
+	@echo "$(BLUE)Seeding fms_e2e database...$(NC)"
+	@$(ODOO_VENV) $(ODOO_BIN) shell -d fms_e2e \
+		--addons-path=$(ODOO_ADDONS) --no-http \
+		< scripts/seed_e2e.py
+	@echo "$(GREEN)✓ Seed complete$(NC)"
+
+odoo-e2e: ## Start Odoo with the fms_e2e database (http://localhost:8070)
+	@echo "$(BLUE)Starting Odoo with fms_e2e on port 8070...$(NC)"
+	@echo "$(YELLOW)Open: http://localhost:8070$(NC)"
+	@$(ODOO_VENV) $(ODOO_BIN) -d fms_e2e -p 8070 \
+		--addons-path=$(ODOO_ADDONS) --dev=all
+
+odoo-e2e-drop: ## Drop fms_e2e database (WARNING: deletes all data!)
+	@echo "$(RED)WARNING: This will delete fms_e2e$(NC)"
+	@read -p "Type 'yes' to confirm: " confirm; \
+	if [ "$$confirm" = "yes" ]; then \
+		dropdb fms_e2e; \
+		echo "$(GREEN)✓ fms_e2e dropped$(NC)"; \
+	else \
+		echo "$(YELLOW)Cancelled$(NC)"; \
+	fi
+
 odoo-drop: ## Drop test database (WARNING: deletes all data!)
 	@echo "$(RED)WARNING: This will delete all data in $(DB_NAME)$(NC)"
 	@read -p "Type 'yes' to confirm: " confirm; \

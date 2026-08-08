@@ -56,8 +56,9 @@ Reference: Complete specification in FMS_Complete_Specification_Technical_Guide.
         "data/fms_site_preferences.xml",
         "data/fms_company_defaults.xml",
 
-        # Views — list/menus first so menu_fms_root exists before pump views reference it
-        "views/fms_overview_views.xml",
+        # Menu structure first — all view files and menus depend on root/section menus
+        "views/fms_menu_structure.xml",
+        # Views — actions defined before anything that references them
         "views/fms_shift_list_views.xml",
         "views/fms_pump_views.xml",
         "views/fms_site_preferences_views.xml",
@@ -69,6 +70,9 @@ Reference: Complete specification in FMS_Complete_Specification_Technical_Guide.
         "views/fms_report_views.xml",
         "views/fms_report_views2.xml",
         "views/fms_setup_check_views.xml",
+        # These two must load last — they reference actions from all files above
+        "views/fms_overview_views.xml",
+        "views/fms_menus.xml",
 
         # Reports
         "reports/fms_shift_report.xml",

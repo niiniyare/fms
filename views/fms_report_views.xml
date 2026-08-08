@@ -2,37 +2,6 @@
 <odoo>
 
     <!-- ================================================================
-         SECTION MENUS — defined here so fms_incident_views.xml and
-         fms_shift_list_views.xml (which load before fms_report_views2.xml)
-         can reference them as parents.
-    ================================================================ -->
-
-    <menuitem id="menu_fms_section_wetstock"
-              name="Wetstock"
-              parent="menu_fms_reporting"
-              sequence="30"/>
-
-    <menuitem id="menu_fms_section_attendants"
-              name="Attendants"
-              parent="menu_fms_reporting"
-              sequence="40"/>
-
-    <menuitem id="menu_fms_section_cash_credit"
-              name="Cash &amp; Credit"
-              parent="menu_fms_reporting"
-              sequence="50"/>
-
-    <menuitem id="menu_fms_section_sales_margin"
-              name="Sales &amp; Margin"
-              parent="menu_fms_reporting"
-              sequence="60"/>
-
-    <menuitem id="menu_fms_section_compliance"
-              name="Compliance &amp; Audit"
-              parent="menu_fms_reporting"
-              sequence="70"/>
-
-    <!-- ================================================================
          R2 · Daily Station Report — on-screen views
     ================================================================ -->
 
