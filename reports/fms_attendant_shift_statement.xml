@@ -1,0 +1,206 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ================================================================
+         R24 · Attendant Shift Statement — QWeb PDF
+         Printed and signed by the attendant at shift close.
+         One page per attendant per shift.
+         Triggered from the shift form "Print Attendant Statements" button.
+    ================================================================ -->
+
+    <record id="action_report_fms_attendant_statement" model="ir.actions.report">
+        <field name="name">Attendant Shift Statement</field>
+        <field name="model">fms.shift</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">fms.report_fms_attendant_shift_statement</field>
+        <field name="report_file">fms.report_fms_attendant_shift_statement</field>
+        <field name="binding_model_id" ref="model_fms_shift"/>
+        <field name="binding_type">report</field>
+        <field name="groups_id" eval="[(4, ref('fms.group_fms_supervisor'))]"/>
+    </record>
+
+    <template id="report_fms_attendant_shift_statement">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="shift">
+                <t t-foreach="shift.attendant_cash_ids" t-as="cash">
+                    <t t-call="web.external_layout">
+                        <div class="page fms-report">
+
+                            <!-- Header -->
+                            <div class="row mb-3">
+                                <div class="col-8">
+                                    <h3>Attendant Shift Statement</h3>
+                                    <p class="mb-0 text-muted">
+                                        <t t-esc="shift.company_id.name"/>
+                                    </p>
+                                </div>
+                                <div class="col-4 text-end">
+                                    <p class="mb-0"><strong>Date:</strong> <t t-esc="shift.date"/></p>
+                                    <p class="mb-0"><strong>Shift:</strong>
+                                        <t t-esc="dict([('day','Day'),('evening','Evening'),('night','Night')]).get(shift.label, shift.label)"/>
+                                    </p>
+                                    <p class="mb-0"><strong>Supervisor:</strong> <t t-esc="shift.supervisor_id.name or '—'"/></p>
+                                </div>
+                            </div>
+
+                            <!-- Attendant identity -->
+                            <div class="p-2 mb-3" style="background:#f8f9fa;border-radius:4px">
+                                <strong style="font-size:16px">
+                                    <t t-esc="cash.attendant_id.name"/>
+                                </strong>
+                                <span class="text-muted ms-3">
+                                    ID: <t t-esc="cash.attendant_id.employee_number or cash.attendant_id.barcode or '—'"/>
+                                </span>
+                            </div>
+
+                            <!-- Nozzles assigned to this attendant this shift -->
+                            <t t-set="my_entries" t-value="shift.meter_entry_ids.filtered(lambda me: me.attendant_id == cash.attendant_id)"/>
+                            <t t-if="my_entries">
+                                <h5>Meter Readings</h5>
+                                <table class="table table-sm table-bordered mb-3">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Pump</th>
+                                            <th>Nozzle</th>
+                                            <th>Product</th>
+                                            <th class="text-end">Open Elec (L)</th>
+                                            <th class="text-end">Close Elec (L)</th>
+                                            <th class="text-end">Open Mech (L)</th>
+                                            <th class="text-end">Close Mech (L)</th>
+                                            <th class="text-end">RTT (L)</th>
+                                            <th class="text-end">Sold (L)</th>
+                                            <th class="text-end">Amount (KES)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <t t-foreach="my_entries" t-as="me">
+                                            <tr>
+                                                <td><t t-esc="me.pump_id.name"/></td>
+                                                <td><t t-esc="me.nozzle_id.name"/></td>
+                                                <td><t t-esc="me.product_id.name"/></td>
+                                                <td class="text-end"><t t-esc="'{:,.2f}'.format(me.opening_elec_volume)"/></td>
+                                                <td class="text-end"><t t-esc="'{:,.2f}'.format(me.closing_elec_volume)"/></td>
+                                                <td class="text-end"><t t-esc="'{:,.2f}'.format(me.opening_man_mech)"/></td>
+                                                <td class="text-end"><t t-esc="'{:,.2f}'.format(me.closing_man_mech)"/></td>
+                                                <td class="text-end"><t t-esc="'{:,.2f}'.format(me.rtt_volume or 0)"/></td>
+                                                <td class="text-end"><t t-esc="'{:,.2f}'.format(me.qty_sold_elec)"/></td>
+                                                <td class="text-end"><t t-esc="'{:,.2f}'.format(me.amount_elec)"/></td>
+                                            </tr>
+                                        </t>
+                                    </tbody>
+                                    <tfoot class="table-light fw-bold">
+                                        <tr>
+                                            <td colspan="8">Total</td>
+                                            <td class="text-end">
+                                                <t t-esc="'{:,.2f}'.format(sum(my_entries.mapped('qty_sold_elec')))"/>
+                                            </td>
+                                            <td class="text-end">
+                                                KES <t t-esc="'{:,.2f}'.format(sum(my_entries.mapped('amount_elec')))"/>
+                                            </td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </t>
+
+                            <!-- Cash reconciliation -->
+                            <h5>Cash Reconciliation</h5>
+                            <table class="table table-sm table-bordered mb-3" style="max-width:500px">
+                                <tbody>
+                                    <tr>
+                                        <td>Reported Sales (KES)</td>
+                                        <td class="text-end fw-bold">
+                                            <t t-esc="'{:,.2f}'.format(cash.reported_sales)"/>
+                                        </td>
+                                    </tr>
+                                    <tr class="table-light">
+                                        <td colspan="2" class="text-muted small">Less: Non-cash tenders</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="ps-4">MPesa</td>
+                                        <td class="text-end">(<t t-esc="'{:,.2f}'.format(cash.mpesa_amount)"/>)</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="ps-4">Card</td>
+                                        <td class="text-end">(<t t-esc="'{:,.2f}'.format(cash.card_amount)"/>)</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="ps-4">AR / Credit</td>
+                                        <td class="text-end">(<t t-esc="'{:,.2f}'.format(cash.ar_amount)"/>)</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="ps-4">Expenses</td>
+                                        <td class="text-end">(<t t-esc="'{:,.2f}'.format(cash.expense_amount)"/>)</td>
+                                    </tr>
+                                    <tr class="table-light fw-bold">
+                                        <td>Expected Cash Drop</td>
+                                        <td class="text-end">
+                                            <t t-esc="'{:,.2f}'.format(cash.reported_sales - cash.mpesa_amount - cash.card_amount - cash.ar_amount - cash.expense_amount)"/>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>Actual Cash Dropped</td>
+                                        <td class="text-end">
+                                            <t t-esc="'{:,.2f}'.format(cash.cash_collected)"/>
+                                        </td>
+                                    </tr>
+                                    <tr t-attf-class="fw-bold #{
+                                        'table-success' if abs(cash.balance) &lt; 0.01 else 'table-danger'
+                                    }">
+                                        <td>Shortage / Overage</td>
+                                        <td class="text-end">
+                                            <t t-esc="'{:,.2f}'.format(cash.balance)"/>
+                                            <t t-if="abs(cash.balance) &lt; 0.01"> ✓ CLEAR</t>
+                                            <t t-elif="cash.balance &gt; 0"> SHORT</t>
+                                            <t t-else=""> OVER</t>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+
+                            <!-- Notes from attendant cash line -->
+                            <t t-if="cash.notes">
+                                <p><strong>Notes:</strong> <t t-esc="cash.notes"/></p>
+                            </t>
+
+                            <!-- Signature blocks -->
+                            <div class="row mt-5">
+                                <div class="col-4 text-center">
+                                    <div style="border-top:1px solid #000;margin-top:50px;padding-top:4px">
+                                        Attendant Signature
+                                    </div>
+                                    <div class="text-muted small mt-1">
+                                        <t t-esc="cash.attendant_id.name"/>
+                                    </div>
+                                </div>
+                                <div class="col-4 text-center">
+                                    <div style="border-top:1px solid #000;margin-top:50px;padding-top:4px">
+                                        Date &amp; Time
+                                    </div>
+                                </div>
+                                <div class="col-4 text-center">
+                                    <div style="border-top:1px solid #000;margin-top:50px;padding-top:4px">
+                                        Supervisor Signature
+                                    </div>
+                                    <div class="text-muted small mt-1">
+                                        <t t-esc="shift.supervisor_id.name or ''"/>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Reprint notice (immutable once closed) -->
+                            <t t-if="shift.state == 'closed'">
+                                <p class="text-muted small mt-3">
+                                    This statement is final. Shift closed
+                                    <t t-esc="shift.closing_meter_date"/>.
+                                    Reprint of a closed shift statement must be logged with supervisor.
+                                </p>
+                            </t>
+
+                        </div>
+                    </t>
+                </t>
+            </t>
+        </t>
+    </template>
+
+</odoo>

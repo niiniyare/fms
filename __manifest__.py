@@ -62,9 +62,12 @@ Reference: Complete specification in FMS_Complete_Specification_Technical_Guide.
         "views/fms_shift_views.xml",
         "views/fms_shift_meter_views.xml",
         "views/fms_shift_dip_views.xml",
-        
+        "views/fms_report_views.xml",
+
         # Reports
         "reports/fms_shift_report.xml",
+        "reports/fms_daily_station_report.xml",
+        "reports/fms_attendant_shift_statement.xml",
         "reports/fms_meter_movement_report.xml",
     ],
     "demo": [

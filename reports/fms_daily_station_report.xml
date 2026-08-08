@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ================================================================
+         R2 · Daily Station Report — QWeb PDF
+         Triggered from the Reporting menu with a date wizard,
+         or directly from the shift list "Print Daily Report" button.
+    ================================================================ -->
+
+    <record id="action_report_fms_daily_station" model="ir.actions.report">
+        <field name="name">Daily Station Report</field>
+        <field name="model">fms.shift</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">fms.report_fms_daily_station</field>
+        <field name="report_file">fms.report_fms_daily_station</field>
+        <field name="groups_id" eval="[(4, ref('fms.group_fms_supervisor'))]"/>
+    </record>
+
+    <template id="report_fms_daily_station">
+        <t t-call="web.html_container">
+            <!--
+                docs = recordset of fms.shift records for a given date.
+                Group by date so one PDF covers one day (all shifts).
+            -->
+            <t t-set="all_dates" t-value="sorted(set(s.date for s in docs))"/>
+            <t t-foreach="all_dates" t-as="rpt_date">
+                <t t-set="day_shifts" t-value="docs.filtered(lambda s: s.date == rpt_date).sorted('label')"/>
+                <t t-call="web.external_layout">
+                    <div class="page fms-report">
+
+                        <!-- Header -->
+                        <div class="row mb-3">
+                            <div class="col-8">
+                                <h2>Daily Station Report</h2>
+                                <h4><t t-esc="rpt_date"/></h4>
+                            </div>
+                            <div class="col-4 text-end text-muted small">
+                                <t t-esc="day_shifts[0].company_id.name if day_shifts else ''"/>
+                            </div>
+                        </div>
+
+                        <!-- Per-shift product breakdown -->
+                        <t t-foreach="day_shifts" t-as="shift">
+                            <h5 class="mt-3 text-uppercase text-secondary" style="font-size:12px;letter-spacing:1px">
+                                <t t-esc="dict([('day','Day'),('evening','Evening'),('night','Night')]).get(shift.label, shift.label)"/> Shift
+                                — Supervisor: <t t-esc="shift.supervisor_id.name or '—'"/>
+                            </h5>
+
+                            <table class="table table-sm table-bordered mb-2">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Product</th>
+                                        <th class="text-end">Volume (L)</th>
+                                        <th class="text-end">Amount (KES)</th>
+                                        <th class="text-end">RTT (L)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <t t-foreach="shift.meter_entry_ids" t-as="me">
+                                        <tr>
+                                            <td><t t-esc="me.product_id.name"/></td>
+                                            <td class="text-end"><t t-esc="'{:,.2f}'.format(me.qty_sold_elec)"/></td>
+                                            <td class="text-end"><t t-esc="'{:,.2f}'.format(me.amount_elec)"/></td>
+                                            <td class="text-end"><t t-esc="'{:,.2f}'.format(me.rtt_volume or 0)"/></td>
+                                        </tr>
+                                    </t>
+                                </tbody>
+                                <tfoot class="table-light fw-bold">
+                                    <tr>
+                                        <td>Shift Total</td>
+                                        <td class="text-end">
+                                            <t t-esc="'{:,.2f}'.format(sum(shift.meter_entry_ids.mapped('qty_sold_elec')))"/>
+                                        </td>
+                                        <td class="text-end">
+                                            KES <t t-esc="'{:,.2f}'.format(shift.total_meter_sales)"/>
+                                        </td>
+                                        <td></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </t>
+
+                        <!-- Day totals across all shifts -->
+                        <t t-if="len(day_shifts) &gt; 1">
+                            <h5 class="mt-3">Day Total — All Shifts</h5>
+                            <t t-set="all_products" t-value="sorted(set(me.product_id for s in day_shifts for me in s.meter_entry_ids), key=lambda p: p.name)"/>
+                            <table class="table table-sm table-bordered">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Product</th>
+                                        <th class="text-end">Volume (L)</th>
+                                        <th class="text-end">Amount (KES)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <t t-foreach="all_products" t-as="prod">
+                                        <t t-set="prod_entries" t-value="[me for s in day_shifts for me in s.meter_entry_ids if me.product_id == prod]"/>
+                                        <tr>
+                                            <td><t t-esc="prod.name"/></td>
+                                            <td class="text-end">
+                                                <t t-esc="'{:,.2f}'.format(sum(me.qty_sold_elec for me in prod_entries))"/>
+                                            </td>
+                                            <td class="text-end">
+                                                KES <t t-esc="'{:,.2f}'.format(sum(me.amount_elec for me in prod_entries))"/>
+                                            </td>
+                                        </tr>
+                                    </t>
+                                </tbody>
+                                <tfoot class="table-light fw-bold">
+                                    <tr>
+                                        <td>Grand Total</td>
+                                        <td class="text-end">
+                                            <t t-esc="'{:,.2f}'.format(sum(me.qty_sold_elec for s in day_shifts for me in s.meter_entry_ids))"/>
+                                        </td>
+                                        <td class="text-end">
+                                            KES <t t-esc="'{:,.2f}'.format(sum(s.total_meter_sales for s in day_shifts))"/>
+                                        </td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </t>
+
+                        <!-- Cash summary per shift -->
+                        <h5 class="mt-4">Cash Collection Summary</h5>
+                        <table class="table table-sm table-bordered">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Shift</th>
+                                    <th class="text-end">Reported (KES)</th>
+                                    <th class="text-end">MPesa (KES)</th>
+                                    <th class="text-end">Card (KES)</th>
+                                    <th class="text-end">AR (KES)</th>
+                                    <th class="text-end">Cash Drop (KES)</th>
+                                    <th class="text-end">FC Balance</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <t t-foreach="day_shifts" t-as="shift">
+                                    <tr>
+                                        <td><t t-esc="dict([('day','Day'),('evening','Evening'),('night','Night')]).get(shift.label, shift.label)"/></td>
+                                        <td class="text-end"><t t-esc="'{:,.2f}'.format(shift.total_reported_sales)"/></td>
+                                        <td class="text-end"><t t-esc="'{:,.2f}'.format(sum(shift.attendant_cash_ids.mapped('mpesa_amount')))"/></td>
+                                        <td class="text-end"><t t-esc="'{:,.2f}'.format(sum(shift.attendant_cash_ids.mapped('card_amount')))"/></td>
+                                        <td class="text-end"><t t-esc="'{:,.2f}'.format(sum(shift.attendant_cash_ids.mapped('ar_amount')))"/></td>
+                                        <td class="text-end"><t t-esc="'{:,.2f}'.format(sum(shift.attendant_cash_ids.mapped('cash_collected')))"/></td>
+                                        <td t-attf-class="text-end fw-bold #{
+                                            'text-success' if abs(shift.fc_cash_balance) &lt; 0.01 else 'text-danger'
+                                        }">
+                                            <t t-esc="'{:,.2f}'.format(shift.fc_cash_balance)"/>
+                                        </td>
+                                    </tr>
+                                </t>
+                            </tbody>
+                        </table>
+
+                        <!-- Footer -->
+                        <div class="text-muted small mt-3">
+                            Printed: <t t-esc="context_timestamp(datetime.datetime.now()).strftime('%Y-%m-%d %H:%M')"/>
+                            — All figures from closed shifts only.
+                        </div>
+
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+
+</odoo>

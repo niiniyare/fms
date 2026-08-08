@@ -237,4 +237,45 @@
         <field name="perm_unlink" eval="0"/>
     </record>
 
+    <!-- ── Report SQL views (read-only, no create/write/unlink) ─────── -->
+    <record id="access_fms_report_daily_station_supervisor" model="ir.model.access">
+        <field name="name">fms.report.daily.station supervisor read</field>
+        <field name="model_id" ref="model_fms_report_daily_station"/>
+        <field name="group_id" ref="group_fms_supervisor"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <record id="access_fms_report_daily_station_attendant" model="ir.model.access">
+        <field name="name">fms.report.daily.station attendant read</field>
+        <field name="model_id" ref="model_fms_report_daily_station"/>
+        <field name="group_id" ref="group_fms_attendant"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <record id="access_fms_report_attendant_sales_supervisor" model="ir.model.access">
+        <field name="name">fms.report.attendant.sales supervisor read</field>
+        <field name="model_id" ref="model_fms_report_attendant_sales"/>
+        <field name="group_id" ref="group_fms_supervisor"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <record id="access_fms_report_wetstock_supervisor" model="ir.model.access">
+        <field name="name">fms.report.wetstock supervisor read</field>
+        <field name="model_id" ref="model_fms_report_wetstock"/>
+        <field name="group_id" ref="group_fms_supervisor"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
 </odoo>
