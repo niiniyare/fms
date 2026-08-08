@@ -131,6 +131,17 @@ class FMSShiftMeterEntry(models.Model):
                     "The shift's meter logs are the immutable record."
                 )
 
+    @api.constrains('elec_cash_sold')
+    def _check_elec_cash_non_negative(self):
+        for entry in self:
+            if entry.elec_cash_sold < 0:
+                raise ValidationError(
+                    f"Nozzle {entry.nozzle_id.name or entry.id}: "
+                    f"Cash meter reading produces a negative cash sale "
+                    f"(KES {entry.elec_cash_sold:,.2f}). "
+                    "Check closing vs opening cash meter readings."
+                )
+
     def write(self, vals):
         self._check_shift_open()
         return super().write(vals)
@@ -422,6 +433,18 @@ class FMSShiftAttendantCash(models.Model):
                 + rec.expense_amount
             )
             rec.balance = rec.total_in - rec.total_out
+
+    # ── Validation ───────────────────────────────────────────────────────────
+
+    @api.constrains('reported_sales')
+    def _check_reported_sales_non_negative(self):
+        for rec in self:
+            if rec.reported_sales < 0:
+                raise ValidationError(
+                    f"Attendant {rec.attendant_id.name or rec.id}: "
+                    f"Expected cash (KES {rec.reported_sales:,.2f}) is negative. "
+                    "Meter readings may have been entered in reverse order."
+                )
 
     # ── Locking ───────────────────────────────────────────────────────────────
 

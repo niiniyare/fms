@@ -1,0 +1,916 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ================================================================
+         SECTION MENUS under menu_fms_reporting
+         (parent exists in fms_shift_list_views.xml)
+    ================================================================ -->
+
+    <menuitem id="menu_fms_section_wetstock"
+              name="Wetstock"
+              parent="menu_fms_reporting"
+              sequence="30"/>
+
+    <menuitem id="menu_fms_section_attendants"
+              name="Attendants"
+              parent="menu_fms_reporting"
+              sequence="40"/>
+
+    <menuitem id="menu_fms_section_cash_credit"
+              name="Cash &amp; Credit"
+              parent="menu_fms_reporting"
+              sequence="50"/>
+
+    <menuitem id="menu_fms_section_sales_margin"
+              name="Sales &amp; Margin"
+              parent="menu_fms_reporting"
+              sequence="60"/>
+
+    <menuitem id="menu_fms_section_compliance"
+              name="Compliance &amp; Audit"
+              parent="menu_fms_reporting"
+              sequence="70"/>
+
+
+    <!-- ================================================================
+         R7 · Meter Variance Log
+    ================================================================ -->
+
+    <record id="view_fms_meter_variance_list" model="ir.ui.view">
+        <field name="name">fms.report.meter.variance.list</field>
+        <field name="model">fms.report.meter.variance</field>
+        <field name="arch" type="xml">
+            <list string="Meter Variance Log" create="false" edit="false" delete="false"
+                  default_order="shift_date desc, pump_name, nozzle_name"
+                  decoration-danger="abs(variance_pct) &gt; 1"
+                  decoration-warning="abs(variance_pct) &gt; 0.5 and abs(variance_pct) &lt;= 1">
+                <field name="shift_date" string="Date"/>
+                <field name="shift_label" string="Period"/>
+                <field name="pump_id" string="Pump"/>
+                <field name="nozzle_id" string="Nozzle"/>
+                <field name="attendant_id" string="Attendant"/>
+                <field name="product_id" string="Product"/>
+                <field name="qty_sold_elec" string="Elec (L)" sum="Total Elec"/>
+                <field name="qty_sold_man" string="Manual (L)" sum="Total Manual"/>
+                <field name="variance_l" string="Variance (L)"
+                       decoration-danger="abs(variance_l) &gt; 10"
+                       decoration-warning="abs(variance_l) &gt; 5 and abs(variance_l) &lt;= 10"
+                       sum="Total Variance"/>
+                <field name="variance_pct" string="Variance %"
+                       decoration-danger="abs(variance_pct) &gt; 1"/>
+                <field name="rtt_volume" string="RTT (L)" optional="show" sum="Total RTT"/>
+                <field name="elec_cash_sold" string="Cash Meter (KES)" optional="show"/>
+                <field name="shift_id" string="Shift" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_fms_meter_variance_pivot" model="ir.ui.view">
+        <field name="name">fms.report.meter.variance.pivot</field>
+        <field name="model">fms.report.meter.variance</field>
+        <field name="arch" type="xml">
+            <pivot string="Meter Variance" disable_linking="false">
+                <field name="shift_date" type="row" interval="month"/>
+                <field name="nozzle_id" type="row"/>
+                <field name="qty_sold_elec" type="measure" string="Elec (L)"/>
+                <field name="qty_sold_man" type="measure" string="Manual (L)"/>
+                <field name="variance_l" type="measure" string="Variance (L)"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="view_fms_meter_variance_graph" model="ir.ui.view">
+        <field name="name">fms.report.meter.variance.graph</field>
+        <field name="model">fms.report.meter.variance</field>
+        <field name="arch" type="xml">
+            <graph string="Meter Variance Trend" type="line">
+                <field name="shift_date" type="row"/>
+                <field name="variance_l" type="measure" string="Variance (L)"/>
+            </graph>
+        </field>
+    </record>
+
+    <record id="view_fms_meter_variance_search" model="ir.ui.view">
+        <field name="name">fms.report.meter.variance.search</field>
+        <field name="model">fms.report.meter.variance</field>
+        <field name="arch" type="xml">
+            <search string="Meter Variance">
+                <field name="nozzle_id" string="Nozzle"/>
+                <field name="attendant_id" string="Attendant"/>
+                <field name="product_id" string="Product"/>
+                <field name="pump_id" string="Pump"/>
+                <filter string="High Variance (&gt;1%)" name="high_variance"
+                        domain="[('variance_pct', '&gt;', 1)]"/>
+                <filter string="Any Variance (&gt;0.5%)" name="any_variance"
+                        domain="[('variance_pct', '&gt;', 0.5)]"/>
+                <filter string="This Month" name="this_month"
+                        domain="[('shift_date', '&gt;=', context_today() + relativedelta(day=1))]"/>
+                <filter string="Last 30 Days" name="last_30"
+                        domain="[('shift_date', '&gt;=', context_today() + relativedelta(days=-30))]"/>
+                <separator/>
+                <group string="Group By">
+                    <filter string="Nozzle" name="group_nozzle" context="{'group_by': 'nozzle_id'}"/>
+                    <filter string="Pump" name="group_pump" context="{'group_by': 'pump_id'}"/>
+                    <filter string="Attendant" name="group_attendant" context="{'group_by': 'attendant_id'}"/>
+                    <filter string="Product" name="group_product" context="{'group_by': 'product_id'}"/>
+                    <filter string="Date" name="group_date" context="{'group_by': 'shift_date:month'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_fms_meter_variance" model="ir.actions.act_window">
+        <field name="name">Meter Variance Log</field>
+        <field name="res_model">fms.report.meter.variance</field>
+        <field name="view_mode">pivot,graph,list</field>
+        <field name="context">{'search_default_last_30': 1, 'search_default_group_nozzle': 1}</field>
+    </record>
+
+    <menuitem id="menu_fms_report_meter_variance"
+              name="Meter Variance Log"
+              parent="menu_fms_section_wetstock"
+              action="action_fms_meter_variance"
+              sequence="30"/>
+
+
+    <!-- ================================================================
+         R10 · Attribution Residuals
+    ================================================================ -->
+
+    <record id="view_fms_residual_exception_list" model="ir.ui.view">
+        <field name="name">fms.report.residual.exception.list</field>
+        <field name="model">fms.report.residual.exception</field>
+        <field name="arch" type="xml">
+            <list string="Attribution Residuals" create="false" edit="false" delete="false"
+                  default_order="shift_date desc"
+                  decoration-danger="not is_allocated"
+                  decoration-muted="is_allocated">
+                <field name="shift_date" string="Date"/>
+                <field name="shift_label" string="Period"/>
+                <field name="supervisor_id" string="Supervisor"/>
+                <field name="product_id" string="Product"/>
+                <field name="residual_type" string="Type"
+                       decoration-warning="residual_type == 'over'"
+                       decoration-danger="residual_type == 'under'"/>
+                <field name="meter_volume" string="Meter (L)" sum="Total Meter"/>
+                <field name="volume_residual" string="Volume Residual (L)"
+                       decoration-danger="abs(volume_residual) &gt; 50"
+                       sum="Total Volume Residual"/>
+                <field name="cash_residual" string="Cash Residual (KES)"
+                       decoration-danger="abs(cash_residual) &gt; 5000"
+                       sum="Total Cash Residual"/>
+                <field name="is_allocated" string="Allocated" widget="boolean"/>
+                <field name="shift_id" string="Shift" optional="show"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_fms_residual_exception_pivot" model="ir.ui.view">
+        <field name="name">fms.report.residual.exception.pivot</field>
+        <field name="model">fms.report.residual.exception</field>
+        <field name="arch" type="xml">
+            <pivot string="Attribution Residuals">
+                <field name="shift_date" type="row" interval="month"/>
+                <field name="product_id" type="col"/>
+                <field name="volume_residual" type="measure"/>
+                <field name="cash_residual" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="view_fms_residual_exception_search" model="ir.ui.view">
+        <field name="name">fms.report.residual.exception.search</field>
+        <field name="model">fms.report.residual.exception</field>
+        <field name="arch" type="xml">
+            <search string="Attribution Residuals">
+                <field name="product_id"/>
+                <field name="supervisor_id"/>
+                <filter string="Unallocated" name="unallocated"
+                        domain="[('is_allocated', '=', False)]"/>
+                <filter string="Under-invoiced" name="under"
+                        domain="[('residual_type', '=', 'under')]"/>
+                <filter string="Over-invoiced" name="over"
+                        domain="[('residual_type', '=', 'over')]"/>
+                <filter string="This Month" name="this_month"
+                        domain="[('shift_date', '&gt;=', context_today() + relativedelta(day=1))]"/>
+                <separator/>
+                <group string="Group By">
+                    <filter string="Product" name="group_product" context="{'group_by': 'product_id'}"/>
+                    <filter string="Type" name="group_type" context="{'group_by': 'residual_type'}"/>
+                    <filter string="Date" name="group_date" context="{'group_by': 'shift_date:month'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_fms_residual_exception" model="ir.actions.act_window">
+        <field name="name">Attribution Residuals</field>
+        <field name="res_model">fms.report.residual.exception</field>
+        <field name="view_mode">list,pivot</field>
+        <field name="context">{'search_default_unallocated': 1}</field>
+    </record>
+
+    <menuitem id="menu_fms_report_residuals"
+              name="Attribution Residuals"
+              parent="menu_fms_section_cash_credit"
+              action="action_fms_residual_exception"
+              sequence="20"
+              groups="fms.group_fms_supervisor"/>
+
+
+    <!-- ================================================================
+         R16 · GL Reconciliation Journal
+    ================================================================ -->
+
+    <record id="view_fms_gl_reconciliation_list" model="ir.ui.view">
+        <field name="name">fms.report.gl.reconciliation.list</field>
+        <field name="model">fms.report.gl.reconciliation</field>
+        <field name="arch" type="xml">
+            <list string="GL Reconciliation Journal" create="false" edit="false" delete="false">
+                <field name="shift_date" string="Date"/>
+                <field name="shift_label" string="Period"/>
+                <field name="shift_id" string="Shift"/>
+                <field name="move_id" string="Journal Entry"/>
+                <field name="account_code" string="Account"/>
+                <field name="account_name" string="Account Name"/>
+                <field name="label" string="Description"/>
+                <field name="partner_id" string="Partner" optional="show"/>
+                <field name="debit" string="Debit (KES)" sum="Total Debit"/>
+                <field name="credit" string="Credit (KES)" sum="Total Credit"/>
+                <field name="balance" string="Balance (KES)" sum="Net"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_fms_gl_reconciliation_pivot" model="ir.ui.view">
+        <field name="name">fms.report.gl.reconciliation.pivot</field>
+        <field name="model">fms.report.gl.reconciliation</field>
+        <field name="arch" type="xml">
+            <pivot string="GL Reconciliation">
+                <field name="shift_date" type="row" interval="month"/>
+                <field name="account_id" type="row"/>
+                <field name="debit" type="measure"/>
+                <field name="credit" type="measure"/>
+                <field name="balance" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="view_fms_gl_reconciliation_search" model="ir.ui.view">
+        <field name="name">fms.report.gl.reconciliation.search</field>
+        <field name="model">fms.report.gl.reconciliation</field>
+        <field name="arch" type="xml">
+            <search string="GL Reconciliation">
+                <field name="shift_id"/>
+                <field name="account_id"/>
+                <field name="move_id"/>
+                <filter string="This Month" name="this_month"
+                        domain="[('shift_date', '&gt;=', context_today() + relativedelta(day=1))]"/>
+                <separator/>
+                <group string="Group By">
+                    <filter string="Shift" name="group_shift" context="{'group_by': 'shift_id'}"/>
+                    <filter string="Account" name="group_account" context="{'group_by': 'account_id'}"/>
+                    <filter string="Entry" name="group_move" context="{'group_by': 'move_id'}"/>
+                    <filter string="Date" name="group_date" context="{'group_by': 'shift_date:month'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_fms_gl_reconciliation" model="ir.actions.act_window">
+        <field name="name">GL Reconciliation Journal</field>
+        <field name="res_model">fms.report.gl.reconciliation</field>
+        <field name="view_mode">list,pivot</field>
+        <field name="context">{'search_default_this_month': 1, 'search_default_group_shift': 1}</field>
+    </record>
+
+    <menuitem id="menu_fms_report_gl_reconciliation"
+              name="GL Reconciliation Journal"
+              parent="menu_fms_section_compliance"
+              action="action_fms_gl_reconciliation"
+              sequence="20"
+              groups="fms.group_fms_supervisor"/>
+
+
+    <!-- ================================================================
+         R19 · Sales Summary
+    ================================================================ -->
+
+    <record id="view_fms_sales_summary_pivot" model="ir.ui.view">
+        <field name="name">fms.report.sales.summary.pivot</field>
+        <field name="model">fms.report.sales.summary</field>
+        <field name="arch" type="xml">
+            <pivot string="Sales Summary" disable_linking="false">
+                <field name="product_id" type="row"/>
+                <field name="qty_sold_elec" type="measure" string="Volume (L)"/>
+                <field name="elec_cash_sold" type="measure" string="Value (KES)"/>
+                <field name="rtt_volume" type="measure" string="RTT (L)"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="view_fms_sales_summary_graph" model="ir.ui.view">
+        <field name="name">fms.report.sales.summary.graph</field>
+        <field name="model">fms.report.sales.summary</field>
+        <field name="arch" type="xml">
+            <graph string="Sales by Product" type="bar" stacked="0">
+                <field name="product_id" type="row"/>
+                <field name="qty_sold_elec" type="measure" string="Volume (L)"/>
+            </graph>
+        </field>
+    </record>
+
+    <record id="view_fms_sales_summary_list" model="ir.ui.view">
+        <field name="name">fms.report.sales.summary.list</field>
+        <field name="model">fms.report.sales.summary</field>
+        <field name="arch" type="xml">
+            <list string="Sales Summary" create="false" edit="false" delete="false">
+                <field name="shift_date" string="Date"/>
+                <field name="shift_label" string="Period"/>
+                <field name="pump_id" string="Pump"/>
+                <field name="nozzle_id" string="Nozzle"/>
+                <field name="attendant_id" string="Attendant"/>
+                <field name="product_id" string="Product"/>
+                <field name="qty_sold_elec" string="Volume (L)" sum="Total"/>
+                <field name="elec_cash_sold" string="Value (KES)" sum="Total"/>
+                <field name="rtt_volume" string="RTT (L)" sum="Total" optional="show"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_fms_sales_summary_search" model="ir.ui.view">
+        <field name="name">fms.report.sales.summary.search</field>
+        <field name="model">fms.report.sales.summary</field>
+        <field name="arch" type="xml">
+            <search string="Sales Summary">
+                <field name="product_id"/>
+                <field name="attendant_id"/>
+                <field name="pump_id"/>
+                <field name="nozzle_id"/>
+                <filter string="This Month" name="this_month"
+                        domain="[('shift_date', '&gt;=', context_today() + relativedelta(day=1))]"/>
+                <filter string="Last 30 Days" name="last_30"
+                        domain="[('shift_date', '&gt;=', context_today() + relativedelta(days=-30))]"/>
+                <separator/>
+                <group string="Group By">
+                    <filter string="Product" name="group_product" context="{'group_by': 'product_id'}"/>
+                    <filter string="Attendant" name="group_attendant" context="{'group_by': 'attendant_id'}"/>
+                    <filter string="Pump" name="group_pump" context="{'group_by': 'pump_id'}"/>
+                    <filter string="Date" name="group_date" context="{'group_by': 'shift_date:day'}"/>
+                    <filter string="Month" name="group_month" context="{'group_by': 'shift_date:month'}"/>
+                    <filter string="Period" name="group_label" context="{'group_by': 'shift_label'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_fms_sales_summary" model="ir.actions.act_window">
+        <field name="name">Sales Summary</field>
+        <field name="res_model">fms.report.sales.summary</field>
+        <field name="view_mode">pivot,graph,list</field>
+        <field name="context">{'search_default_this_month': 1, 'search_default_group_product': 1}</field>
+    </record>
+
+    <menuitem id="menu_fms_report_sales_summary"
+              name="Sales Summary"
+              parent="menu_fms_section_sales_margin"
+              action="action_fms_sales_summary"
+              sequence="10"/>
+
+
+    <!-- ================================================================
+         R21 · Throughput Trend
+    ================================================================ -->
+
+    <record id="view_fms_throughput_graph" model="ir.ui.view">
+        <field name="name">fms.report.throughput.graph</field>
+        <field name="model">fms.report.throughput</field>
+        <field name="arch" type="xml">
+            <graph string="Daily Throughput" type="line">
+                <field name="shift_date" type="row"/>
+                <field name="product_id" type="col"/>
+                <field name="qty_sold" type="measure" string="Volume (L)"/>
+            </graph>
+        </field>
+    </record>
+
+    <record id="view_fms_throughput_pivot" model="ir.ui.view">
+        <field name="name">fms.report.throughput.pivot</field>
+        <field name="model">fms.report.throughput</field>
+        <field name="arch" type="xml">
+            <pivot string="Throughput Trend">
+                <field name="shift_date" type="row" interval="week"/>
+                <field name="product_id" type="col"/>
+                <field name="qty_sold" type="measure" string="Volume (L)"/>
+                <field name="cash_total" type="measure" string="Value (KES)"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="view_fms_throughput_list" model="ir.ui.view">
+        <field name="name">fms.report.throughput.list</field>
+        <field name="model">fms.report.throughput</field>
+        <field name="arch" type="xml">
+            <list string="Throughput Trend" create="false" edit="false" delete="false">
+                <field name="shift_date" string="Date"/>
+                <field name="product_id" string="Product"/>
+                <field name="qty_sold" string="Volume (L)" sum="Total"/>
+                <field name="cash_total" string="Value (KES)" sum="Total"/>
+                <field name="shift_count" string="Shifts"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_fms_throughput_search" model="ir.ui.view">
+        <field name="name">fms.report.throughput.search</field>
+        <field name="model">fms.report.throughput</field>
+        <field name="arch" type="xml">
+            <search string="Throughput Trend">
+                <field name="product_id"/>
+                <filter string="This Month" name="this_month"
+                        domain="[('shift_date', '&gt;=', context_today() + relativedelta(day=1))]"/>
+                <filter string="Last 30 Days" name="last_30"
+                        domain="[('shift_date', '&gt;=', context_today() + relativedelta(days=-30))]"/>
+                <filter string="Last 90 Days" name="last_90"
+                        domain="[('shift_date', '&gt;=', context_today() + relativedelta(days=-90))]"/>
+                <separator/>
+                <group string="Group By">
+                    <filter string="Product" name="group_product" context="{'group_by': 'product_id'}"/>
+                    <filter string="Day" name="group_day" context="{'group_by': 'shift_date:day'}"/>
+                    <filter string="Week" name="group_week" context="{'group_by': 'shift_date:week'}"/>
+                    <filter string="Month" name="group_month" context="{'group_by': 'shift_date:month'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_fms_throughput" model="ir.actions.act_window">
+        <field name="name">Throughput Trend</field>
+        <field name="res_model">fms.report.throughput</field>
+        <field name="view_mode">graph,pivot,list</field>
+        <field name="context">{'search_default_last_30': 1, 'search_default_group_product': 1}</field>
+    </record>
+
+    <menuitem id="menu_fms_report_throughput"
+              name="Throughput Trend"
+              parent="menu_fms_section_sales_margin"
+              action="action_fms_throughput"
+              sequence="50"/>
+
+
+    <!-- ================================================================
+         R22 · Pump & Nozzle Performance
+    ================================================================ -->
+
+    <record id="view_fms_nozzle_perf_list" model="ir.ui.view">
+        <field name="name">fms.report.nozzle.perf.list</field>
+        <field name="model">fms.report.nozzle.perf</field>
+        <field name="arch" type="xml">
+            <list string="Pump &amp; Nozzle Performance" create="false" edit="false" delete="false"
+                  default_order="total_qty desc">
+                <field name="pump_id" string="Pump"/>
+                <field name="nozzle_id" string="Nozzle"/>
+                <field name="product_id" string="Product"/>
+                <field name="shift_count" string="Shifts"/>
+                <field name="total_qty" string="Total Volume (L)" sum="Total"/>
+                <field name="avg_qty" string="Avg/Shift (L)"/>
+                <field name="total_cash" string="Total Cash (KES)" sum="Total" optional="show"/>
+                <field name="total_rtt" string="Total RTT (L)" sum="Total" optional="show"/>
+                <field name="avg_variance" string="Avg Mech Variance (L)"
+                       decoration-warning="abs(avg_variance) &gt; 5"
+                       optional="show"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_fms_nozzle_perf_pivot" model="ir.ui.view">
+        <field name="name">fms.report.nozzle.perf.pivot</field>
+        <field name="model">fms.report.nozzle.perf</field>
+        <field name="arch" type="xml">
+            <pivot string="Nozzle Performance">
+                <field name="pump_id" type="row"/>
+                <field name="nozzle_id" type="row"/>
+                <field name="total_qty" type="measure" string="Volume (L)"/>
+                <field name="avg_qty" type="measure" string="Avg/Shift (L)"/>
+                <field name="shift_count" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="view_fms_nozzle_perf_search" model="ir.ui.view">
+        <field name="name">fms.report.nozzle.perf.search</field>
+        <field name="model">fms.report.nozzle.perf</field>
+        <field name="arch" type="xml">
+            <search string="Nozzle Performance">
+                <field name="nozzle_id"/>
+                <field name="pump_id"/>
+                <field name="product_id"/>
+                <separator/>
+                <group string="Group By">
+                    <filter string="Pump" name="group_pump" context="{'group_by': 'pump_id'}"/>
+                    <filter string="Product" name="group_product" context="{'group_by': 'product_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_fms_nozzle_perf" model="ir.actions.act_window">
+        <field name="name">Pump &amp; Nozzle Performance</field>
+        <field name="res_model">fms.report.nozzle.perf</field>
+        <field name="view_mode">list,pivot</field>
+        <field name="context">{'search_default_group_pump': 1}</field>
+    </record>
+
+    <menuitem id="menu_fms_report_nozzle_perf"
+              name="Pump &amp; Nozzle Performance"
+              parent="menu_fms_section_sales_margin"
+              action="action_fms_nozzle_perf"
+              sequence="60"/>
+
+
+    <!-- ================================================================
+         R25 · Attendant Sales by Category
+    ================================================================ -->
+
+    <record id="view_fms_attendant_category_pivot" model="ir.ui.view">
+        <field name="name">fms.report.attendant.category.pivot</field>
+        <field name="model">fms.report.attendant.category</field>
+        <field name="arch" type="xml">
+            <pivot string="Attendant Sales by Category">
+                <field name="attendant_id" type="row"/>
+                <field name="product_id" type="row"/>
+                <field name="qty_sold_elec" type="measure" string="Volume (L)"/>
+                <field name="elec_cash_sold" type="measure" string="Value (KES)"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="view_fms_attendant_category_graph" model="ir.ui.view">
+        <field name="name">fms.report.attendant.category.graph</field>
+        <field name="model">fms.report.attendant.category</field>
+        <field name="arch" type="xml">
+            <graph string="Sales by Attendant" type="bar" stacked="1">
+                <field name="attendant_id" type="row"/>
+                <field name="product_id" type="col"/>
+                <field name="qty_sold_elec" type="measure" string="Volume (L)"/>
+            </graph>
+        </field>
+    </record>
+
+    <record id="view_fms_attendant_category_list" model="ir.ui.view">
+        <field name="name">fms.report.attendant.category.list</field>
+        <field name="model">fms.report.attendant.category</field>
+        <field name="arch" type="xml">
+            <list string="Attendant Sales by Category" create="false" edit="false" delete="false">
+                <field name="shift_date" string="Date"/>
+                <field name="shift_label" string="Period"/>
+                <field name="attendant_id" string="Attendant"/>
+                <field name="nozzle_id" string="Nozzle"/>
+                <field name="product_id" string="Product"/>
+                <field name="qty_sold_elec" string="Volume (L)" sum="Total"/>
+                <field name="elec_cash_sold" string="Value (KES)" sum="Total"/>
+                <field name="rtt_volume" string="RTT (L)" optional="show" sum="Total"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_fms_attendant_category_search" model="ir.ui.view">
+        <field name="name">fms.report.attendant.category.search</field>
+        <field name="model">fms.report.attendant.category</field>
+        <field name="arch" type="xml">
+            <search string="Attendant Sales by Category">
+                <field name="attendant_id"/>
+                <field name="product_id"/>
+                <field name="nozzle_id"/>
+                <filter string="This Month" name="this_month"
+                        domain="[('shift_date', '&gt;=', context_today() + relativedelta(day=1))]"/>
+                <separator/>
+                <group string="Group By">
+                    <filter string="Attendant" name="group_attendant" context="{'group_by': 'attendant_id'}"/>
+                    <filter string="Product" name="group_product" context="{'group_by': 'product_id'}"/>
+                    <filter string="Date" name="group_date" context="{'group_by': 'shift_date:month'}"/>
+                    <filter string="Shift Period" name="group_label" context="{'group_by': 'shift_label'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_fms_attendant_category" model="ir.actions.act_window">
+        <field name="name">Sales by Category</field>
+        <field name="res_model">fms.report.attendant.category</field>
+        <field name="view_mode">pivot,graph,list</field>
+        <field name="context">{'search_default_this_month': 1, 'search_default_group_attendant': 1}</field>
+    </record>
+
+    <menuitem id="menu_fms_report_attendant_category"
+              name="Sales by Category"
+              parent="menu_fms_section_attendants"
+              action="action_fms_attendant_category"
+              sequence="30"/>
+
+
+    <!-- ================================================================
+         R26 · Shortage & Overage Ledger  (restricted — supervisor+)
+    ================================================================ -->
+
+    <record id="view_fms_shortage_list" model="ir.ui.view">
+        <field name="name">fms.report.shortage.list</field>
+        <field name="model">fms.report.shortage</field>
+        <field name="arch" type="xml">
+            <list string="Shortage &amp; Overage Ledger" create="false" edit="false" delete="false"
+                  default_order="attendant_name, shift_date"
+                  decoration-danger="balance &lt; -10"
+                  decoration-success="balance &gt; 0">
+                <field name="attendant_id" string="Attendant"/>
+                <field name="shift_date" string="Date"/>
+                <field name="shift_label" string="Period"/>
+                <field name="supervisor_id" string="Supervisor" optional="show"/>
+                <field name="reported_sales" string="Expected (KES)"/>
+                <field name="cash_collected" string="Declared (KES)"/>
+                <field name="mpesa_amount" string="MPesa" optional="show"/>
+                <field name="card_amount" string="Card" optional="show"/>
+                <field name="ar_amount" string="AR" optional="show"/>
+                <field name="balance" string="Shortage/Overage (KES)"
+                       decoration-danger="balance &lt; -10"
+                       decoration-success="balance &gt; 0"/>
+                <field name="cumulative_balance" string="Cumulative (KES)"
+                       decoration-danger="cumulative_balance &lt; -100"/>
+                <field name="shift_id" string="Shift" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_fms_shortage_pivot" model="ir.ui.view">
+        <field name="name">fms.report.shortage.pivot</field>
+        <field name="model">fms.report.shortage</field>
+        <field name="arch" type="xml">
+            <pivot string="Shortage &amp; Overage">
+                <field name="attendant_id" type="row"/>
+                <field name="shift_date" type="row" interval="month"/>
+                <field name="reported_sales" type="measure" string="Expected (KES)"/>
+                <field name="balance" type="measure" string="Shortage (KES)"/>
+                <field name="cumulative_balance" type="measure" string="Cumulative (KES)"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="view_fms_shortage_search" model="ir.ui.view">
+        <field name="name">fms.report.shortage.search</field>
+        <field name="model">fms.report.shortage</field>
+        <field name="arch" type="xml">
+            <search string="Shortage &amp; Overage Ledger">
+                <field name="attendant_id"/>
+                <filter string="Shortages Only" name="short"
+                        domain="[('balance', '&lt;', -1)]"/>
+                <filter string="Overages Only" name="over"
+                        domain="[('balance', '&gt;', 1)]"/>
+                <filter string="Balanced" name="clear"
+                        domain="[('balance', '&gt;=', -1), ('balance', '&lt;=', 1)]"/>
+                <filter string="This Month" name="this_month"
+                        domain="[('shift_date', '&gt;=', context_today() + relativedelta(day=1))]"/>
+                <filter string="Last 30 Days" name="last_30"
+                        domain="[('shift_date', '&gt;=', context_today() + relativedelta(days=-30))]"/>
+                <separator/>
+                <group string="Group By">
+                    <filter string="Attendant" name="group_attendant" context="{'group_by': 'attendant_id'}"/>
+                    <filter string="Month" name="group_month" context="{'group_by': 'shift_date:month'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_fms_shortage" model="ir.actions.act_window">
+        <field name="name">Shortage &amp; Overage Ledger</field>
+        <field name="res_model">fms.report.shortage</field>
+        <field name="view_mode">list,pivot</field>
+        <field name="context">{'search_default_short': 1, 'search_default_group_attendant': 1}</field>
+    </record>
+
+    <menuitem id="menu_fms_report_shortage"
+              name="Shortage &amp; Overage Ledger"
+              parent="menu_fms_section_attendants"
+              action="action_fms_shortage"
+              sequence="40"
+              groups="fms.group_fms_supervisor"/>
+
+
+    <!-- ================================================================
+         R27 · Attendant Performance
+    ================================================================ -->
+
+    <record id="view_fms_attendant_perf_list" model="ir.ui.view">
+        <field name="name">fms.report.attendant.perf.list</field>
+        <field name="model">fms.report.attendant.perf</field>
+        <field name="arch" type="xml">
+            <list string="Attendant Performance" create="false" edit="false" delete="false"
+                  default_order="total_qty desc">
+                <field name="attendant_id" string="Attendant"/>
+                <field name="shift_count" string="Shifts"/>
+                <field name="total_qty" string="Total Volume (L)" sum="Total"/>
+                <field name="avg_qty" string="Avg L/Shift"/>
+                <field name="accuracy_pct" string="Cash Accuracy %"
+                       decoration-success="accuracy_pct &gt;= 95"
+                       decoration-warning="accuracy_pct &lt; 95 and accuracy_pct &gt;= 80"
+                       decoration-danger="accuracy_pct &lt; 80"/>
+                <field name="shortage_shifts" string="Short Shifts"
+                       decoration-danger="shortage_shifts &gt; 3"/>
+                <field name="overage_shifts" string="Over Shifts" optional="show"/>
+                <field name="total_shortage" string="Total Shortage (KES)"
+                       decoration-danger="total_shortage &gt; 1000" optional="show"/>
+                <field name="total_rtt" string="Total RTT (L)" optional="show"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_fms_attendant_perf_pivot" model="ir.ui.view">
+        <field name="name">fms.report.attendant.perf.pivot</field>
+        <field name="model">fms.report.attendant.perf</field>
+        <field name="arch" type="xml">
+            <pivot string="Attendant Performance">
+                <field name="attendant_id" type="row"/>
+                <field name="shift_count" type="measure" string="Shifts"/>
+                <field name="total_qty" type="measure" string="Volume (L)"/>
+                <field name="accuracy_pct" type="measure" string="Accuracy %"/>
+                <field name="total_shortage" type="measure" string="Shortage (KES)"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="view_fms_attendant_perf_search" model="ir.ui.view">
+        <field name="name">fms.report.attendant.perf.search</field>
+        <field name="model">fms.report.attendant.perf</field>
+        <field name="arch" type="xml">
+            <search string="Attendant Performance">
+                <field name="attendant_id"/>
+                <filter string="High Shortage (&gt;3 shifts)" name="high_shortage"
+                        domain="[('shortage_shifts', '&gt;', 3)]"/>
+                <filter string="Low Accuracy (&lt;80%)" name="low_accuracy"
+                        domain="[('accuracy_pct', '&lt;', 80)]"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_fms_attendant_perf" model="ir.actions.act_window">
+        <field name="name">Attendant Performance</field>
+        <field name="res_model">fms.report.attendant.perf</field>
+        <field name="view_mode">list,pivot</field>
+        <field name="context">{}</field>
+    </record>
+
+    <menuitem id="menu_fms_report_attendant_perf"
+              name="Attendant Performance"
+              parent="menu_fms_section_attendants"
+              action="action_fms_attendant_perf"
+              sequence="50"/>
+
+
+    <!-- ================================================================
+         R28 · Attendant Risk & Anomaly  (restricted — supervisor+)
+    ================================================================ -->
+
+    <record id="view_fms_risk_anomaly_list" model="ir.ui.view">
+        <field name="name">fms.report.risk.anomaly.list</field>
+        <field name="model">fms.report.risk.anomaly</field>
+        <field name="arch" type="xml">
+            <list string="Risk &amp; Anomaly" create="false" edit="false" delete="false"
+                  default_order="risk_score desc"
+                  decoration-danger="risk_score &gt; 10"
+                  decoration-warning="risk_score &gt; 5 and risk_score &lt;= 10">
+                <field name="attendant_id" string="Attendant"/>
+                <field name="shift_count" string="Shifts"/>
+                <field name="shortage_shifts" string="Short Shifts"
+                       decoration-danger="shortage_shifts &gt; 5"/>
+                <field name="consecutive_short" string="Max Consecutive Short"
+                       decoration-danger="consecutive_short &gt; 3"/>
+                <field name="total_shortage" string="Total Shortage (KES)"
+                       decoration-danger="total_shortage &gt; 2000"/>
+                <field name="avg_shortage" string="Avg Shortage/Shift (KES)" optional="show"/>
+                <field name="round_readings" string="Round Readings"
+                       decoration-warning="round_readings &gt; 3" optional="show"/>
+                <field name="high_variance_shifts" string="High Mech Variance"
+                       decoration-warning="high_variance_shifts &gt; 2" optional="show"/>
+                <field name="rtt_shifts" string="RTT Shifts" optional="show"/>
+                <field name="risk_score" string="Risk Score"
+                       decoration-danger="risk_score &gt; 10"
+                       decoration-warning="risk_score &gt; 5"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_fms_risk_anomaly_search" model="ir.ui.view">
+        <field name="name">fms.report.risk.anomaly.search</field>
+        <field name="model">fms.report.risk.anomaly</field>
+        <field name="arch" type="xml">
+            <search string="Risk &amp; Anomaly">
+                <field name="attendant_id"/>
+                <filter string="High Risk (score &gt; 10)" name="high_risk"
+                        domain="[('risk_score', '&gt;', 10)]"/>
+                <filter string="Medium Risk (score &gt; 5)" name="med_risk"
+                        domain="[('risk_score', '&gt;', 5)]"/>
+                <filter string="Any Anomaly" name="any_anomaly"
+                        domain="[('risk_score', '&gt;', 0)]"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_fms_risk_anomaly" model="ir.actions.act_window">
+        <field name="name">Risk &amp; Anomaly</field>
+        <field name="res_model">fms.report.risk.anomaly</field>
+        <field name="view_mode">list</field>
+        <field name="context">{'search_default_any_anomaly': 1}</field>
+    </record>
+
+    <menuitem id="menu_fms_report_risk_anomaly"
+              name="Risk &amp; Anomaly"
+              parent="menu_fms_section_attendants"
+              action="action_fms_risk_anomaly"
+              sequence="60"
+              groups="fms.group_fms_supervisor"/>
+
+
+    <!-- ================================================================
+         R29 · Nozzle Assignment & Handover Log
+    ================================================================ -->
+
+    <record id="view_fms_nozzle_handover_list" model="ir.ui.view">
+        <field name="name">fms.report.nozzle.handover.list</field>
+        <field name="model">fms.report.nozzle.handover</field>
+        <field name="arch" type="xml">
+            <list string="Nozzle Assignment &amp; Handover" create="false" edit="false" delete="false">
+                <field name="shift_date" string="Date"/>
+                <field name="shift_label" string="Period"/>
+                <field name="pump_id" string="Pump"/>
+                <field name="nozzle_id" string="Nozzle"/>
+                <field name="product_id" string="Product"/>
+                <field name="attendant_id" string="Attendant"/>
+                <field name="supervisor_id" string="Supervisor" optional="show"/>
+                <field name="opening_vol" string="Opening (L)"/>
+                <field name="closing_vol" string="Closing (L)"/>
+                <field name="qty_sold" string="Sold (L)" sum="Total"/>
+                <field name="shift_id" string="Shift" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_fms_nozzle_handover_search" model="ir.ui.view">
+        <field name="name">fms.report.nozzle.handover.search</field>
+        <field name="model">fms.report.nozzle.handover</field>
+        <field name="arch" type="xml">
+            <search string="Nozzle Assignment">
+                <field name="attendant_id"/>
+                <field name="nozzle_id"/>
+                <field name="pump_id"/>
+                <filter string="This Week" name="this_week"
+                        domain="[('shift_date', '&gt;=', context_today() + relativedelta(weekday=0, days=-6))]"/>
+                <filter string="This Month" name="this_month"
+                        domain="[('shift_date', '&gt;=', context_today() + relativedelta(day=1))]"/>
+                <separator/>
+                <group string="Group By">
+                    <filter string="Nozzle" name="group_nozzle" context="{'group_by': 'nozzle_id'}"/>
+                    <filter string="Attendant" name="group_attendant" context="{'group_by': 'attendant_id'}"/>
+                    <filter string="Date" name="group_date" context="{'group_by': 'shift_date'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_fms_nozzle_handover" model="ir.actions.act_window">
+        <field name="name">Nozzle Assignment &amp; Handover</field>
+        <field name="res_model">fms.report.nozzle.handover</field>
+        <field name="view_mode">list</field>
+        <field name="context">{'search_default_this_week': 1}</field>
+    </record>
+
+    <menuitem id="menu_fms_report_nozzle_handover"
+              name="Nozzle Assignment &amp; Handover"
+              parent="menu_fms_section_attendants"
+              action="action_fms_nozzle_handover"
+              sequence="70"/>
+
+
+    <!-- ================================================================
+         Existing reports — wire into section menus
+    ================================================================ -->
+
+    <!-- R4 Attendant Sales & Cash → Attendants section -->
+    <menuitem id="menu_fms_report_attendant_sec"
+              name="Attendant Sales &amp; Cash"
+              parent="menu_fms_section_attendants"
+              action="action_fms_attendant_sales_report"
+              sequence="10"/>
+
+    <!-- R3 Wetstock → Wetstock section -->
+    <menuitem id="menu_fms_report_wetstock_sec"
+              name="Wetstock Reconciliation"
+              parent="menu_fms_section_wetstock"
+              action="action_fms_wetstock_report"
+              sequence="10"/>
+
+    <!-- R9 Incidents → Wetstock section -->
+    <menuitem id="menu_fms_report_incidents_sec"
+              name="Drive-off &amp; Incident Register"
+              parent="menu_fms_section_wetstock"
+              action="action_fms_incident_report"
+              sequence="50"/>
+
+</odoo>

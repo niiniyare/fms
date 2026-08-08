@@ -242,9 +242,11 @@
                                     <field name="attendant_id" string="Attendant"/>
 
                                     <!-- INCOMING — auto-computed from nozzle cash meters -->
+                                    <!-- Blind count: hide expected cash while attendant is entering declared cash -->
                                     <field name="reported_sales" readonly="1"
                                            string="Meter Sales (KES)"
-                                           sum="Total Meter Sales"/>
+                                           sum="Total Meter Sales"
+                                           column_invisible="parent.state in ('open', 'closing')"/>
                                     <field name="mpesa_amount" readonly="1"
                                            string="MPesa (KES)" sum="MPesa Total"
                                            optional="show"/>

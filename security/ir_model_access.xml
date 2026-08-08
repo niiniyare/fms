@@ -329,6 +329,192 @@
         <field name="perm_unlink" eval="0"/>
     </record>
 
+    <!-- ── New SQL-view report models (R7, R10, R16, R19, R21, R22, R25, R26, R27, R28, R29) ── -->
+
+    <!-- R7 Meter Variance: supervisor + attendant read -->
+    <record id="access_fms_report_meter_variance_supervisor" model="ir.model.access">
+        <field name="name">fms.report.meter.variance supervisor read</field>
+        <field name="model_id" ref="model_fms_report_meter_variance"/>
+        <field name="group_id" ref="group_fms_supervisor"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+    <record id="access_fms_report_meter_variance_attendant" model="ir.model.access">
+        <field name="name">fms.report.meter.variance attendant read</field>
+        <field name="model_id" ref="model_fms_report_meter_variance"/>
+        <field name="group_id" ref="group_fms_attendant"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <!-- R10 Attribution Residuals: supervisor-only -->
+    <record id="access_fms_report_residual_exception_supervisor" model="ir.model.access">
+        <field name="name">fms.report.residual.exception supervisor read</field>
+        <field name="model_id" ref="model_fms_report_residual_exception"/>
+        <field name="group_id" ref="group_fms_supervisor"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <!-- R16 GL Reconciliation: supervisor-only -->
+    <record id="access_fms_report_gl_reconciliation_supervisor" model="ir.model.access">
+        <field name="name">fms.report.gl.reconciliation supervisor read</field>
+        <field name="model_id" ref="model_fms_report_gl_reconciliation"/>
+        <field name="group_id" ref="group_fms_supervisor"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <!-- R19 Sales Summary: supervisor + attendant read -->
+    <record id="access_fms_report_sales_summary_supervisor" model="ir.model.access">
+        <field name="name">fms.report.sales.summary supervisor read</field>
+        <field name="model_id" ref="model_fms_report_sales_summary"/>
+        <field name="group_id" ref="group_fms_supervisor"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+    <record id="access_fms_report_sales_summary_attendant" model="ir.model.access">
+        <field name="name">fms.report.sales.summary attendant read</field>
+        <field name="model_id" ref="model_fms_report_sales_summary"/>
+        <field name="group_id" ref="group_fms_attendant"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <!-- R21 Throughput: supervisor + attendant read -->
+    <record id="access_fms_report_throughput_supervisor" model="ir.model.access">
+        <field name="name">fms.report.throughput supervisor read</field>
+        <field name="model_id" ref="model_fms_report_throughput"/>
+        <field name="group_id" ref="group_fms_supervisor"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+    <record id="access_fms_report_throughput_attendant" model="ir.model.access">
+        <field name="name">fms.report.throughput attendant read</field>
+        <field name="model_id" ref="model_fms_report_throughput"/>
+        <field name="group_id" ref="group_fms_attendant"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <!-- R22 Nozzle Performance: supervisor + attendant read -->
+    <record id="access_fms_report_nozzle_perf_supervisor" model="ir.model.access">
+        <field name="name">fms.report.nozzle.perf supervisor read</field>
+        <field name="model_id" ref="model_fms_report_nozzle_perf"/>
+        <field name="group_id" ref="group_fms_supervisor"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+    <record id="access_fms_report_nozzle_perf_attendant" model="ir.model.access">
+        <field name="name">fms.report.nozzle.perf attendant read</field>
+        <field name="model_id" ref="model_fms_report_nozzle_perf"/>
+        <field name="group_id" ref="group_fms_attendant"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <!-- R25 Attendant Category: supervisor + attendant read -->
+    <record id="access_fms_report_attendant_category_supervisor" model="ir.model.access">
+        <field name="name">fms.report.attendant.category supervisor read</field>
+        <field name="model_id" ref="model_fms_report_attendant_category"/>
+        <field name="group_id" ref="group_fms_supervisor"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+    <record id="access_fms_report_attendant_category_attendant" model="ir.model.access">
+        <field name="name">fms.report.attendant.category attendant read</field>
+        <field name="model_id" ref="model_fms_report_attendant_category"/>
+        <field name="group_id" ref="group_fms_attendant"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <!-- R26 Shortage Ledger: supervisor-only (payroll/disciplinary data) -->
+    <record id="access_fms_report_shortage_supervisor" model="ir.model.access">
+        <field name="name">fms.report.shortage supervisor read</field>
+        <field name="model_id" ref="model_fms_report_shortage"/>
+        <field name="group_id" ref="group_fms_supervisor"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <!-- R27 Attendant Performance: supervisor + attendant read -->
+    <record id="access_fms_report_attendant_perf_supervisor" model="ir.model.access">
+        <field name="name">fms.report.attendant.perf supervisor read</field>
+        <field name="model_id" ref="model_fms_report_attendant_perf"/>
+        <field name="group_id" ref="group_fms_supervisor"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+    <record id="access_fms_report_attendant_perf_attendant" model="ir.model.access">
+        <field name="name">fms.report.attendant.perf attendant read</field>
+        <field name="model_id" ref="model_fms_report_attendant_perf"/>
+        <field name="group_id" ref="group_fms_attendant"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <!-- R28 Risk & Anomaly: supervisor-only -->
+    <record id="access_fms_report_risk_anomaly_supervisor" model="ir.model.access">
+        <field name="name">fms.report.risk.anomaly supervisor read</field>
+        <field name="model_id" ref="model_fms_report_risk_anomaly"/>
+        <field name="group_id" ref="group_fms_supervisor"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <!-- R29 Nozzle Handover: supervisor + attendant read -->
+    <record id="access_fms_report_nozzle_handover_supervisor" model="ir.model.access">
+        <field name="name">fms.report.nozzle.handover supervisor read</field>
+        <field name="model_id" ref="model_fms_report_nozzle_handover"/>
+        <field name="group_id" ref="group_fms_supervisor"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+    <record id="access_fms_report_nozzle_handover_attendant" model="ir.model.access">
+        <field name="name">fms.report.nozzle.handover attendant read</field>
+        <field name="model_id" ref="model_fms_report_nozzle_handover"/>
+        <field name="group_id" ref="group_fms_attendant"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
     <!-- fms.incident -->
     <record id="access_fms_incident_supervisor" model="ir.model.access">
         <field name="name">fms.incident supervisor</field>

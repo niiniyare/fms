@@ -66,6 +66,7 @@ Reference: Complete specification in FMS_Complete_Specification_Technical_Guide.
         "views/fms_price_period_views.xml",
         "views/fms_incident_views.xml",
         "views/fms_report_views.xml",
+        "views/fms_report_views2.xml",
 
         # Reports
         "reports/fms_shift_report.xml",
