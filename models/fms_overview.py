@@ -110,9 +110,28 @@ class FMSOverview(models.TransientModel):
     # Computation — one method, one DB round-trip per section
     # ------------------------------------------------------------------
 
+    def _safe_query(self, sql, params, default):
+        """Run sql inside a savepoint; return fetchone() or default on any error.
+
+        PostgreSQL aborts the whole transaction on any SQL error. Without a
+        savepoint, a single bad query poisons every subsequent cr.execute() call
+        with 'current transaction is aborted'.  We wrap each optional / view-
+        backed query in its own savepoint so failures are silently isolated.
+        """
+        cr = self.env.cr
+        cr.execute("SAVEPOINT _fms_ov")
+        try:
+            cr.execute(sql, params)
+            result = cr.fetchone()
+            cr.execute("RELEASE SAVEPOINT _fms_ov")
+            return result
+        except Exception:
+            cr.execute("ROLLBACK TO SAVEPOINT _fms_ov")
+            return default
+
     @api.model
     def _compute_overview(self):
-        cr = self.env.cr
+        cr  = self.env.cr
         today     = date.today()
         yesterday = today - timedelta(days=1)
         ago_7     = today - timedelta(days=7)
@@ -123,192 +142,148 @@ class FMSOverview(models.TransientModel):
 
         # ── Row 1: alerts ─────────────────────────────────────────────────
 
-        # Shifts still open past their planned close time
-        cr.execute("""
+        row = self._safe_query("""
             SELECT COUNT(*) FROM fms_shift
-            WHERE state = 'open'
-              AND company_id = %s
-              AND planned_close < NOW()
-        """, (cid,))
-        vals['shifts_open_late'] = cr.fetchone()[0] or 0
+            WHERE state = 'open' AND company_id = %s AND planned_close < NOW()
+        """, (cid,), (0,))
+        vals['shifts_open_late'] = row[0] or 0
 
-        # Unallocated attribution residuals
-        try:
-            cr.execute("""
-                SELECT COUNT(*) FROM fms_report_residual_exception
-                WHERE company_id = %s AND NOT is_allocated
-            """, (cid,))
-            vals['open_residuals'] = cr.fetchone()[0] or 0
-        except Exception:
-            vals['open_residuals'] = 0
+        row = self._safe_query("""
+            SELECT COUNT(*) FROM fms_report_residual_exception
+            WHERE company_id = %s AND NOT is_allocated
+        """, (cid,), (0,))
+        vals['open_residuals'] = row[0] or 0
 
-        # Unrecovered incidents
-        try:
-            cr.execute("""
-                SELECT COUNT(*) FROM fms_incident
-                WHERE company_id = %s AND recovery_status NOT IN ('recovered','written_off')
-            """, (cid,))
-            vals['unrecovered_incidents'] = cr.fetchone()[0] or 0
-        except Exception:
-            vals['unrecovered_incidents'] = 0
+        row = self._safe_query("""
+            SELECT COUNT(*) FROM fms_incident
+            WHERE company_id = %s
+              AND recovery_status NOT IN ('recovered','written_off')
+        """, (cid,), (0,))
+        vals['unrecovered_incidents'] = row[0] or 0
 
-        # Gate failures (shifts closed with validation overrides in last 30 days)
-        # Proxy: shifts in 'disputed' state or shifts whose close took >1 attempt
-        # Simple proxy: count closed shifts with non-zero fc_cash_balance in last 30d
-        cr.execute("""
+        row = self._safe_query("""
             SELECT COUNT(*) FROM fms_shift
-            WHERE state = 'closed'
-              AND company_id = %s
-              AND date >= %s
-              AND ABS(fc_cash_balance) > 0.01
-        """, (cid, ago_30))
-        vals['gates_failed'] = cr.fetchone()[0] or 0
+            WHERE state = 'closed' AND company_id = %s
+              AND date >= %s AND ABS(fc_cash_balance) > 0.01
+        """, (cid, ago_30), (0,))
+        vals['gates_failed'] = row[0] or 0
 
-        vals['any_alert'] = any([
-            vals['shifts_open_late'],
-            vals['open_residuals'],
-            vals['unrecovered_incidents'],
-        ])
+        vals['any_alert'] = bool(
+            vals['shifts_open_late'] or
+            vals['open_residuals'] or
+            vals['unrecovered_incidents']
+        )
 
         # ── Row 2: yesterday ──────────────────────────────────────────────
 
         vals['yesterday_date'] = yesterday
 
-        cr.execute("""
-            SELECT
-                COUNT(*)                              AS shift_count,
-                COALESCE(SUM(total_meter_sales), 0)   AS sales_kes,
-                COALESCE(SUM(fc_cash_balance),   0)   AS cash_var
+        row = self._safe_query("""
+            SELECT COUNT(*),
+                   COALESCE(SUM(total_meter_sales), 0),
+                   COALESCE(SUM(fc_cash_balance),   0)
             FROM fms_shift
             WHERE date = %s AND company_id = %s AND state = 'closed'
-        """, (yesterday, cid))
-        row = cr.fetchone()
-        vals['yesterday_shifts']   = row[0] or 0
-        vals['yesterday_sales_kes'] = row[1] or 0.0
-        vals['yesterday_cash_var'] = row[2] or 0.0
+        """, (yesterday, cid), (0, 0.0, 0.0))
+        vals['yesterday_shifts']    = row[0] or 0
+        vals['yesterday_sales_kes'] = float(row[1] or 0)
+        vals['yesterday_cash_var']  = float(row[2] or 0)
 
-        # Throughput: sum of meter entries for yesterday's closed shifts
-        cr.execute("""
+        row = self._safe_query("""
             SELECT COALESCE(SUM(me.qty_sold_elec), 0)
             FROM fms_shift_meter_entry me
             JOIN fms_shift s ON s.id = me.shift_id
             WHERE s.date = %s AND s.company_id = %s AND s.state = 'closed'
-        """, (yesterday, cid))
-        vals['yesterday_throughput_l'] = cr.fetchone()[0] or 0.0
+        """, (yesterday, cid), (0.0,))
+        vals['yesterday_throughput_l'] = float(row[0] or 0)
 
-        # 7-day average throughput per day (excluding yesterday itself)
-        cr.execute("""
+        row = self._safe_query("""
             SELECT COALESCE(SUM(me.qty_sold_elec), 0) / 7.0
             FROM fms_shift_meter_entry me
             JOIN fms_shift s ON s.id = me.shift_id
             WHERE s.date >= %s AND s.date < %s
               AND s.company_id = %s AND s.state = 'closed'
-        """, (ago_7, yesterday, cid))
-        avg_7 = cr.fetchone()[0] or 0.0
-        if avg_7 > 0:
-            vals['yesterday_throughput_vs'] = round(
-                (vals['yesterday_throughput_l'] - avg_7) / avg_7 * 100, 1)
-        else:
-            vals['yesterday_throughput_vs'] = 0.0
+        """, (ago_7, yesterday, cid), (0.0,))
+        avg_7 = float(row[0] or 0)
+        vals['yesterday_throughput_vs'] = (
+            round((vals['yesterday_throughput_l'] - avg_7) / avg_7 * 100, 1)
+            if avg_7 > 0 else 0.0
+        )
 
-        # Worst 7-day wetstock variance
-        try:
-            cr.execute("""
-                SELECT tank_name, variance_pct_7d
-                FROM fms_report_wetstock
-                WHERE company_id = %s
-                  AND shift_date >= %s
-                ORDER BY ABS(variance_pct_7d) DESC NULLS LAST
-                LIMIT 1
-            """, (cid, ago_7))
-            wrow = cr.fetchone()
-            if wrow:
-                vals['worst_tank_name']    = wrow[0]
-                vals['worst_variance_pct'] = abs(wrow[1] or 0.0)
-                pct = vals['worst_variance_pct']
-                vals['worst_variance_verdict'] = (
-                    'breach' if pct > 1.0 else
-                    'warn'   if pct > 0.5 else
-                    'ok'
-                )
-            else:
-                vals['worst_tank_name']       = '—'
-                vals['worst_variance_pct']    = 0.0
-                vals['worst_variance_verdict'] = 'ok'
-        except Exception:
-            vals['worst_tank_name']       = '—'
-            vals['worst_variance_pct']    = 0.0
+        wrow = self._safe_query("""
+            SELECT tank_name, variance_pct_7d
+            FROM fms_report_wetstock
+            WHERE company_id = %s AND shift_date >= %s
+            ORDER BY ABS(variance_pct_7d) DESC NULLS LAST
+            LIMIT 1
+        """, (cid, ago_7), None)
+        if wrow:
+            pct = abs(float(wrow[1] or 0))
+            vals['worst_tank_name']        = wrow[0]
+            vals['worst_variance_pct']     = pct
+            vals['worst_variance_verdict'] = (
+                'breach' if pct > 1.0 else 'warn' if pct > 0.5 else 'ok'
+            )
+        else:
+            vals['worst_tank_name']        = '—'
+            vals['worst_variance_pct']     = 0.0
             vals['worst_variance_verdict'] = 'ok'
 
         # ── Row 3: reorder count ──────────────────────────────────────────
 
-        try:
-            cr.execute("""
-                SELECT COUNT(*) FROM fms_report_stock_position
-                WHERE company_id = %s AND reorder_flag = TRUE
-            """, (cid,))
-            vals['reorder_tank_count'] = cr.fetchone()[0] or 0
-        except Exception:
-            vals['reorder_tank_count'] = 0
+        row = self._safe_query("""
+            SELECT COUNT(*) FROM fms_report_stock_position
+            WHERE company_id = %s AND reorder_flag = TRUE
+        """, (cid,), (0,))
+        vals['reorder_tank_count'] = row[0] or 0
 
         # ── Row 5: debtors (fms_accounting optional) ──────────────────────
 
-        try:
-            cr.execute("""
-                SELECT
-                    COALESCE(SUM(outstanding_balance), 0) AS total_ar,
-                    COUNT(*) FILTER (WHERE over_limit)    AS over_limit,
-                    COALESCE(SUM(bucket_90plus), 0)       AS ar_90
-                FROM fms_report_debtor_aging
-                WHERE company_id = %s
-            """, (cid,))
-            drow = cr.fetchone()
-            vals['total_ar']        = drow[0] or 0.0
-            vals['over_limit_count'] = drow[1] or 0
-            vals['ar_overdue_90']   = drow[2] or 0.0
-        except Exception:
-            vals['total_ar']        = 0.0
-            vals['over_limit_count'] = 0
-            vals['ar_overdue_90']   = 0.0
+        drow = self._safe_query("""
+            SELECT COALESCE(SUM(outstanding_balance), 0),
+                   COUNT(*) FILTER (WHERE over_limit),
+                   COALESCE(SUM(bucket_90plus), 0)
+            FROM fms_report_debtor_aging
+            WHERE company_id = %s
+        """, (cid,), (0.0, 0, 0.0))
+        vals['total_ar']         = float(drow[0] or 0)
+        vals['over_limit_count'] = drow[1] or 0
+        vals['ar_overdue_90']    = float(drow[2] or 0)
 
         # ── Row 6: current shift ──────────────────────────────────────────
 
-        cr.execute("""
+        srow = self._safe_query("""
             SELECT label, supervisor_id
             FROM fms_shift
             WHERE date = %s AND company_id = %s AND state = 'open'
             ORDER BY id DESC LIMIT 1
-        """, (today, cid))
-        srow = cr.fetchone()
+        """, (today, cid), None)
         if srow:
-            label = dict(self.env['fms.shift'].fields_get(
-                ['label'])['label']['selection']).get(srow[0], srow[0] or '')
-            sup = self.env['hr.employee'].browse(srow[1]).name if srow[1] else '—'
-            vals['current_shift_label']   = label
-            vals['current_supervisor']    = sup
+            label_map = dict(
+                self.env['fms.shift'].fields_get(['label'])['label']['selection']
+            )
+            sup = (self.env['hr.employee'].browse(srow[1]).name
+                   if srow[1] else '—')
+            vals['current_shift_label'] = label_map.get(srow[0], srow[0] or '')
+            vals['current_supervisor']  = sup
         else:
-            vals['current_shift_label']   = 'No open shift'
-            vals['current_supervisor']    = '—'
+            vals['current_shift_label'] = 'No open shift'
+            vals['current_supervisor']  = '—'
 
-        cr.execute("""
+        row = self._safe_query("""
             SELECT COUNT(DISTINCT ac.attendant_id)
             FROM fms_shift_attendant_cash ac
             JOIN fms_shift s ON s.id = ac.shift_id
             WHERE s.date = %s AND s.company_id = %s AND s.state = 'open'
-        """, (today, cid))
-        vals['current_attendant_count'] = cr.fetchone()[0] or 0
+        """, (today, cid), (0,))
+        vals['current_attendant_count'] = row[0] or 0
 
-        # Outstanding shortage balance (cumulative negative balance)
-        try:
-            cr.execute("""
-                SELECT COALESCE(ABS(SUM(cumulative_balance)) FILTER (
-                    WHERE cumulative_balance < 0
-                ), 0)
-                FROM fms_report_shortage
-                WHERE company_id = %s
-            """, (cid,))
-            vals['open_shortage_kes'] = cr.fetchone()[0] or 0.0
-        except Exception:
-            vals['open_shortage_kes'] = 0.0
+        row = self._safe_query("""
+            SELECT COALESCE(ABS(SUM(cumulative_balance))
+                            FILTER (WHERE cumulative_balance < 0), 0)
+            FROM fms_report_shortage
+            WHERE company_id = %s
+        """, (cid,), (0.0,))
+        vals['open_shortage_kes'] = float(row[0] or 0)
 
         return vals
