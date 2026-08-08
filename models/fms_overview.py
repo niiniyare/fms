@@ -92,12 +92,19 @@ class FMSOverview(models.TransientModel):
             return {'type': 'ir.actions.act_window_close'}
 
     @api.model
-    def default_get(self, fields_list):
-        """Auto-compute all tile values when the form is opened via act_window."""
-        vals = super().default_get(fields_list)
-        computed = self._compute_overview()
-        vals.update({k: v for k, v in computed.items() if k in fields_list})
-        return vals
+    def action_open_overview(self):
+        """Create a fresh computed record and open it. Called by the server action menu entry."""
+        rec = self.create(self._compute_overview())
+        return {
+            'type':      'ir.actions.act_window',
+            'name':      'Forecourt Overview',
+            'res_model': 'fms.overview',
+            'res_id':    rec.id,
+            'view_mode': 'form',
+            'view_id':   self.env.ref('fms.view_fms_overview_form').id,
+            'target':    'main',
+            'flags':     {'mode': 'readonly'},
+        }
 
     # ------------------------------------------------------------------
     # Computation — one method, one DB round-trip per section

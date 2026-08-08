@@ -293,7 +293,7 @@
     <menuitem id="menu_fms_overview"
               name="Overview"
               parent="menu_fms_root"
-              action="action_fms_overview_window"
+              action="fms.action_fms_overview_server"
               groups="fms.group_fms_attendant"
               sequence="5"/>
 
