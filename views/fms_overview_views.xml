@@ -358,7 +358,7 @@
          default_get() auto-computes all tile values on create.
     ================================================================ -->
 
-    <record id="action_fms_overview_dashboard" model="ir.actions.act_window">
+    <record id="action_fms_overview_window" model="ir.actions.act_window">
         <field name="name">Forecourt Overview</field>
         <field name="res_model">fms.overview</field>
         <field name="view_mode">form</field>
