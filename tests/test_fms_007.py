@@ -17,6 +17,7 @@ class TestFMSReport(TransactionCase):
 
     def setUp(self):
         super().setUp()
+        self.env['fms.shift'].search([('state', 'in', ('open', 'closing'))]).write({'state': 'draft'})
         self.supervisor = self.env['hr.employee'].create({'name': 'RPT-Supervisor'})
         self.product = self.env['product.product'].create({
             'name': 'RPT-Diesel', 'fms_is_fuel': True, 'list_price': 200.0,

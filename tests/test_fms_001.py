@@ -83,6 +83,9 @@ class TestFMSShift(TransactionCase):
 
     def setUp(self):
         super().setUp()
+        self.env['fms.shift'].search([('state', 'in', ('open', 'closing'))]).write({'state': 'draft'})
+        prefs = self.env['fms.site.preferences'].get_for_company()
+        prefs.auto_open_next_shift = False
         self.shift_model = self.env['fms.shift']
         self.supervisor = self.env['hr.employee'].create({'name': 'Jane Supervisor'})
 
@@ -228,6 +231,7 @@ class TestFMSMeterLog(TransactionCase):
 
     def setUp(self):
         super().setUp()
+        self.env['fms.shift'].search([('state', 'in', ('open', 'closing'))]).write({'state': 'draft'})
         self.supervisor = self.env['hr.employee'].create({'name': 'John'})
         self.shift = self.env['fms.shift'].create({
             'date': '2026-01-15',
@@ -277,6 +281,7 @@ class TestFMSDipLog(TransactionCase):
 
     def setUp(self):
         super().setUp()
+        self.env['fms.shift'].search([('state', 'in', ('open', 'closing'))]).write({'state': 'draft'})
         self.supervisor = self.env['hr.employee'].create({'name': 'John'})
         self.shift = self.env['fms.shift'].create({
             'date': '2026-01-15',

@@ -23,6 +23,7 @@ class FMSBase(TransactionCase):
 
     def setUp(self):
         super().setUp()
+        self.env['fms.shift'].search([('state', 'in', ('open', 'closing'))]).write({'state': 'draft'})
         self.supervisor = self.env['hr.employee'].create({'name': 'Supervisor A'})
         self.product_diesel = self.env['product.product'].create({
             'name': 'Diesel', 'fms_is_fuel': True, 'list_price': 222.8,
@@ -267,12 +268,16 @@ class TestFMSShiftSummary(FMSBase):
 
     def test_total_meter_sales(self):
         shift = self._open_shift()
+        # total_meter_sales sums elec_cash_sold (cash totalizer delta), not volume×price.
+        # Set closing_elec_cash so the field is non-zero.
         self.env['fms.shift.meter.entry'].create({
             'shift_id': shift.id,
             'pump_id': self.pump.id,
             'nozzle_id': self.nozzle_a.id,
             'opening_elec_volume': 0.0,
-            'closing_elec_volume': 100.0,   # 100L × 222.8 = 22,280
+            'closing_elec_volume': 100.0,
+            'opening_elec_cash':   0.0,
+            'closing_elec_cash':   100.0 * 222.8,   # 100L × 222.8 = 22,280
         })
         self.assertAlmostEqual(shift.total_meter_sales, 100.0 * 222.8)
 
@@ -310,7 +315,11 @@ class TestFMSShiftSummary(FMSBase):
             },
         ])
         shift._refresh_product_sales()
-        self.assertEqual(len(shift.product_sales_ids), 2)
+        # Filter to test products only — demo nozzles may add extra product_sales lines
+        test_ps = shift.product_sales_ids.filtered(
+            lambda l: l.product_id in (self.product_diesel | self.product_vpower)
+        )
+        self.assertEqual(len(test_ps), 2)
 
     def test_refresh_product_sales_aggregates_same_product(self):
         """Two nozzles dispensing the same product must be summed."""

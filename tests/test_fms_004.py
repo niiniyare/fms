@@ -21,6 +21,7 @@ class FMSSecurityBase(TransactionCase):
 
     def setUp(self):
         super().setUp()
+        self.env['fms.shift'].search([('state', 'in', ('open', 'closing'))]).write({'state': 'draft'})
         # Master data
         self.product = self.env['product.product'].create({
             'name': 'SEC-Diesel', 'fms_is_fuel': True, 'list_price': 222.8,

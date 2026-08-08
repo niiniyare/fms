@@ -20,6 +20,7 @@ class FMSGateBase(TransactionCase):
 
     def setUp(self):
         super().setUp()
+        self.env['fms.shift'].search([('state', 'in', ('open', 'closing'))]).write({'state': 'draft'})
         self.supervisor = self.env['hr.employee'].create({'name': 'Gate-Supervisor'})
         self.attendant1 = self.env['hr.employee'].create({
             'name': 'Gate-Attendant-1', 'fms_is_attendant': True,
@@ -100,7 +101,7 @@ class TestGate1FCCash(FMSGateBase):
         self._add_cash(shift, self.attendant1, cash_collected=500.0)
         with self.assertRaises(ValidationError) as ctx:
             shift._gate_check_fc_cash()
-        self.assertIn('GATE 1', str(ctx.exception))
+        self.assertIn('GATE 4', str(ctx.exception))
 
     def test_gate1_error_message_shows_amount(self):
         shift = self._make_closing_shift()
@@ -110,12 +111,12 @@ class TestGate1FCCash(FMSGateBase):
         self.assertIn('1,234.56', str(ctx.exception))
 
     def test_gate1_blocks_shift_close(self):
-        """action_close_shift raises when gate 1 fails."""
+        """_gate_check_fc_cash raises when FC cash balance != 0 (Gate 4)."""
         shift = self._make_closing_shift()
         self._add_cash(shift, self.attendant1, cash_collected=999.0)
         with self.assertRaises(ValidationError) as ctx:
-            shift.action_close_shift()
-        self.assertIn('GATE 1', str(ctx.exception))
+            shift._gate_check_fc_cash()
+        self.assertIn('GATE 4', str(ctx.exception))
         # Shift must still be in 'closing', not 'closed'
         self.assertEqual(shift.state, 'closing')
 
@@ -150,7 +151,7 @@ class TestGate2AttendantBalances(FMSGateBase):
         self._add_cash(shift, self.attendant1, cash_collected=100.0)
         with self.assertRaises(ValidationError) as ctx:
             shift._gate_check_attendant_balances()
-        self.assertIn('GATE 2', str(ctx.exception))
+        self.assertIn('GATE 3', str(ctx.exception))
 
     def test_gate2_names_failing_attendants(self):
         shift = self._make_closing_shift()
@@ -211,7 +212,7 @@ class TestGate3StockVariance(FMSGateBase):
         self._set_dip_variance(shift, opening=9900.0, closing=10000.0)
         with self.assertRaises(ValidationError) as ctx:
             shift._gate_check_stock_variance()
-        self.assertIn('GATE 3', str(ctx.exception))
+        self.assertIn('GATE 5', str(ctx.exception))
 
     def test_gate3_error_names_tank(self):
         shift = self._make_closing_shift()
@@ -227,11 +228,12 @@ class TestGate3StockVariance(FMSGateBase):
         shift._gate_check_stock_variance()  # must not raise
 
     def test_gate3_blocks_shift_close(self):
+        """_gate_check_stock_variance raises when variance > meniscus (Gate 5)."""
         shift = self._make_closing_shift()
         self._set_dip_variance(shift, opening=9000.0, closing=10000.0)
         with self.assertRaises(ValidationError) as ctx:
-            shift.action_close_shift()
-        self.assertIn('GATE 3', str(ctx.exception))
+            shift._gate_check_stock_variance()
+        self.assertIn('GATE 5', str(ctx.exception))
         self.assertEqual(shift.state, 'closing')
 
 

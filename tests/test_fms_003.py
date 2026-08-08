@@ -119,6 +119,7 @@ class FMSResidualBase(TransactionCase):
 
     def setUp(self):
         super().setUp()
+        self.env['fms.shift'].search([('state', 'in', ('open', 'closing'))]).write({'state': 'draft'})
         self.supervisor = self.env['hr.employee'].create({'name': 'Sup-003'})
         self.diesel = self.env['product.product'].create({
             'name': 'TEST-Diesel-003', 'fms_is_fuel': True, 'list_price': 222.8,
@@ -141,12 +142,15 @@ class FMSResidualBase(TransactionCase):
         return shift
 
     def _add_meter(self, shift, nozzle, opening=0.0, closing=1000.0):
+        price = nozzle.product_id.list_price or 0.0
         return self.env['fms.shift.meter.entry'].create({
             'shift_id': shift.id,
             'pump_id': nozzle.pump_id.id,
             'nozzle_id': nozzle.id,
             'opening_elec_volume': opening,
             'closing_elec_volume': closing,
+            'opening_elec_cash':   opening * price,
+            'closing_elec_cash':   closing * price,
         })
 
 
@@ -165,12 +169,15 @@ class TestCalculateResiduals(FMSResidualBase):
         self.assertEqual(len(shift.residual_allocation_ids), 0)
 
     def test_residual_type_set_on_product_sales(self):
-        """Without POS: all products should be marked 'under'."""
+        """Without POS: the test diesel product should be marked 'under'."""
         shift = self._make_open_shift()
         self._add_meter(shift, self.nozzle_d, closing=1000.0)
         shift._calculate_residuals()
-        for ps in shift.product_sales_ids:
-            self.assertEqual(ps.residual_type, 'under')
+        diesel_ps = shift.product_sales_ids.filtered(
+            lambda p: p.product_id == self.diesel
+        )
+        self.assertTrue(diesel_ps, "Diesel product_sales line must exist")
+        self.assertEqual(diesel_ps.residual_type, 'under')
 
     def test_balanced_product_marked_none(self):
         """Product with meter = 0 (no sales) stays 'none'."""
