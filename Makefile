@@ -17,6 +17,7 @@ ODOO_PORT := 8069
 # Odoo / venv paths
 ODOO_VENV    := /home/niini/odoo-venv/bin/python
 ODOO_BIN     := /home/niini/odoo18/odoo-bin
+# Addons: odoo core | fms + fms_accounting + dark_mode_backend (all siblings under /home/niini) | cybrosys
 ODOO_ADDONS  := /home/niini/odoo18/addons,/home/niini/fms/..,/home/niini/cybrosys_addons
 
 # Help target (default)
