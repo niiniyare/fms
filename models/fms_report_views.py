@@ -906,8 +906,8 @@ class FMSReportAttendantPerf(models.Model):
                     COALESCE(AVG(me_agg.qty),  0)                       AS avg_qty,
                     COALESCE(SUM(ac.reported_sales), 0)                 AS total_cash_due,
                     0::numeric                                          AS total_shortage,
-                    0                                                   AS shortage_shifts,
-                    0                                                   AS overage_shifts,
+                    0::bigint                                           AS shortage_shifts,
+                    0::bigint                                           AS overage_shifts,
                     100::numeric                                        AS accuracy_pct,
                     COALESCE(SUM(me_agg.rtt), 0)                        AS total_rtt
                 FROM hr_employee e
