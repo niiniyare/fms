@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="seq_fms_incident" model="ir.sequence">
+        <field name="name">FMS Incident Reference</field>
+        <field name="code">fms.incident</field>
+        <field name="prefix">INC/%(year)s/</field>
+        <field name="padding">4</field>
+        <field name="company_id" eval="False"/>
+    </record>
+
+</odoo>

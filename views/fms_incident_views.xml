@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ================================================================
+         fms.incident — list view  (R9 · Drive-off & Incident Register)
+    ================================================================ -->
+
+    <record id="view_fms_incident_list" model="ir.ui.view">
+        <field name="name">fms.incident.list</field>
+        <field name="model">fms.incident</field>
+        <field name="arch" type="xml">
+            <list string="Drive-off &amp; Incident Register"
+                  decoration-danger="recovery_status == 'open' and state == 'approved'"
+                  decoration-muted="state == 'closed'"
+                  decoration-warning="state == 'draft'">
+                <field name="name"           string="Ref"/>
+                <field name="date"/>
+                <field name="incident_type"  string="Type"/>
+                <field name="shift_id"       optional="show"/>
+                <field name="attendant_id"/>
+                <field name="nozzle_id"      optional="show"/>
+                <field name="product_id"     optional="show"/>
+                <field name="litres"         string="Litres"    sum="Litres"/>
+                <field name="amount"         string="Value (KES)" sum="Value (KES)"/>
+                <field name="plate"          optional="show"/>
+                <field name="ob_number"      optional="show"/>
+                <field name="recovery_status"/>
+                <field name="recovery_amount" string="Recovered (KES)" sum="Recovered" optional="show"/>
+                <field name="state" widget="badge"
+                       decoration-info="state == 'draft'"
+                       decoration-warning="state == 'reported'"
+                       decoration-success="state in ('approved','closed')"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- ================================================================
+         fms.incident — form view
+    ================================================================ -->
+
+    <record id="view_fms_incident_form" model="ir.ui.view">
+        <field name="name">fms.incident.form</field>
+        <field name="model">fms.incident</field>
+        <field name="arch" type="xml">
+            <form string="Incident">
+                <header>
+                    <button name="action_report"
+                            string="Mark as Reported"
+                            type="object"
+                            class="btn-primary"
+                            invisible="state != 'draft'"
+                            groups="fms.group_fms_supervisor"/>
+                    <button name="action_approve"
+                            string="Approve &amp; Write Off Stock"
+                            type="object"
+                            class="btn-primary"
+                            invisible="state != 'reported'"
+                            groups="fms.group_fms_supervisor"
+                            confirm="This will remove the litres from inventory. Continue?"/>
+                    <button name="action_close"
+                            string="Close"
+                            type="object"
+                            invisible="state != 'approved'"
+                            groups="fms.group_fms_supervisor"/>
+                    <button name="action_reset_draft"
+                            string="Reset to Draft"
+                            type="object"
+                            invisible="state != 'reported'"
+                            groups="fms.group_fms_supervisor"/>
+                    <field name="state" widget="statusbar"
+                           statusbar_visible="draft,reported,approved,closed"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name" readonly="1"/></h1>
+                    </div>
+                    <group>
+                        <group string="Incident Details">
+                            <field name="date"/>
+                            <field name="incident_type"/>
+                            <field name="shift_id"/>
+                            <field name="attendant_id"/>
+                            <field name="nozzle_id"/>
+                            <field name="reported_by" readonly="1"/>
+                        </group>
+                        <group string="Product &amp; Quantity">
+                            <field name="product_id"/>
+                            <field name="litres"/>
+                            <field name="unit_price"/>
+                            <field name="amount" readonly="1"/>
+                        </group>
+                    </group>
+                    <group string="Evidence">
+                        <field name="plate"     placeholder="KBS 123X"/>
+                        <field name="ob_number" placeholder="OB No."/>
+                        <field name="description" placeholder="Describe what happened…"/>
+                    </group>
+                    <group string="Recovery" invisible="state == 'draft'">
+                        <field name="recovery_status"/>
+                        <field name="recovery_amount"/>
+                        <field name="recovery_notes" placeholder="Recovery notes…"/>
+                    </group>
+                    <group string="Approval" invisible="state in ('draft','reported')">
+                        <field name="approved_by"   readonly="1"/>
+                        <field name="approved_date" readonly="1"/>
+                        <field name="stock_move_id" readonly="1" optional="show"/>
+                    </group>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <!-- ================================================================
+         fms.incident — search view
+    ================================================================ -->
+
+    <record id="view_fms_incident_search" model="ir.ui.view">
+        <field name="name">fms.incident.search</field>
+        <field name="model">fms.incident</field>
+        <field name="arch" type="xml">
+            <search string="Incidents">
+                <field name="name"         string="Reference"/>
+                <field name="attendant_id" string="Attendant"/>
+                <field name="plate"        string="Plate"/>
+                <field name="ob_number"    string="OB Number"/>
+
+                <!-- Status filters -->
+                <filter string="Unrecovered" name="unrecovered"
+                        domain="[('recovery_status','=','open'),('state','=','approved')]"/>
+                <filter string="Draft"    name="draft"    domain="[('state','=','draft')]"/>
+                <filter string="Reported" name="reported" domain="[('state','=','reported')]"/>
+                <filter string="Approved" name="approved" domain="[('state','=','approved')]"/>
+                <filter string="Closed"   name="closed"   domain="[('state','=','closed')]"/>
+                <separator/>
+
+                <!-- Date presets -->
+                <filter string="This Month" name="this_month"
+                        domain="[('date','&gt;=',context_today().replace(day=1))]"/>
+                <filter string="Last 30 Days" name="last_30"
+                        domain="[('date','&gt;=',(context_today() + relativedelta(days=-30)))]"/>
+                <separator/>
+
+                <!-- Type filters -->
+                <filter string="Drive-offs" name="drive_off"
+                        domain="[('incident_type','=','drive_off')]"/>
+                <filter string="Spillage"   name="spillage"
+                        domain="[('incident_type','=','spillage')]"/>
+                <filter string="Own Use"    name="own_use"
+                        domain="[('incident_type','=','own_use')]"/>
+                <separator/>
+
+                <group expand="1" string="Group By">
+                    <filter string="Type"      name="group_type"      context="{'group_by':'incident_type'}"/>
+                    <filter string="Attendant" name="group_attendant" context="{'group_by':'attendant_id'}"/>
+                    <filter string="Date"      name="group_date"      context="{'group_by':'date:month'}"/>
+                    <filter string="Recovery"  name="group_recovery"  context="{'group_by':'recovery_status'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- ================================================================
+         Action
+    ================================================================ -->
+
+    <record id="action_fms_incident" model="ir.actions.act_window">
+        <field name="name">Drive-off &amp; Incident Register</field>
+        <field name="res_model">fms.incident</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'search_default_unrecovered': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No incidents recorded yet.
+            </p>
+            <p>Record drive-offs, spillages, calibration tests and own-use
+               fuel here so they are removed from inventory and excluded from
+               the wetstock variance in R3.</p>
+        </field>
+    </record>
+
+    <!-- ================================================================
+         Operations sub-menu
+    ================================================================ -->
+
+    <menuitem id="menu_fms_incidents"
+              name="Incidents"
+              parent="menu_fms_operations"
+              action="action_fms_incident"
+              sequence="20"/>
+
+    <!-- ================================================================
+         Reporting sub-menu (R9 — under Wetstock section)
+         Parent menu_fms_reporting already defined in fms_shift_list_views.xml
+    ================================================================ -->
+
+    <menuitem id="menu_fms_report_incidents"
+              name="Drive-off &amp; Incident Register"
+              parent="menu_fms_reporting"
+              action="action_fms_incident"
+              sequence="25"/>
+
+</odoo>

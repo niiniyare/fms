@@ -51,10 +51,11 @@ Reference: Complete specification in FMS_Complete_Specification_Technical_Guide.
         "security/ir_model_access.xml",
         "security/ir_rule.xml",
         
-        # Data
+        # Data / sequences
+        "data/fms_sequences.xml",
         "data/fms_site_preferences.xml",
         "data/fms_company_defaults.xml",
-        
+
         # Views — list/menus first so menu_fms_root exists before pump views reference it
         "views/fms_shift_list_views.xml",
         "views/fms_pump_views.xml",
@@ -62,6 +63,8 @@ Reference: Complete specification in FMS_Complete_Specification_Technical_Guide.
         "views/fms_shift_views.xml",
         "views/fms_shift_meter_views.xml",
         "views/fms_shift_dip_views.xml",
+        "views/fms_price_period_views.xml",
+        "views/fms_incident_views.xml",
         "views/fms_report_views.xml",
 
         # Reports

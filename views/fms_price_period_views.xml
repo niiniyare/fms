@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ================================================================
+         fms.price.period — list view
+    ================================================================ -->
+
+    <record id="view_fms_price_period_list" model="ir.ui.view">
+        <field name="name">fms.price.period.list</field>
+        <field name="model">fms.price.period</field>
+        <field name="arch" type="xml">
+            <list string="EPRA Price Periods" decoration-muted="not active">
+                <field name="name"/>
+                <field name="gazette_ref"/>
+                <field name="region"/>
+                <field name="date_start"/>
+                <field name="date_end"/>
+                <field name="pricelist_id" optional="hide"/>
+                <field name="active"       optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- ================================================================
+         fms.price.period — form view
+    ================================================================ -->
+
+    <record id="view_fms_price_period_form" model="ir.ui.view">
+        <field name="name">fms.price.period.form</field>
+        <field name="model">fms.price.period</field>
+        <field name="arch" type="xml">
+            <form string="EPRA Price Period">
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name" readonly="1"/></h1>
+                    </div>
+                    <group>
+                        <group string="Gazette">
+                            <field name="gazette_ref" placeholder="e.g. LN 112/2026"/>
+                            <field name="region"/>
+                            <field name="pricelist_id"/>
+                        </group>
+                        <group string="Effective Dates">
+                            <field name="date_start"/>
+                            <field name="date_end"/>
+                            <field name="active"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Regulated Prices" name="prices">
+                            <field name="price_line_ids">
+                                <list editable="bottom">
+                                    <field name="product_id"/>
+                                    <field name="epra_cap"        string="EPRA Cap (KES/L)"/>
+                                    <field name="pump_price"      string="Pump Price (KES/L)"/>
+                                    <field name="landed_cost"     string="Landed Cost (KES/L)" optional="show"/>
+                                    <field name="margin_per_litre" string="Margin (KES/L)" readonly="1"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Notes" name="notes">
+                            <field name="notes" placeholder="Notes from gazette or discussion…"/>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- ================================================================
+         fms.price.period — search view
+    ================================================================ -->
+
+    <record id="view_fms_price_period_search" model="ir.ui.view">
+        <field name="name">fms.price.period.search</field>
+        <field name="model">fms.price.period</field>
+        <field name="arch" type="xml">
+            <search string="Price Periods">
+                <field name="gazette_ref"/>
+                <field name="region"/>
+                <filter string="Active" name="active" domain="[('active','=',True)]"/>
+                <filter string="Inactive" name="inactive" domain="[('active','=',False)]"/>
+                <separator/>
+                <group expand="1" string="Group By">
+                    <filter string="Region" name="group_region" context="{'group_by':'region'}"/>
+                    <filter string="Year"   name="group_year"   context="{'group_by':'date_start:year'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- ================================================================
+         Action
+    ================================================================ -->
+
+    <record id="action_fms_price_period" model="ir.actions.act_window">
+        <field name="name">Price Periods</field>
+        <field name="res_model">fms.price.period</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'search_default_active': 1}</field>
+    </record>
+
+    <!-- ================================================================
+         Configuration menu item
+    ================================================================ -->
+
+    <menuitem id="menu_fms_price_periods"
+              name="Price Periods"
+              parent="menu_fms_config"
+              action="action_fms_price_period"
+              sequence="25"/>
+
+</odoo>
