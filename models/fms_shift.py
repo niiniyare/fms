@@ -291,6 +291,19 @@ class FMSShift(models.Model):
                 )
                 vals.setdefault('planned_open',  planned_open)
                 vals.setdefault('planned_close', planned_close)
+
+        # Block creating a new shift if one is already active (draft/open/closing).
+        company_id = self.env.company.id
+        conflict = self.search([
+            ('company_id', '=', company_id),
+            ('state', 'in', ('draft', 'open', 'closing')),
+        ], limit=1)
+        if conflict:
+            raise ValidationError(
+                f"Shift '{conflict.display_name}' is already active "
+                f"({conflict.state}). Close or delete it before creating a new shift."
+            )
+
         return super().create(vals_list)
 
     @api.model

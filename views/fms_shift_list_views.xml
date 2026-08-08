@@ -58,7 +58,7 @@
         <field name="name">fms.shift.kanban</field>
         <field name="model">fms.shift</field>
         <field name="arch" type="xml">
-            <kanban default_group_by="state" class="o_kanban_small_column">
+            <kanban default_group_by="state" class="o_kanban_small_column" create="false">
                 <field name="date"/>
                 <field name="label"/>
                 <field name="supervisor_id"/>
@@ -88,12 +88,13 @@
         </field>
     </record>
 
-    <!-- Overview action (kanban + list, no default filter) -->
+    <!-- Overview action (kanban + list, no default filter, no inline create) -->
     <record id="action_fms_shift_overview" model="ir.actions.act_window">
         <field name="name">Forecourt Overview</field>
         <field name="res_model">fms.shift</field>
         <field name="view_mode">kanban,list,form</field>
         <field name="search_view_id" ref="view_fms_shift_search"/>
+        <field name="context">{'create': False}</field>
     </record>
 
     <!-- Shifts list action (Operations > Shifts — default filter: open) -->
