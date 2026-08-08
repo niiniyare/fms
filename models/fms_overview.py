@@ -21,6 +21,10 @@ class FMSOverview(models.TransientModel):
     _name        = 'fms.overview'
     _description = 'Forecourt Overview Dashboard'
 
+    _rec_name = 'display_name'
+
+    display_name = fields.Char(default='Forecourt Overview', readonly=True)
+
     # ── Row 1  Alerts ─────────────────────────────────────────────────────────
 
     shifts_open_late      = fields.Integer('Shifts Open Late',       readonly=True)
@@ -138,7 +142,7 @@ class FMSOverview(models.TransientModel):
         ago_30    = today - timedelta(days=30)
         cid       = self.env.company.id
 
-        vals = {}
+        vals = {'display_name': 'Forecourt Overview'}
 
         # ── Row 1: alerts ─────────────────────────────────────────────────
 
