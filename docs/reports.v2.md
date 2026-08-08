@@ -723,6 +723,8 @@ Menus follow **who is looking**, not what depends on what. That deliberately cut
 ```
 Forecourt
 │
+├── Overview ......................... the 06:30 screen — see §15
+│
 ├── Operations
 │   ├── Shift Sheets ................. one long sheet, many forms
 │   │     ├─ header ................... date, shift, supervisor
@@ -999,3 +1001,75 @@ Three of these get more expensive with every day they stay open, and the rest do
 | **Flat** | D4, D5, D7, D8, D9 | These block their own reports and nothing else. Deciding late delays one report; deciding wrong wastes one build |
 
 **D4 is the cheapest decision on this list and the one to make first.** Half an hour on the forecourt at a shift change, watching rather than asking. If nozzles move between people, the attribution model changes for every attendant report in the system.
+
+---
+
+## 15. Overview page
+
+The screen you open at 06:30 with tea, and the one a supervisor checks before handover. Its job is to answer *"is anything wrong, and what do I do about it"* in under thirty seconds.
+
+### 15.1 Four rules
+
+**Every tile gives a verdict, not a number.** "Diesel −0.42 %, within tolerance" beats "Variance: −847 L". A number without a threshold makes the reader do the work, so they stop reading.
+
+**Nothing single-shift.** Daily wetstock variance is noise — the 08/03/2026 shift showed all three tanks losing, which meant nothing on its own. Every variance figure on this page is rolling 7- or 30-day.
+
+**No tile computes anything of its own.** Each one reads a report from this catalogue. One definition per number, one place to fix it. A dashboard with its own arithmetic drifts from the reports within a month and then nobody trusts either.
+
+**Empty is a valid state, and the most important one.** Row 1 renders only when it has content. On a good day the page starts at row 2, and that absence is what makes the row meaningful when it appears.
+
+### 15.2 Tile specification
+
+**Row 1 — Action required.** Hidden when empty. Sorted by money at risk, not by age.
+
+| Tile | Shows | Appears when | Drill to |
+|---|---|---|---|
+| Shift not closed | Shift ref, hours open | Any shift open past its end time | The shift |
+| Gates failed | Count, which gate, value | A close is blocked or was overridden | R15 |
+| Cash unbanked | Amount, oldest age | Cash held beyond 2 days | R11 |
+| Over credit limit | Customer count, total exposure | Any customer past limit | R12 |
+| Open residuals | Count, litres and value | Any uncleared attribution exception | R10 |
+| Unrecovered incidents | Count, value | Drive-offs or shortages outstanding | R9 |
+| Certificates expiring | What, days left | Under 30 days to expiry | R17 |
+
+**Row 2 — Yesterday.** Four tiles, fixed.
+
+| Tile | Shows | Verdict rule | Drill to |
+|---|---|---|---|
+| Throughput | Litres, % vs 7-day average | Amber beyond ±15 % | R21 |
+| Sales value | Total, fuel vs non-fuel split | None — context, not a verdict | R19 |
+| Cash | Expected / declared / over-short | Green at zero, amber under KES 500, red above | R4, R11 |
+| Worst variance | Product, cumulative %, tolerance band | Green ≤0.5 %, amber ≤1 %, red above | R3 |
+
+**Row 3 — Stock and days of cover.** One row per tank: fill bar, litres, **days of cover at current run rate**, reorder flag. The only forward-looking number on the page, and the one you will look at most. Amber below lead time plus two days; red below lead time. Drills to R5.
+
+**Row 4 — The one chart.** 30-day cumulative variance per product against the ±0.5 % band. Resist adding a second chart. If a leak is starting, this line moves before anything else in the system notices. Drills to R3, then R6.
+
+**Row 5 — Money owed.** Total debtors, aging split, count over limit, exposure against total limits. Around 90 % of fuel value is non-cash and diesel is 96 % credit, so this earns permanent space rather than living in Accounting. Drills to R12.
+
+**Row 6 — People and equipment.** Who is on shift now and on which nozzles; outstanding shortage recoveries; nozzles out of service. The last one is blocked on the downtime model (§10) — omit the tile until it exists rather than showing a zero that means "we don't know".
+
+**One tile that isn't obvious: non-fuel share of gross margin.** Lubricants run 21–23 % against fuel's 4–5 % — roughly five times the rate — and currently contribute about 5 % of gross profit from about 1 % of revenue. Pair it with lubricant attach rate per 100 fuel sales. Fuel margin is capped by EPRA; this is the number you can actually move, and it only moves if someone sees it daily.
+
+### 15.3 Role variants
+
+| Role | Sees |
+|---|---|
+| Supervisor | Row 1 filtered to their shift, row 2, row 3 |
+| Site manager | Everything |
+| Accountant | Rows 1, 5, plus suspense age from F13 |
+| HQ | One line per station — throughput, cash position, worst cumulative variance, exceptions open — ranked by worst variance |
+
+**Build the HQ row now, with one station.** Retrofitting multi-site into a dashboard is painful, and the row costs almost nothing while the answer is a single record.
+
+### 15.4 What to leave off
+
+Product-mix pie charts. Month-to-date revenue gauges. Top-10 customer lists. Anything cumulative since January. None of them changes a decision — they are the tiles that get added because the space looked empty, and they are why dashboards stop being read.
+
+### 15.5 Practical notes
+
+**Design mobile-first.** This gets read on a phone at 06:30 far more often than at a desk. That caps you at roughly four tiles per row and argues for the exception row sitting at the top, where a thumb lands first.
+
+**Refresh cadence differs by row.** Rows 1, 3 and 6 are live. Rows 2, 4 and 5 recompute on shift close and overnight. Show the timestamp; a stale dashboard that looks live is worse than one that admits its age.
+
+**The overview is not an alerting system.** Reorder (R5) and certificate expiry (R17) push notifications on their own schedule. If the only way to learn a tank is running dry is to open this page, someone will be away the day it matters.
