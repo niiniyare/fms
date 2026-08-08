@@ -22,11 +22,20 @@ class StockLocationFMS(models.Model):
 
     _inherit = 'stock.location'
 
-    fms_is_fuel_tank = fields.Boolean('Is Fuel Tank', default=False)
+    fms_is_fuel_tank    = fields.Boolean('Is Fuel Tank', default=False)
     fms_fuel_product_id = fields.Many2one(
         'product.product', 'Fuel Product in Tank',
         domain=[('fms_is_fuel', '=', True)],
     )
+    # R5 reorder configuration — set once per tank in Configuration
+    fms_tank_capacity_l    = fields.Float('Tank Capacity (L)', digits=(16, 0),
+                                          help="Maximum volume this tank can hold.")
+    fms_reorder_point_days = fields.Float('Reorder Point (days cover)', default=3.0,
+                                          help="Raise an alert when days of cover falls below this.")
+    fms_lead_time_days     = fields.Integer('Supplier Lead Time (days)', default=1,
+                                            help="Days between order and delivery.")
+    fms_safety_days        = fields.Integer('Safety Stock (days)', default=1,
+                                            help="Buffer days on top of lead time.")
 
 
 class ProductProductFMS(models.Model):
