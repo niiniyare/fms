@@ -255,4 +255,111 @@
               action="action_fms_attendant_sales_report"
               sequence="15"/>
 
+    <!-- ================================================================
+         R5 · Stock Position &amp; Days of Cover
+    ================================================================ -->
+
+    <record id="view_fms_stock_position_list" model="ir.ui.view">
+        <field name="name">fms.report.stock.position.list</field>
+        <field name="model">fms.report.stock.position</field>
+        <field name="arch" type="xml">
+            <list string="Stock Position &amp; Days of Cover"
+                  create="false" edit="false" delete="false"
+                  decoration-danger="reorder_flag == True"
+                  decoration-warning="days_cover != False and days_cover &lt;= (reorder_point_days * 1.5) and not reorder_flag">
+                <field name="tank_name"         string="Tank"/>
+                <field name="product_id"        string="Product"/>
+                <field name="current_stock"     string="Stock (L)"    digits="[16,0]"/>
+                <field name="tank_capacity"     string="Capacity (L)" digits="[16,0]" optional="hide"/>
+                <field name="ullage"            string="Ullage (L)"   digits="[16,0]" optional="hide"/>
+                <field name="run_rate_7d"       string="Run Rate 7d (L/day)" digits="[16,0]"/>
+                <field name="run_rate_30d"      string="Run Rate 30d (L/day)" digits="[16,0]" optional="hide"/>
+                <field name="days_cover"        string="Days Cover"   digits="[16,1]"
+                       decoration-danger="reorder_flag == True"
+                       decoration-warning="days_cover != False and days_cover &lt;= (reorder_point_days * 1.5) and not reorder_flag"/>
+                <field name="reorder_point_days" string="Reorder At (days)" optional="hide"/>
+                <field name="reorder_flag"       string="Reorder?" widget="boolean" optional="hide"/>
+                <!-- hidden helper for decoration -->
+                <field name="reorder_flag"       invisible="1"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_fms_stock_position_kanban" model="ir.ui.view">
+        <field name="name">fms.report.stock.position.kanban</field>
+        <field name="model">fms.report.stock.position</field>
+        <field name="arch" type="xml">
+            <kanban create="false" edit="false" delete="false">
+                <field name="tank_name"/>
+                <field name="product_id"/>
+                <field name="current_stock"/>
+                <field name="tank_capacity"/>
+                <field name="days_cover"/>
+                <field name="reorder_point_days"/>
+                <field name="reorder_flag"/>
+                <field name="run_rate_7d"/>
+                <templates>
+                    <t t-name="card">
+                        <div t-attf-class="o_kanban_card {{ record.reorder_flag.raw_value ? 'border-danger' : '' }}">
+                            <div class="o_kanban_card_header">
+                                <strong><t t-esc="record.tank_name.value"/></strong>
+                                <span class="badge"
+                                      t-attf-class="{{ record.reorder_flag.raw_value ? 'bg-danger' : 'bg-success' }}">
+                                    <t t-esc="record.reorder_flag.raw_value ? 'REORDER' : 'OK'"/>
+                                </span>
+                            </div>
+                            <div class="o_kanban_card_content">
+                                <div><b>Product:</b> <t t-esc="record.product_id.value"/></div>
+                                <div><b>Stock:</b> <t t-esc="record.current_stock.value"/> L</div>
+                                <div><b>Days Cover:</b>
+                                    <t t-if="record.days_cover.raw_value">
+                                        <t t-esc="record.days_cover.value"/>
+                                    </t>
+                                    <t t-else="">—</t>
+                                </div>
+                                <div><b>7d Run Rate:</b> <t t-esc="record.run_rate_7d.value"/> L/day</div>
+                            </div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <record id="view_fms_stock_position_search" model="ir.ui.view">
+        <field name="name">fms.report.stock.position.search</field>
+        <field name="model">fms.report.stock.position</field>
+        <field name="arch" type="xml">
+            <search string="Stock Position">
+                <field name="tank_name" string="Tank"/>
+                <field name="product_id"/>
+                <filter string="Reorder Now" name="reorder"
+                        domain="[('reorder_flag','=',True)]"/>
+                <separator/>
+                <group expand="1" string="Group By">
+                    <filter string="Product" name="group_product" context="{'group_by':'product_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_fms_stock_position" model="ir.actions.act_window">
+        <field name="name">Stock Position &amp; Days of Cover</field>
+        <field name="res_model">fms.report.stock.position</field>
+        <field name="view_mode">kanban,list</field>
+        <field name="context">{'search_default_reorder': 0}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No fuel tanks configured.<br/>
+                Mark a stock location as a fuel tank and assign a fuel product.
+            </p>
+        </field>
+    </record>
+
+    <menuitem id="menu_fms_report_stock_position"
+              name="Stock Position"
+              parent="menu_fms_reporting"
+              action="action_fms_stock_position"
+              sequence="20"/>
+
 </odoo>

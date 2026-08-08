@@ -203,3 +203,172 @@ class FMSReportWetstock(models.Model):
                 WHERE s.state = 'closed'
             )
         """)
+
+
+class FMSReportStockPosition(models.Model):
+    """
+    R5 · Stock Position & Days of Cover.
+    One row per fuel tank.  Refreshed each time the view is queried.
+    Reorder alert is raised by ir.cron (fms_stock_alert_cron).
+    """
+
+    _name = 'fms.report.stock.position'
+    _description = 'Stock Position & Days of Cover'
+    _auto = False
+    _order = 'days_cover asc nulls first'
+
+    # ── Dimensions ────────────────────────────────────────────────────
+    location_id          = fields.Many2one('stock.location', 'Tank',    readonly=True)
+    tank_name            = fields.Char(                       'Tank',   readonly=True)
+    product_id           = fields.Many2one('product.product', 'Product',readonly=True)
+    company_id           = fields.Many2one('res.company',     'Company',readonly=True)
+
+    # ── Stock measures ────────────────────────────────────────────────
+    current_stock        = fields.Float('Current Stock (L)',   readonly=True, digits=(16, 0))
+    tank_capacity        = fields.Float('Capacity (L)',        readonly=True, digits=(16, 0))
+    ullage               = fields.Float('Ullage (L)',          readonly=True, digits=(16, 0))
+
+    # ── Run rate ──────────────────────────────────────────────────────
+    run_rate_7d          = fields.Float('Run Rate 7d (L/day)', readonly=True, digits=(16, 0))
+    run_rate_30d         = fields.Float('Run Rate 30d (L/day)',readonly=True, digits=(16, 0))
+
+    # ── Cover ─────────────────────────────────────────────────────────
+    days_cover           = fields.Float('Days of Cover',       readonly=True, digits=(16, 1))
+    reorder_point_days   = fields.Float('Reorder Point (days)',readonly=True, digits=(16, 1))
+    reorder_flag         = fields.Boolean('Below Reorder Point',readonly=True)
+
+    def init(self):
+        self.env.cr.execute("""
+            CREATE OR REPLACE VIEW fms_report_stock_position AS (
+                SELECT
+                    sl.id                                           AS id,
+                    sl.id                                           AS location_id,
+                    sl.complete_name                                AS tank_name,
+                    sl.fms_fuel_product_id                          AS product_id,
+                    rc.id                                           AS company_id,
+                    -- current stock from Odoo quants
+                    COALESCE((
+                        SELECT SUM(sq.quantity)
+                        FROM stock_quant sq
+                        WHERE sq.location_id = sl.id
+                          AND sq.product_id  = sl.fms_fuel_product_id
+                    ), 0)                                           AS current_stock,
+                    COALESCE(sl.fms_tank_capacity_l, 0)             AS tank_capacity,
+                    GREATEST(
+                        COALESCE(sl.fms_tank_capacity_l, 0) - COALESCE((
+                            SELECT SUM(sq.quantity) FROM stock_quant sq
+                            WHERE sq.location_id = sl.id
+                              AND sq.product_id  = sl.fms_fuel_product_id
+                        ), 0),
+                        0
+                    )                                               AS ullage,
+                    -- 7-day run rate
+                    COALESCE((
+                        SELECT SUM(me.qty_sold_elec) / 7.0
+                        FROM fms_shift_meter_entry me
+                        JOIN fms_shift s ON s.id = me.shift_id
+                        WHERE me.product_id = sl.fms_fuel_product_id
+                          AND s.date >= CURRENT_DATE - INTERVAL '7 days'
+                          AND s.state = 'closed'
+                    ), 0)                                           AS run_rate_7d,
+                    -- 30-day run rate
+                    COALESCE((
+                        SELECT SUM(me.qty_sold_elec) / 30.0
+                        FROM fms_shift_meter_entry me
+                        JOIN fms_shift s ON s.id = me.shift_id
+                        WHERE me.product_id = sl.fms_fuel_product_id
+                          AND s.date >= CURRENT_DATE - INTERVAL '30 days'
+                          AND s.state = 'closed'
+                    ), 0)                                           AS run_rate_30d,
+                    -- days of cover using 7-day run rate (fall back to 30-day)
+                    CASE
+                        WHEN COALESCE((
+                            SELECT SUM(me.qty_sold_elec) / 7.0
+                            FROM fms_shift_meter_entry me
+                            JOIN fms_shift s ON s.id = me.shift_id
+                            WHERE me.product_id = sl.fms_fuel_product_id
+                              AND s.date >= CURRENT_DATE - INTERVAL '7 days'
+                              AND s.state = 'closed'
+                        ), 0) > 0
+                        THEN COALESCE((
+                            SELECT SUM(sq.quantity) FROM stock_quant sq
+                            WHERE sq.location_id = sl.id
+                              AND sq.product_id  = sl.fms_fuel_product_id
+                        ), 0) / (
+                            SELECT SUM(me.qty_sold_elec) / 7.0
+                            FROM fms_shift_meter_entry me
+                            JOIN fms_shift s ON s.id = me.shift_id
+                            WHERE me.product_id = sl.fms_fuel_product_id
+                              AND s.date >= CURRENT_DATE - INTERVAL '7 days'
+                              AND s.state = 'closed'
+                        )
+                        ELSE NULL
+                    END                                             AS days_cover,
+                    COALESCE(sl.fms_reorder_point_days, 3)          AS reorder_point_days,
+                    -- reorder flag
+                    CASE
+                        WHEN COALESCE((
+                            SELECT SUM(me.qty_sold_elec) / 7.0
+                            FROM fms_shift_meter_entry me
+                            JOIN fms_shift s ON s.id = me.shift_id
+                            WHERE me.product_id = sl.fms_fuel_product_id
+                              AND s.date >= CURRENT_DATE - INTERVAL '7 days'
+                              AND s.state = 'closed'
+                        ), 0) > 0
+                        AND COALESCE((
+                            SELECT SUM(sq.quantity) FROM stock_quant sq
+                            WHERE sq.location_id = sl.id
+                              AND sq.product_id  = sl.fms_fuel_product_id
+                        ), 0) / (
+                            SELECT SUM(me.qty_sold_elec) / 7.0
+                            FROM fms_shift_meter_entry me
+                            JOIN fms_shift s ON s.id = me.shift_id
+                            WHERE me.product_id = sl.fms_fuel_product_id
+                              AND s.date >= CURRENT_DATE - INTERVAL '7 days'
+                              AND s.state = 'closed'
+                        ) <= COALESCE(sl.fms_reorder_point_days, 3)
+                        THEN TRUE
+                        ELSE FALSE
+                    END                                             AS reorder_flag
+                FROM stock_location sl
+                CROSS JOIN (SELECT id FROM res_company LIMIT 1) rc
+                WHERE sl.fms_is_fuel_tank = TRUE
+                  AND sl.fms_fuel_product_id IS NOT NULL
+                  AND sl.active = TRUE
+            )
+        """)
+
+    def action_raise_reorder_activities(self):
+        """Called by ir.cron — raise an activity on each tank below reorder point."""
+        Activity = self.env['mail.activity']
+        activity_type = self.env.ref('mail.mail_activity_data_warning', raise_if_not_found=False)
+        if not activity_type:
+            activity_type = self.env['mail.activity.type'].search([], limit=1)
+
+        tanks_below = self.search([('reorder_flag', '=', True)])
+        for row in tanks_below:
+            tank = self.env['stock.location'].browse(row.location_id.id)
+            # Avoid duplicate activities: skip if one already exists today
+            existing = Activity.search([
+                ('res_model', '=', 'stock.location'),
+                ('res_id', '=', tank.id),
+                ('activity_type_id', '=', activity_type.id),
+                ('date_deadline', '=', fields.Date.today()),
+            ], limit=1)
+            if existing:
+                continue
+            cover = f"{row.days_cover:.1f}" if row.days_cover is not None else "unknown"
+            Activity.create({
+                'res_model_id': self.env['ir.model']._get_id('stock.location'),
+                'res_id': tank.id,
+                'activity_type_id': activity_type.id,
+                'summary': f"Reorder {row.product_id.name} — {cover} days cover",
+                'note': (
+                    f"<p><b>{tank.complete_name}</b> has {cover} days of cover "
+                    f"(reorder point: {row.reorder_point_days:.1f} days).<br/>"
+                    f"Current stock: {row.current_stock:,.0f} L. "
+                    f"7-day run rate: {row.run_rate_7d:,.0f} L/day.</p>"
+                ),
+                'user_id': self.env.ref('base.user_admin').id,
+                'date_deadline': fields.Date.today(),
+            })

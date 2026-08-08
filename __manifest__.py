@@ -69,6 +69,9 @@ Reference: Complete specification in FMS_Complete_Specification_Technical_Guide.
         "reports/fms_daily_station_report.xml",
         "reports/fms_attendant_shift_statement.xml",
         "reports/fms_meter_movement_report.xml",
+
+        # Cron / scheduled actions
+        "data/fms_stock_alert_cron.xml",
     ],
     "demo": [
         "demo/fms_demo_data.xml",

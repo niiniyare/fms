@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Runs every hour; raises mail.activity on tanks below their reorder point -->
+    <record id="fms_stock_alert_cron" model="ir.cron">
+        <field name="name">FMS: Fuel Reorder Alert</field>
+        <field name="model_id" ref="model_fms_report_stock_position"/>
+        <field name="state">code</field>
+        <field name="code">model.action_raise_reorder_activities()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">hours</field>
+        <field name="active">True</field>
+        <field name="user_id" ref="base.user_root"/>
+    </record>
+
+</odoo>
