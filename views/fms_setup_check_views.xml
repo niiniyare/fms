@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Setup check issue list (embedded) -->
+    <record id="view_fms_setup_check_issue_list" model="ir.ui.view">
+        <field name="name">fms.setup.check.issue.list</field>
+        <field name="model">fms.setup.check.issue</field>
+        <field name="arch" type="xml">
+            <list string="Issues" decoration-danger="level == 'error'"
+                  decoration-warning="level == 'warning'">
+                <field name="level" widget="badge"
+                       decoration-danger="level == 'error'"
+                       decoration-warning="level == 'warning'"/>
+                <field name="title"/>
+                <field name="detail" optional="show"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Setup check wizard form -->
+    <record id="view_fms_setup_check_form" model="ir.ui.view">
+        <field name="name">fms.setup.check.form</field>
+        <field name="model">fms.setup.check</field>
+        <field name="arch" type="xml">
+            <form string="GL Account Setup Check">
+                <sheet>
+                    <div class="oe_title">
+                        <h1>GL Account Setup Check</h1>
+                        <h3>
+                            <field name="company_id" readonly="1"/>
+                        </h3>
+                    </div>
+
+                    <!-- All clear banner -->
+                    <div class="alert alert-success py-2 px-3"
+                         role="alert"
+                         invisible="not ok">
+                        All checks passed — shift close will post correct GL entries.
+                    </div>
+
+                    <!-- Summary badges -->
+                    <group invisible="ok">
+                        <group string="Summary">
+                            <field name="error_count"   string="Errors"/>
+                            <field name="warning_count" string="Warnings"/>
+                        </group>
+                    </group>
+
+                    <!-- Issue list -->
+                    <field name="issue_ids" readonly="1"
+                           invisible="issue_count == 0">
+                        <list decoration-danger="level == 'error'"
+                              decoration-warning="level == 'warning'">
+                            <field name="level" widget="badge"
+                                   decoration-danger="level == 'error'"
+                                   decoration-warning="level == 'warning'"/>
+                            <field name="title"/>
+                            <field name="detail"/>
+                        </list>
+                    </field>
+
+                    <!-- Quick-fix buttons -->
+                    <group string="Quick Links" invisible="ok">
+                        <div>
+                            <button name="action_open_site_prefs"
+                                    string="Open Site Preferences"
+                                    type="object" class="btn-secondary me-2"/>
+                            <button name="action_open_products"
+                                    string="Open Fuel Products"
+                                    type="object" class="btn-secondary"/>
+                        </div>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Server action: run check and open result -->
+    <record id="action_fms_setup_check_server" model="ir.actions.server">
+        <field name="name">GL Account Setup Check</field>
+        <field name="model_id" ref="fms.model_fms_setup_check"/>
+        <field name="state">code</field>
+        <field name="code">
+rec = model.run_check()
+action = {
+    'type':      'ir.actions.act_window',
+    'name':      'GL Account Setup Check',
+    'res_model': 'fms.setup.check',
+    'res_id':    rec.id,
+    'view_mode': 'form',
+    'view_id':   env.ref('fms.view_fms_setup_check_form').id,
+    'target':    'new',
+}
+        </field>
+    </record>
+
+    <!-- Menu: Forecourt → Configuration → GL Account Setup Check -->
+    <menuitem id="menu_fms_setup_check"
+              name="GL Account Setup Check"
+              parent="fms.menu_fms_config"
+              action="action_fms_setup_check_server"
+              groups="fms.group_fms_supervisor"
+              sequence="90"/>
+
+</odoo>

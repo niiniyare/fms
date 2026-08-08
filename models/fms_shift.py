@@ -735,6 +735,10 @@ class FMSShift(models.Model):
             )
 
         if not self._is_empty_shift():
+            # GL account configuration check — surface mis-wired accounts before
+            # spending time on gate checks that will succeed but post wrong entries.
+            self._gate_check_gl_config()
+
             # Supervisor required when money is involved
             if not self.supervisor_id:
                 raise ValidationError(
@@ -894,6 +898,24 @@ class FMSShift(models.Model):
                 f"±{meniscus}% variance meniscus:\n"
                 f"{lines}\n\n"
                 "Investigate the variance or post a dip adjustment before closing."
+            )
+
+    def _gate_check_gl_config(self):
+        """
+        GL CONFIG CHECK: Verify accounts are wired before posting journal entries.
+
+        Raises ValidationError listing all issues so the user can fix them in one
+        go rather than discovering problems after close.
+        """
+        check = self.env['fms.setup.check'].run_check(self.company_id)
+        errors = check.issue_ids.filtered(lambda i: i.level == 'error')
+        if errors:
+            lines = '\n'.join(f'• {e.title}' for e in errors)
+            raise ValidationError(
+                "Shift close blocked — GL account configuration errors found.\n\n"
+                f"{lines}\n\n"
+                "Fix these in Forecourt → Configuration → GL Account Setup Check, "
+                "then try closing again."
             )
 
     def _gate_check_volume_reconciliation(self):

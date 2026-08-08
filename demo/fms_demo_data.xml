@@ -23,6 +23,8 @@
         <field name="list_price">222.80</field>
         <field name="fms_is_fuel" eval="True"/>
         <field name="categ_id" ref="product.product_category_all"/>
+        <field name="fms_revenue_account_id" search="[('code','=','400000')]"/>
+        <field name="fms_cogs_account_id"    ref="fms.account_fuel_cogs"/>
     </record>
 
     <record id="product_super" model="product.product">
@@ -31,6 +33,8 @@
         <field name="list_price">217.50</field>
         <field name="fms_is_fuel" eval="True"/>
         <field name="categ_id" ref="product.product_category_all"/>
+        <field name="fms_revenue_account_id" search="[('code','=','400000')]"/>
+        <field name="fms_cogs_account_id"    ref="fms.account_fuel_cogs"/>
     </record>
 
     <record id="product_vpower" model="product.product">
@@ -39,6 +43,8 @@
         <field name="list_price">250.00</field>
         <field name="fms_is_fuel" eval="True"/>
         <field name="categ_id" ref="product.product_category_all"/>
+        <field name="fms_revenue_account_id" search="[('code','=','400000')]"/>
+        <field name="fms_cogs_account_id"    ref="fms.account_fuel_cogs"/>
     </record>
 
     <record id="product_kerosene" model="product.product">
@@ -47,6 +53,8 @@
         <field name="list_price">149.30</field>
         <field name="fms_is_fuel" eval="True"/>
         <field name="categ_id" ref="product.product_category_all"/>
+        <field name="fms_revenue_account_id" search="[('code','=','400000')]"/>
+        <field name="fms_cogs_account_id"    ref="fms.account_fuel_cogs"/>
     </record>
 
     <!-- Non-fuel product (used in residual allocation demo) -->

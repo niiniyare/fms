@@ -68,6 +68,7 @@ Reference: Complete specification in FMS_Complete_Specification_Technical_Guide.
         "views/fms_incident_views.xml",
         "views/fms_report_views.xml",
         "views/fms_report_views2.xml",
+        "views/fms_setup_check_views.xml",
 
         # Reports
         "reports/fms_shift_report.xml",

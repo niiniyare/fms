@@ -556,4 +556,24 @@
         <field name="perm_unlink" eval="0"/>
     </record>
 
+    <!-- fms.setup.check + fms.setup.check.issue: TransientModel GL config wizard -->
+    <record id="access_fms_setup_check_supervisor" model="ir.model.access">
+        <field name="name">fms.setup.check supervisor</field>
+        <field name="model_id" ref="model_fms_setup_check"/>
+        <field name="group_id" ref="fms.group_fms_supervisor"/>
+        <field name="perm_read"   eval="1"/>
+        <field name="perm_write"  eval="1"/>
+        <field name="perm_create" eval="1"/>
+        <field name="perm_unlink" eval="1"/>
+    </record>
+    <record id="access_fms_setup_check_issue_supervisor" model="ir.model.access">
+        <field name="name">fms.setup.check.issue supervisor</field>
+        <field name="model_id" ref="model_fms_setup_check_issue"/>
+        <field name="group_id" ref="fms.group_fms_supervisor"/>
+        <field name="perm_read"   eval="1"/>
+        <field name="perm_write"  eval="1"/>
+        <field name="perm_create" eval="1"/>
+        <field name="perm_unlink" eval="1"/>
+    </record>
+
 </odoo>

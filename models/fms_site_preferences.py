@@ -93,3 +93,24 @@ class FMSSitePreferences(models.Model):
         if not prefs:
             prefs = self.create({'company_id': company.id})
         return prefs
+
+    @api.model
+    def _fms_configure_defaults(self, clearing_account_id, cogs_account_id, journal_id):
+        """Called from data XML to wire GL accounts onto the existing prefs record.
+
+        Uses write() so it's safe whether the record was just created or already
+        existed (avoids the UNIQUE constraint error from a duplicate INSERT).
+        """
+        Account = self.env['account.account']
+        Journal = self.env['account.journal']
+        revenue_acc = Account.search([('code', '=', '400000')], limit=1)
+
+        prefs = self.get_for_company(self.env.company)
+        vals = {
+            'clearing_account_id': clearing_account_id,
+            'default_cogs_account_id': cogs_account_id,
+            'sales_journal_id': journal_id,
+        }
+        if revenue_acc:
+            vals['default_revenue_account_id'] = revenue_acc.id
+        prefs.write(vals)
