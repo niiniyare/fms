@@ -29,7 +29,7 @@ class FMSIncident(models.Model):
                                   domain=[('state', 'in', ['open', 'closing', 'closed'])])
     attendant_id = fields.Many2one('hr.employee', 'Attendant on Duty', tracking=True,
                                    domain=[('fms_is_attendant', '=', True)])
-    nozzle_id   = fields.Many2one('fms.nozzle', 'Nozzle', tracking=True)
+    nozzle_id   = fields.Many2one('fms.pump.nozzle', 'Nozzle', tracking=True)
     reported_by = fields.Many2one('res.users', 'Reported By',
                                   default=lambda self: self.env.user, tracking=True)
 
