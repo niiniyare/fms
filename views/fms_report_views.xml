@@ -53,8 +53,7 @@
         <field name="name">Daily Station Report</field>
         <field name="res_model">fms.report.daily.station</field>
         <field name="view_mode">list,pivot,graph</field>
-        <field name="domain">[('shift_date','&gt;=', (context_today() - datetime.timedelta(days=1)).strftime('%Y-%m-%d'))]</field>
-        <field name="context">{'search_default_shift_date': 1}</field>
+        <field name="context">{'search_default_yesterday': 1}</field>
     </record>
 
     <!-- ================================================================
@@ -164,12 +163,12 @@
                 <field name="shift_date"   string="Date"/>
                 <field name="product_id"/>
                 <field name="supervisor_id"/>
-                <filter string="Today"     name="today"
-                        domain="[('shift_date','=', context_today().strftime('%Y-%m-%d'))]"/>
-                <filter string="Yesterday" name="yesterday"
-                        domain="[('shift_date','=', (context_today()-datetime.timedelta(days=1)).strftime('%Y-%m-%d'))]"/>
+                <filter string="Today"      name="today"
+                        domain="[('shift_date','=', context_today())]"/>
+                <filter string="Yesterday"  name="yesterday"
+                        domain="[('shift_date','=', (context_today() + relativedelta(days=-1)))]"/>
                 <filter string="This Month" name="this_month"
-                        domain="[('shift_date','&gt;=', context_today().replace(day=1).strftime('%Y-%m-%d'))]"/>
+                        domain="[('shift_date','&gt;=', context_today().replace(day=1))]"/>
                 <separator/>
                 <filter string="Day Shift"     name="day"     domain="[('shift_label','=','day')]"/>
                 <filter string="Evening Shift" name="evening" domain="[('shift_label','=','evening')]"/>
@@ -196,7 +195,7 @@
                 <filter string="Variance &gt; 0.5%" name="exception"
                         domain="[('variance_pct','&gt;',0.5)]"/>
                 <filter string="Last 30 Days" name="last30"
-                        domain="[('shift_date','&gt;=',(context_today()-datetime.timedelta(days=30)).strftime('%Y-%m-%d'))]"/>
+                        domain="[('shift_date','&gt;=',(context_today() + relativedelta(days=-30)))]"/>
                 <separator/>
                 <group expand="0" string="Group By">
                     <filter string="Tank"    name="group_tank"    context="{'group_by':'tank_id'}"/>
@@ -217,7 +216,7 @@
                 <filter string="Shortages Only" name="shortages"
                         domain="[('balance','&gt;',0.01)]"/>
                 <filter string="This Month" name="this_month"
-                        domain="[('shift_date','&gt;=',context_today().replace(day=1).strftime('%Y-%m-%d'))]"/>
+                        domain="[('shift_date','&gt;=',context_today().replace(day=1))]"/>
                 <separator/>
                 <filter string="Day Shift"     name="day"     domain="[('shift_label','=','day')]"/>
                 <filter string="Evening Shift" name="evening" domain="[('shift_label','=','evening')]"/>
@@ -233,42 +232,27 @@
     </record>
 
     <!-- ================================================================
-         Reporting menu
+         Reporting sub-menu items — parent menu_fms_reporting defined in
+         fms_shift_list_views.xml (sequence 90).  Meter Log and Dip Log
+         entries already exist there; only new report items added here.
     ================================================================ -->
-
-    <menuitem id="menu_fms_reporting"
-              name="Reporting"
-              parent="menu_fms_root"
-              sequence="90"/>
 
     <menuitem id="menu_fms_report_daily"
               name="Daily Station Report"
               parent="menu_fms_reporting"
               action="action_fms_daily_station_report"
-              sequence="10"/>
+              sequence="5"/>
 
     <menuitem id="menu_fms_report_wetstock"
               name="Wetstock Reconciliation"
               parent="menu_fms_reporting"
               action="action_fms_wetstock_report"
-              sequence="20"/>
+              sequence="10"/>
 
     <menuitem id="menu_fms_report_attendant"
               name="Attendant Sales &amp; Cash"
               parent="menu_fms_reporting"
               action="action_fms_attendant_sales_report"
-              sequence="30"/>
-
-    <menuitem id="menu_fms_report_meter_log"
-              name="Meter Log"
-              parent="menu_fms_reporting"
-              action="action_fms_meter_log"
-              sequence="80"/>
-
-    <menuitem id="menu_fms_report_dip_log"
-              name="Dip Log"
-              parent="menu_fms_reporting"
-              action="action_fms_dip_log"
-              sequence="85"/>
+              sequence="15"/>
 
 </odoo>
