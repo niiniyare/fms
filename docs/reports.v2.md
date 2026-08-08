@@ -18,6 +18,8 @@
 | **`fms.price.period` model** | 7 date presets, R9, F11, all margin reports | See §1.5 |
 | **Kenya chart of accounts + equity structure + suspense clearance** | F1–F9 | See §7.1 |
 | **Strapping charts loaded** | R3, R6, F12 | **Active accuracy problem, not a future one — R3 is running on geometric volumes today, so its current variance figures cannot be trusted.** See the callout in §2 |
+| **Sales document decision (D11)** | D2, R10, R13, R25, R27, R28 | Non-invoice sales have no document, so cash is a derived plug — see §12.3. Decide before D2 |
+| 🔴 **Blind count — ACTIVE DEFECT** | Every cash variance figure recorded from now until it is fixed | The shift form shows expected cash beside the entry field, so the count is not blind. **Fix independently of D2 and D11 — it is not part of the remodel.** See §12.1 |
 | **Odometer capture decision** | R13 | See the scope warning on R13 |
 | **Temperature and density capture at delivery** | R8 | See the scope warning on R8 |
 | **`fms.incident` model missing** | R9, and R3's variance quality | Unmodelled incidents land in R3's variance and look like a leak. Now build order 2 — see §9 |
@@ -277,14 +279,17 @@ Catches the failing pulser that no single shift reveals.
 > That last part is the reason it can't wait: **every unmodelled incident lands in R3's variance and looks like a leak.** Build order 2 — see §9. It sits beside R3 rather than after it, because R3 built without it is noisy from its first day.
 
 ### R10 · Residual & Attribution Exceptions
-Replaces a standing residual report — see note in §11. **Menu home: Cash & Credit** (§12), not Wetstock — a residual is a keying and attribution question, not a loss question. This section groups by build concern; the nav groups by who is looking. Where the two differ, the nav wins for menu placement and this section wins for build sequencing.
+Replaces a standing residual report — see note in §11. **D11 changes what this report is:** once non-invoice sales carry documents, cash is measured rather than derived, and the residual becomes a genuine three-way reconciliation — metered litres vs receipts plus invoices vs cash counted — instead of an explanation of a plug. **Menu home: Cash & Credit** (§12), not Wetstock — a residual is a keying and attribution question, not a loss question. This section groups by build concern; the nav groups by who is looking. Where the two differ, the nav wins for menu placement and this section wins for build sequencing.
 
 | | |
 |---|---|
 | Type | List, exception-only |
-| Content | Shift · product · volume residual · cash residual · **net-to-zero test result** · diagnosed cause · document to correct · reason code · who cleared it |
-| Filters | Date range · product · **residual type** (misattribution / wrong price / wrong rate / real) · cleared vs open · data-entry user · value threshold |
+| Content — **today** | Shift · product · volume residual · cash residual · reason code · who cleared it. A residual *list*, with no diagnosis, because cash is a derived plug |
+| Content — **after D11** | Adds **net-to-zero test result** · diagnosed cause · document to correct. Only possible once cash is measured and the three-way reconciliation exists |
+| Filters | Date range · product · cleared vs open · data-entry user · value threshold · **residual type** (misattribution / wrong price / wrong rate / real) — *the type filter is blocked on D11* |
 | Default | Open exceptions only, all dates |
+
+> **Blocked on D11 for its diagnostic half.** Build the list now; it is useful on its own. Do not scope the diagnosis until the sales-document decision is made, or you will be estimating a report that cannot compute its own key column.
 
 ---
 
@@ -312,10 +317,16 @@ Declared → safe drop → banked → bank statement.
 |---|---|
 | Type | Standard Odoo aging + FMS overlay |
 | Grouping | Customer → invoice; buckets 0-30/31-60/61-90/90+ |
-| Content | Balance · credit limit · **exposure vs limit** · days overdue · last payment · fuel volume this period |
-| Filters | Customer · salesperson · **over limit only** · aging bucket · balance threshold · product · vehicle |
+| Content | Balance · credit limit · **exposure vs limit** · days overdue · last payment · ~~fuel volume this period~~ **(Phase 2 — see below)** |
+| Filters | Customer · salesperson · **over limit only** · aging bucket · balance threshold · product · ~~vehicle~~ *(Phase 2)* |
 | Default | All customers, over-limit and 60+ days first |
 | Drill-down | Customer → invoices → shift lines |
+
+> **Fuel volume per customer is Phase 2 — the spec ran ahead of the model.** The built aging view carries AR buckets and credit exposure only, with no volume column, and that is correct: litres cannot yet be attributed to a customer. Credit sales reach an invoice, but nothing links a fill to a customer at the point of dispensing. The vehicle filter has the same problem.
+>
+> **D11 unblocks it.** Once sales documents carry attendant, shift and vehicle, volume per customer becomes a join rather than an estimate. Adding the column before then means a subquery over meter entries that can only ever approximate — and an approximate litre figure on a credit-control screen is worse than none, because someone will quote it to a fleet customer.
+>
+> Until then, keep the two questions apart: **R12 answers "what do they owe and are they over limit". R13 answers "how much fuel did they take".** Half-answering both in one view is how a report loses trust.
 
 ### R13 · Fleet Vehicle Consumption
 Your fleet customers will ask for this in writing.
@@ -390,7 +401,12 @@ Running position per attendant, not a single shift's snapshot.
 
 > **Payroll write-back is not scoped.** The `payroll period deducted` field implies FMS pushes a deduction into payroll. It does not, and shouldn't without a decision. Phase 1: the report shows the outstanding amount and a manually-set status; recovery happens in payroll and someone marks it here. If you want the integration, scope it as generating a payroll input line for review — never a direct deduction.
 >
-> Worth confirming before designing either version: Kenyan employment law places statutory limits on deductions from wages and on what requires written consent. A system that automatically deducts a shortage could put you outside those limits without anyone noticing. Check the current position with whoever handles your HR compliance before automating this step.
+> **Design against the statutory ceiling, not around it.** The Employment Act 2007 (s.19) caps total deductions from an employee's wages in any month at **two-thirds of basic wages**, and deductions of this kind generally require the employee's written consent for each one. Two consequences for the build:
+>
+> - Any recovery schedule must test the **aggregate** of all deductions that month against the two-thirds ceiling — not just the shortage in isolation — and spread the balance forward when it would breach.
+> - A consent record (document reference, date, amount consented to) belongs on the recovery line, or the deduction is unsupported.
+>
+> Confirm the current position with whoever handles your HR compliance before building — this is the shape of the constraint, not legal advice, and the provisions do get amended.
 | Drill-down | Row → R24 for that shift |
 
 ### R27 · Attendant Performance
@@ -617,11 +633,12 @@ Sequenced by what stops the station working, not by what's interesting.
 | **0** | **`fms.price.period` model** (§1.5) | A named slot, not a footnote. Seven date presets, R9's price-change split, F11 and every margin report resolve against it. Built after order 1 means patching all of them |
 | 1 | R1, R2, R3 | The morning routine. These three replace the manual spreadsheet. **Blocked on strapping charts** — see below |
 | 2 | **`fms.incident` model** + R9 | Cheap, and it raises the quality of order 1's most important report. Every unmodelled drive-off, calibration test and own-use litre currently lands in R3's variance and reads as a leak. Build it beside R3, not after everything else |
-| 3 | R4, R24 | Attendant accountability. Required for shift-close sign-off |
+| 3 | R4, R24, **the three §1.3 `ValidationError`s** | Attendant accountability, and the capture-time checks that make it trustworthy. Negative cash sales, negative expected cash, and the per-nozzle cash-variance flag are hours of work each, block bad data from day one, and get deferred forever without a slot. Build them while the cash form is already open |
 | 4 | **Credit limit block at point of sale** | Not a report — a control. ~90 % of fuel value is non-cash and diesel is 96 % credit. This protects more money than anything else on the list |
 | 5 | R5 | Ordering. As an alert, not a list |
 | 6 | R12, **F6** | Debtors. Mostly native Odoo aging, so cheap once the limit block exists |
-| 7 | Cash declaration remodel (§12.1) + R11, **F13** | **Blocked on decision D2.** Do not estimate R11 until the cash model is settled |
+| **6b** | **Blind-count fix** — hide expected cash until the count is committed | 🔴 **Active defect. No dependency — do now.** Deliberately placed *before* slot 7 so nobody reads it as a sub-step of the remodel. A one-field visibility change, unrelated to D2 and D11. Every shift closed before it lands records a variance figure that cannot be trusted |
+| 7 | Sales receipts (§12.3) + cash remodel (§12.1) + R11, **F13** | **Blocked on D11, then D2 — in that order.** D11 decides the sales document; D2 then follows from it. Do not estimate R11 until both are settled. Receipts also retire R10's plug, so they pay for themselves outside this slot |
 | 8 | **F1–F9** | Statutory reporting. Configuration of OCA modules, not development |
 | 9 | **F10, F11, F12** | Where the money is made, and what wetstock loss actually costs |
 | 10 | Everything else | Useful, not blocking |
@@ -751,6 +768,7 @@ Forecourt
 │   │
 │   ├── Sales & Margin
 │   │   ├── Sales Summary ............................. R19
+│   │   ├── Business Line P&L ......................... F10
 │   │   ├── Margin by Product ......................... R20
 │   │   ├── Fuel Margin vs EPRA Cap ................... F11
 │   │   ├── Non-fuel Sales & Margin ................... R23
@@ -775,7 +793,7 @@ Forecourt
     └── Tolerances & Reason Codes
 ```
 
-**Financial reporting lives in Accounting, not here.** F1–F10, F13, F14 and F15 belong under Accounting → Reporting alongside the rest of the ledger. Nothing in a financial statement is needed to close a shift, and putting them in the forecourt menu invites a supervisor to open a balance sheet at 22:00 looking for a cash answer. The two exceptions stay: **F12** sits under Wetstock because it is the money value of R3, and **F11** sits under Sales & Margin because it is priced per litre against the EPRA cap. Both are read during operations; the rest are not.
+**Financial reporting lives in Accounting, not here.** F1–F9, F13, F14 and F15 belong under Accounting → Reporting alongside the rest of the ledger. Nothing in a financial statement is needed to close a shift, and putting them in the forecourt menu invites a supervisor to open a balance sheet at 22:00 looking for a cash answer. Three exceptions sit in the forecourt menu instead, on one test — *is it read while running the station?* **F12** under Wetstock, because it is the money value of R3. **F11** under Sales & Margin, because it is priced per litre against the EPRA cap. **F10** under Sales & Margin, because it is the report that says where the money is actually made, and a site manager asking that question should not have to open Accounting to answer it. Everything else in the F range is read by an accountant, monthly, and belongs with the ledger.
 
 Three levels, never four: app → section → report. Deeper and nobody finds anything; shallower and Reporting becomes a wall of forty items.
 
@@ -789,13 +807,25 @@ The shift sheet is one long form covering dips, meters and tenders. Cash comes o
 
 > **⚠ This conflicts with the existing `fms.shift.attendant.cash` design and needs decision D2 before R11 is estimated.**
 >
-> **Recommendation: don't build `fms.cash.declaration`. Use `pos.session` per cashier per shift.** Odoo's Cash Control already models exactly this lifecycle — opening float, cash in/out during the session (your safe drops), a closing count entered by a human, and a computed difference posted to a configurable account. Building a parallel model rebuilds it field for field, and reintroduces the parallel-ledger problem the whole architecture is trying to avoid.
+> **D2 depends on D11 (§12.3) and must be decided after it, not before.** The sales-document choice determines which cash model is correct.
 >
-> Under that option `fms.shift.attendant.cash` becomes a **read model** over the sessions rather than a table with its own write path, and the fields below map onto native ones. What genuinely stays custom is the blind-count constraint and the link back to the shift.
+> **If sales are recorded as `account.move` sale receipts (D11 option A) — use a cash journal per cashier, not `pos.session`.** With no POS orders in existence, a session would be an empty wrapper around a drawer, which distorts POS reporting and buys nothing. Instead:
 >
-> **This is Phase 1, not Phase 2.** R11, R26, the cash gates and the shortage-recovery workflow all sit on it, and splitting a lifecycle after go-live means migrating live cash records. Scope it honestly as a remodel of something already built — that is the cost of the decision, and it is smaller now than later.
+> | Concern | Implementation |
+> |---|---|
+> | Cash sale | `out_receipt`, paid immediately into journal *Cash in hand — Cashier X* |
+> | Opening float | Journal opening balance |
+> | Safe drop | Internal transfer, cashier journal → safe journal |
+> | Blind count | A thin declaration record — **the only custom object** |
+> | Variance | Counted − journal balance |
 >
-> **One caveat before building: decide which session owns the cash drawer.** This works cleanly when FMS is the only thing driving POS sessions at the station. If retail sessions already run for shop and lubricant sales alongside the fuel shift, you have two bad options — one session carrying both fuel and shop cash, which makes neither reconcilable, or a synthetic fuel-only session that distorts POS reporting. Settle the session model before writing code, not after. If retail POS is already live, that constraint may be the thing that decides D2.
+> This is `fms.cash.declaration` at roughly a fifth of the size, because float and drops become native journal entries. No parallel ledger, because the journal *is* the ledger.
+>
+> **If sales are recorded as POS orders (D11 option B) — use `pos.session` per cashier per shift.** Odoo's Cash Control already models the whole lifecycle: opening float, cash in/out during the session, a human-entered closing count, and a computed difference posted to a configurable account. `fms.shift.attendant.cash` becomes a read model over the sessions. The caveat then bites: if retail sessions already run for shop and lubricant sales alongside the fuel shift, decide which session owns the drawer before writing code. One session carrying both fuel and shop cash makes neither reconcilable.
+>
+> **Either way, `fms.shift.attendant.cash` stops being a table with its own write path.** What stays genuinely custom in both options is the blind-count constraint and the link back to the shift.
+>
+> **And either way this is Phase 1, not Phase 2.** R11, R26, the cash gates and shortage recovery all sit on it, and splitting a lifecycle after go-live means migrating live cash records. Scope it honestly as a remodel of something already built — that cost is smaller now than later.
 
 **What the cash record owns**
 
@@ -836,6 +866,47 @@ Expenses appear in the forecourt menu as a **link into the Expense module**, not
 
 Two things the link must carry through: the **shift** it was incurred on, so it lands in the right period, and the **analytic account** for the sales point, so it reaches F10 without a manual re-code. A forecourt expense captured without either is an expense someone has to reallocate by hand at month end.
 
+### 12.3 Sales documents for non-invoice sales — decision D11
+
+**This decision sits above D2 and should be taken first.** It also does more for data quality than anything else outstanding.
+
+**The problem it solves.** Cash sales are currently derived: `cash = metered litres − credit`. A plug, not a measurement. That is why 25/01/2026 showed diesel cash sales of −663.93 litres and −KES 113,134 — credit was over-keyed and the cash column silently absorbed it. Any error in credit entry lands in cash by construction, and nothing can detect it.
+
+Recording non-invoice sales as documents makes cash **measured**. R10 stops explaining a plug and starts reconciling three independent records: metered litres, the sum of receipts and invoices, and cash counted. Two of them disagreeing is now information.
+
+**Option A — native Sale Receipts (recommended).**
+
+Sale Receipt is a standard Odoo document, not an add-on: enable it under Invoicing → Configuration → Customer Invoices → *Sale Receipt*, then work from Invoicing → Customers → Receipts. It is `account.move` with `move_type = 'out_receipt'` — the same object as an invoice, a different type.
+
+| Extension needed | Implementation |
+|---|---|
+| Vehicle (optional) | M2O field on `account.move` — feeds R13 |
+| Attendant | M2O field on `account.move` — feeds R25, R27, R28 |
+| Shift | M2O field on `account.move` — the period anchor |
+
+Three fields. No new model.
+
+> **The Kenyan reason this matters.** Be careful with the phrase "outside the standard invoicing workflow." Outside the *UI* workflow is fine. Outside `account.move` is a compliance problem — eTIMS integration hangs off `account.move`, so a sales document that isn't one silently skips the fiscal path. Native receipts keep tax, GL, AR and eTIMS working with no extra wiring.
+
+**On the OCA modules.** `account_receipt_send` (send and print), `account_voucher_print` (receipt printing) and `account_receipt_sale` (receipts from sale orders, originally from the Italian localisation) are conveniences on top of the native document, not dependencies. They surfaced at v12 and v15 and are lightly maintained — **verify an 18.0 branch before depending on any of them**, and be willing to write the print layout yourself. The capability you need does not come from them.
+
+**Option B — POS orders.** Appropriate if the station is going to run POS for shop and lubricants anyway, and fuel cash can share that machinery honestly. Pulls D2 toward `pos.session`.
+
+**Granularity is a separate sub-decision (D11a).** Both answers fix the residual, because both measure cash instead of plugging it. What differs is keying load and forensic resolution:
+
+| Answer | What gets built | What you gain | What you lose |
+|---|---|---|---|
+| **Per transaction** | A receipt per fill, raised at the pump | R28 can detect an individual fraudulent fill; R13 gets a real per-vehicle history; R25 gets true transaction counts and average ticket | The highest keying load, at the busiest moment, by the least-trained user |
+| **Per nozzle per shift** | One aggregate cash receipt, keyed at shift end | Almost no extra work; R10's three-way reconciliation still works in full | R28 drops to shift-level resolution — you can tell *which shift* went wrong, not which fill. R13 becomes unusable for per-vehicle consumption |
+
+**What to watch for on the forecourt**, since this is the count that decides it:
+
+- How many **cash** fills per nozzle in a peak hour? Under roughly 15 and per-transaction is realistic; well over that and it isn't.
+- Does the attendant already handle paper for cash sales, or is cash purely hand-to-hand?
+- Is there a device at the island, or would keying mean walking to the kiosk each time?
+
+> A per-transaction design that attendants cannot sustain degrades into fabricated receipts, which is worse than the aggregate — you lose the resolution *and* trust the data. Choose the option the forecourt can actually run every day.
+
 ---
 
 ## 13. Report dependency chains
@@ -849,14 +920,14 @@ CAPTURE          Dips            Meters           Tenders           Cash
 PRIMARY        R3 Wetstock    R4 Attendant     R10 Residual      R11 Cash
                (the hub)      sales + cash     attribution       drops → bank
                    │               │                 │                │
-                   ▼               ▼                 ▼                ▼
-DERIVED        R6 SIR         R24–R28          R19 Sales         R12 Debtors
-               30-day         attendant        by category       aging + limits
-               verdict        chain                 │                │
-                   │                                │                │
-                   ▼                                ▼                ▼
-MONEY          F12 Loss                        F10 P&L           F13 Bank
-               valued in KES                   by line           suspense watch
+                   ▼               ▼                 ▼                ├──────────┐
+DERIVED        R6 SIR         R24–R28          R19 Sales         R12 Debtors    │
+               30-day         attendant        by category       aging + limits │
+               verdict        chain                 │                           │
+                   │                                │                           │
+                   ▼                                ▼                           ▼
+MONEY          F12 Loss                        F10 P&L                     F13 Bank
+               valued in KES                   by line                     suspense watch
 ```
 
 **Build one chain end to end, not one tier across four.** A finished dip chain gives a working loss report and its GL value. Four half-built tiers give nothing usable. The attendant chain is the exception — R24 through R28 all hang off R4, so that one is a fan, not a chain.
@@ -895,7 +966,7 @@ Ten open questions. Each one blocks work, and each one a developer will otherwis
 | # | Question | Blocks | Who can actually answer | Owner | By | Decision |
 |---|---|---|---|---|---|---|
 | **D1** | Island vs profit centre, and the two analytic plans (§1.6) | Every island-grouped report, F10, F14, F15 | You + whoever owns the chart of accounts | | | |
-| **D2** | Cash: `pos.session` or a new `fms.cash.declaration`? (§12.1) | R11, R26, F13, cash gates, build order 7 | You + PM. Recommendation on file | | | |
+| **D2** | Cash: cash journal per cashier, or `pos.session`? (§12.1) | R11, R26, F13, cash gates, build order 7 | You + PM. **Decide D11 first — it determines the answer.** Both branches on file | | | |
 | **D3** | Expenses: native module or `expense_amount` field? (§12.2) | F14, R26, cash arithmetic | You. Recommendation on file | | | |
 | **D4** | Do attendants swap nozzles mid-shift? (R29) | Every attendant report's attribution model | **Observation on the forecourt**, not a meeting | | | |
 | **D5** | Odometer capture — attendant-keyed or fleet integration? (R13) | R13 entirely | You + your fleet customers | | | |
@@ -904,6 +975,8 @@ Ten open questions. Each one blocks work, and each one a developer will otherwis
 | **D8** | Reconciliation basis: ambient or 15 °C? **Effectively already decided — see below** | R3, R6, R8, F12 | You, to confirm and record | | | |
 | **D9** | SIR method: CUSUM control chart or t-test? (R6) | R6 entirely | Developer proposes, you accept the audit story | | | |
 | **D10** | Device/IP capture at shift close — yes or no? (R15) | R15's forensic value | You. **Cannot be added retrospectively** | | | |
+| **D11** | Sales document for non-invoice sales: native Sale Receipts or POS orders? (§12.3) | **D2**, R10, R13, R25, R27, R28, eTIMS path | You. Recommendation on file: native receipts | | | |
+| **D11a** | Receipt granularity: per transaction, or per nozzle per shift? (§12.3) | Attendant workload, R28 and R13 resolution | **Forecourt observation** — count cash fills per nozzle in a peak hour. Consequence table in §12.3 | | | |
 
 ### D8 is not really open
 
@@ -921,7 +994,7 @@ Three of these get more expensive with every day they stay open, and the rest do
 
 | Cost curve | Decisions | Why |
 |---|---|---|
-| **Rises steeply** | D1, D2 | D1 gets expensive the moment entries post against the chart of accounts. D2 gets expensive the moment live cash records exist. Both are cheap this week and painful next quarter |
+| **Rises steeply** | D1, D2, **D11** | D1 gets expensive the moment entries post against the chart of accounts. D2 gets expensive the moment live cash records exist. D11 gets expensive the moment sales documents exist in either shape — and it gates D2, so it goes first. All three are cheap this week and painful next quarter |
 | **Rises slowly** | D3, D6, D10 | Retrofittable, at the cost of re-keying or lost history |
 | **Flat** | D4, D5, D7, D8, D9 | These block their own reports and nothing else. Deciding late delays one report; deciding wrong wastes one build |
 
