@@ -2,94 +2,154 @@
 <odoo>
 
     <!-- ================================================================
-         Pump & Nozzle configuration views
+         Pump views
     ================================================================ -->
 
-    <!-- Pump list -->
-    <record id="view_fms_pump_tree" model="ir.ui.view">
-        <field name="name">fms.pump.tree</field>
+    <record id="view_fms_pump_list" model="ir.ui.view">
+        <field name="name">fms.pump.list</field>
         <field name="model">fms.pump</field>
         <field name="arch" type="xml">
-            <list string="Pumps" editable="top">
+            <list string="Pumps">
                 <field name="order"/>
+                <field name="code"/>
                 <field name="name"/>
+                <field name="nozzle_count" string="Nozzles"/>
                 <field name="active"/>
             </list>
         </field>
     </record>
 
-    <!-- Pump form with inline nozzles -->
     <record id="view_fms_pump_form" model="ir.ui.view">
         <field name="name">fms.pump.form</field>
         <field name="model">fms.pump</field>
         <field name="arch" type="xml">
             <form string="Pump">
                 <sheet>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1><field name="name" placeholder="e.g. UX Pump 1"/></h1>
+                    </div>
                     <group>
-                        <field name="name"/>
-                        <field name="order"/>
-                        <field name="active"/>
-                    </group>
-                    <field name="nozzle_ids">
-                        <list editable="bottom" string="Nozzles">
+                        <group>
+                            <field name="code" placeholder="e.g. UX1"/>
                             <field name="order"/>
-                            <field name="letter"/>
-                            <field name="name"/>
-                            <field name="product_id"
-                                   domain="[('fms_is_fuel','=',True)]"/>
-                            <field name="current_elec_cash"
-                                   string="Elec Cash (KES)" readonly="1"/>
-                            <field name="current_elec_volume"
-                                   string="Elec Vol (L)" readonly="1"/>
-                            <field name="current_man_mech"
-                                   string="Manual (L)" readonly="1"/>
+                        </group>
+                        <group>
                             <field name="active"/>
-                        </list>
-                    </field>
+                        </group>
+                    </group>
+
+                    <notebook>
+                        <page string="Nozzles">
+                            <field name="nozzle_ids">
+                                <list string="Nozzles" editable="bottom">
+                                    <field name="order"/>
+                                    <field name="letter"/>
+                                    <field name="name"/>
+                                    <field name="product_id"
+                                           domain="[('fms_is_fuel','=',True)]"/>
+                                    <field name="state" widget="badge"
+                                           decoration-muted="state == 'draft'"
+                                           decoration-warning="state == 'initialized'"
+                                           decoration-success="state == 'active'"/>
+                                    <field name="current_elec_volume"  string="Elec Vol (L)"   readonly="1"/>
+                                    <field name="current_elec_cash"    string="Elec Cash (KES)" readonly="1"/>
+                                    <field name="current_mech_volume"  string="Mech Vol (L)"   readonly="1"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
                 </sheet>
             </form>
         </field>
     </record>
 
-    <!-- Nozzle standalone form (opened when clicking a nozzle row) -->
+    <!-- ================================================================
+         Nozzle standalone form with initialization workflow
+    ================================================================ -->
+
     <record id="view_fms_pump_nozzle_form" model="ir.ui.view">
         <field name="name">fms.pump.nozzle.form</field>
         <field name="model">fms.pump.nozzle</field>
         <field name="arch" type="xml">
             <form string="Nozzle">
+                <header>
+                    <button name="action_initialize" type="object"
+                            string="Initialize"
+                            class="btn-primary"
+                            invisible="state != 'draft'"/>
+                    <button name="action_activate" type="object"
+                            string="Activate (Test Passed)"
+                            class="btn-success"
+                            invisible="state != 'initialized'"/>
+                    <button name="action_reset_draft" type="object"
+                            string="Reset to Draft"
+                            invisible="state == 'draft'"
+                            confirm="This will clear current meter positions. Continue?"/>
+                    <field name="state" widget="statusbar"
+                           statusbar_visible="draft,initialized,active"/>
+                </header>
                 <sheet>
                     <div class="oe_title">
-                        <h1>
-                            <field name="pump_id" readonly="1"/> —
-                            Nozzle <field name="letter" readonly="1"/>
-                        </h1>
+                        <label for="name"/>
+                        <h1><field name="name" placeholder="e.g. UX1-A Diesel"/></h1>
                     </div>
 
                     <group>
                         <group string="Identity">
                             <field name="pump_id"/>
-                            <field name="name"/>
-                            <field name="letter"/>
+                            <field name="letter" placeholder="A"/>
                             <field name="order"/>
                             <field name="product_id"
                                    domain="[('fms_is_fuel','=',True)]"/>
                             <field name="active"/>
                         </group>
-                        <group string="Current Meter Positions">
-                            <p class="text-muted" colspan="2">
-                                Automatically updated when a shift closes.
-                                These become the opening readings for the next shift.
-                            </p>
-                            <field name="current_elec_cash"
-                                   string="Elec Cash (KES)" readonly="1"/>
-                            <field name="current_elec_volume"
-                                   string="Elec Volume (L)" readonly="1"/>
-                            <field name="current_man_mech"
-                                   string="Manual Meter (L)" readonly="1"/>
+                        <group string="Initialization">
+                            <field name="init_date"/>
+                            <field name="init_shift_id"/>
                         </group>
+                    </group>
+
+                    <group string="Opening Meter Readings (entered once at commissioning)"
+                           invisible="state == 'active'">
+                        <field name="init_elec_volume"  string="1. Electronic Volume (L)"/>
+                        <field name="init_elec_cash"    string="2. Electronic Cash (KES)"/>
+                        <field name="init_mech_volume"  string="3. Mechanical Volume (L)"/>
+                    </group>
+
+                    <group string="Current Meter Positions (updated automatically on each shift close)"
+                           invisible="state == 'draft'">
+                        <field name="current_elec_volume"  string="Electronic Volume (L)"   readonly="1"/>
+                        <field name="current_elec_cash"    string="Electronic Cash (KES)"   readonly="1"/>
+                        <field name="current_mech_volume"  string="Mechanical Volume (L)"   readonly="1"/>
                     </group>
                 </sheet>
             </form>
+        </field>
+    </record>
+
+    <!-- Nozzle list action (for standalone Nozzles menu if needed) -->
+    <record id="view_fms_pump_nozzle_list" model="ir.ui.view">
+        <field name="name">fms.pump.nozzle.list</field>
+        <field name="model">fms.pump.nozzle</field>
+        <field name="arch" type="xml">
+            <list string="Nozzles"
+                  decoration-muted="state == 'draft'"
+                  decoration-warning="state == 'initialized'"
+                  decoration-success="state == 'active'">
+                <field name="pump_id"/>
+                <field name="letter"/>
+                <field name="name"/>
+                <field name="product_id"/>
+                <field name="init_date"/>
+                <field name="state" widget="badge"
+                       decoration-muted="state == 'draft'"
+                       decoration-warning="state == 'initialized'"
+                       decoration-success="state == 'active'"/>
+                <field name="current_elec_volume"  string="Elec Vol (L)"/>
+                <field name="current_elec_cash"    string="Elec Cash (KES)"/>
+                <field name="current_mech_volume"  string="Mech Vol (L)"/>
+            </list>
         </field>
     </record>
 
@@ -99,7 +159,13 @@
         <field name="view_mode">list,form</field>
     </record>
 
-    <!-- Configuration submenu (mirrors Inventory > Configuration) -->
+    <record id="action_fms_nozzle" model="ir.actions.act_window">
+        <field name="name">Nozzles</field>
+        <field name="res_model">fms.pump.nozzle</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <!-- Configuration submenu -->
     <menuitem id="menu_fms_config"
               name="Configuration"
               parent="menu_fms_root"
@@ -112,5 +178,12 @@
               action="action_fms_pump"
               groups="fms.group_fms_supervisor"
               sequence="10"/>
+
+    <menuitem id="menu_fms_nozzles"
+              name="Nozzles"
+              parent="menu_fms_config"
+              action="action_fms_nozzle"
+              groups="fms.group_fms_supervisor"
+              sequence="15"/>
 
 </odoo>

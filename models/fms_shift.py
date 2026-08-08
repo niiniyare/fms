@@ -410,7 +410,7 @@ class FMSShift(models.Model):
                     # Opening = nozzle's current meter position (set on last shift close)
                     opening_elec_volume = nozzle.current_elec_volume
                     opening_elec_cash   = nozzle.current_elec_cash
-                    opening_man_mech    = nozzle.current_man_mech
+                    opening_man_mech    = nozzle.current_mech_volume
                     meter_entries.append({
                         'shift_id':            self.id,
                         'pump_id':             pump.id,
@@ -964,7 +964,7 @@ class FMSShift(models.Model):
             entry.nozzle_id.sudo().write({
                 'current_elec_volume': entry.closing_elec_volume,
                 'current_elec_cash':   entry.closing_elec_cash,
-                'current_man_mech':    entry.closing_man_mech,
+                'current_mech_volume': entry.closing_man_mech,
             })
 
     def _write_dip_logs(self):
