@@ -53,6 +53,7 @@ Reference: Complete specification in FMS_Complete_Specification_Technical_Guide.
         
         # Data
         "data/fms_site_preferences.xml",
+        "data/fms_company_defaults.xml",
         
         # Views — list/menus first so menu_fms_root exists before pump views reference it
         "views/fms_shift_list_views.xml",
