@@ -173,7 +173,7 @@
                 <filter string="Yesterday"  name="yesterday"
                         domain="[('shift_date','=', (context_today() + relativedelta(days=-1)))]"/>
                 <filter string="This Month" name="this_month"
-                        domain="[('shift_date','&gt;=', context_today().replace(day=1))]"/>
+                        domain="[('shift_date','&gt;=', context_today() + relativedelta(day=1))]"/>
                 <separator/>
                 <filter string="Day Shift"     name="day"     domain="[('shift_label','=','day')]"/>
                 <filter string="Evening Shift" name="evening" domain="[('shift_label','=','evening')]"/>
@@ -221,7 +221,7 @@
                 <filter string="Shortages Only" name="shortages"
                         domain="[('balance','&gt;',0.01)]"/>
                 <filter string="This Month" name="this_month"
-                        domain="[('shift_date','&gt;=',context_today().replace(day=1))]"/>
+                        domain="[('shift_date','&gt;=',context_today() + relativedelta(day=1))]"/>
                 <separator/>
                 <filter string="Day Shift"     name="day"     domain="[('shift_label','=','day')]"/>
                 <filter string="Evening Shift" name="evening" domain="[('shift_label','=','evening')]"/>

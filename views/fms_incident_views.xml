@@ -136,7 +136,7 @@
 
                 <!-- Date presets -->
                 <filter string="This Month" name="this_month"
-                        domain="[('date','&gt;=',context_today().replace(day=1))]"/>
+                        domain="[('date','&gt;=',context_today() + relativedelta(day=1))]"/>
                 <filter string="Last 30 Days" name="last_30"
                         domain="[('date','&gt;=',(context_today() + relativedelta(days=-30)))]"/>
                 <separator/>

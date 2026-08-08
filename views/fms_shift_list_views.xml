@@ -168,7 +168,7 @@
                 <field name="attendant_id"/>
                 <field name="shift_id" string="Shift"/>
                 <filter string="This Month" name="this_month"
-                        domain="[('recorded_date','&gt;=', context_today().replace(day=1))]"/>
+                        domain="[('recorded_date','&gt;=', context_today() + relativedelta(day=1))]"/>
                 <filter string="Last 30 Days" name="last_30"
                         domain="[('recorded_date','&gt;=',(context_today() + relativedelta(days=-30)))]"/>
                 <separator/>
@@ -254,7 +254,7 @@
                 <filter string="Variance &gt; 0.5%" name="exception"
                         domain="['|',('variance_pct','&gt;',0.5),('variance_pct','&lt;',-0.5)]"/>
                 <filter string="This Month" name="this_month"
-                        domain="[('recorded_date','&gt;=', context_today().replace(day=1))]"/>
+                        domain="[('recorded_date','&gt;=', context_today() + relativedelta(day=1))]"/>
                 <filter string="Last 30 Days" name="last_30"
                         domain="[('recorded_date','&gt;=',(context_today() + relativedelta(days=-30)))]"/>
                 <separator/>
