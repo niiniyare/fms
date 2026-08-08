@@ -1,9 +1,21 @@
 """
 fms_report_views.py — _auto=False SQL views backing operational reports.
 
-R2  fms.report.daily.station   — Daily Station Report (shift → product)
-R4  fms.report.attendant.sales — Attendant Sales & Cash (attendant → shift)
-R3  fms.report.wetstock        — Wetstock Reconciliation (tank → day)
+R2  fms.report.daily.station        — Daily Station Report (shift → product)
+R3  fms.report.wetstock             — Wetstock Reconciliation (tank → day)
+R4  fms.report.attendant.sales      — Attendant Sales & Cash (attendant × shift)
+R5  fms.report.stock.position       — Stock Position & Days of Cover
+R7  fms.report.meter.variance       — Meter Variance Log (nozzle × shift)
+R10 fms.report.residual.exception   — Attribution Residuals (shift × product)
+R16 fms.report.gl.reconciliation    — GL Reconciliation Journal
+R19 fms.report.sales.summary        — Sales Summary (nozzle × shift)
+R21 fms.report.throughput           — Throughput Trend (day × product)
+R22 fms.report.nozzle.perf         — Pump & Nozzle Performance
+R25 fms.report.attendant.category   — Attendant Sales by Category
+R26 fms.report.shortage             — Shortage & Overage Ledger
+R27 fms.report.attendant.perf       — Attendant Performance
+R28 fms.report.risk.anomaly         — Attendant Risk & Anomaly
+R29 fms.report.nozzle.handover      — Nozzle Assignment & Handover Log
 """
 
 from odoo import models, fields, api
@@ -372,3 +384,721 @@ class FMSReportStockPosition(models.Model):
                 'user_id': self.env.ref('base.user_admin').id,
                 'date_deadline': fields.Date.today(),
             })
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# R7 · Meter Variance Log
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class FMSReportMeterVariance(models.Model):
+    """R7 — Electronic vs manual variance per nozzle per shift."""
+
+    _name        = 'fms.report.meter.variance'
+    _description = 'Meter Variance Log'
+    _auto        = False
+    _order       = 'shift_date desc, pump_name, nozzle_name'
+
+    shift_id      = fields.Many2one('fms.shift',        'Shift',      readonly=True)
+    shift_date    = fields.Date(                         'Date',       readonly=True)
+    shift_label   = fields.Selection([
+        ('day', 'Day'), ('evening', 'Evening'), ('night', 'Night'),
+    ], string='Period', readonly=True)
+    nozzle_id     = fields.Many2one('fms.pump.nozzle',  'Nozzle',     readonly=True)
+    nozzle_name   = fields.Char(                         'Nozzle',     readonly=True)
+    pump_id       = fields.Many2one('fms.pump',          'Pump',       readonly=True)
+    pump_name     = fields.Char(                         'Pump',       readonly=True)
+    attendant_id  = fields.Many2one('hr.employee',       'Attendant',  readonly=True)
+    product_id    = fields.Many2one('product.product',   'Product',    readonly=True)
+    company_id    = fields.Many2one('res.company',       'Company',    readonly=True)
+
+    qty_sold_elec  = fields.Float('Electronic (L)',      readonly=True, digits=(16, 2))
+    qty_sold_man   = fields.Float('Manual (L)',          readonly=True, digits=(16, 2))
+    variance_l     = fields.Float('Variance (L)',        readonly=True, digits=(16, 2))
+    variance_pct   = fields.Float('Variance %',         readonly=True, digits=(16, 4))
+    elec_cash_sold = fields.Float('Cash Meter (KES)',    readonly=True, digits=(16, 2))
+    rtt_volume     = fields.Float('RTT (L)',             readonly=True, digits=(16, 2))
+
+    def init(self):
+        self.env.cr.execute("""
+            CREATE OR REPLACE VIEW fms_report_meter_variance AS (
+                SELECT
+                    me.id                                               AS id,
+                    me.shift_id                                         AS shift_id,
+                    s.date                                              AS shift_date,
+                    s.label                                             AS shift_label,
+                    me.nozzle_id                                        AS nozzle_id,
+                    n.name                                              AS nozzle_name,
+                    n.pump_id                                           AS pump_id,
+                    p.name                                              AS pump_name,
+                    me.attendant_id                                     AS attendant_id,
+                    me.product_id                                       AS product_id,
+                    s.company_id                                        AS company_id,
+                    COALESCE(me.qty_sold_elec,  0)                      AS qty_sold_elec,
+                    COALESCE(me.qty_sold_man,   0)                      AS qty_sold_man,
+                    COALESCE(me.qty_sold_man, 0) - COALESCE(me.qty_sold_elec, 0) AS variance_l,
+                    CASE
+                        WHEN COALESCE(me.qty_sold_elec, 0) > 0
+                        THEN (COALESCE(me.qty_sold_man, 0) - COALESCE(me.qty_sold_elec, 0))
+                             / me.qty_sold_elec * 100
+                        ELSE 0
+                    END                                                 AS variance_pct,
+                    COALESCE(me.elec_cash_sold, 0)                      AS elec_cash_sold,
+                    COALESCE(me.rtt_volume, 0)                          AS rtt_volume
+                FROM fms_shift_meter_entry me
+                JOIN fms_shift      s ON s.id  = me.shift_id
+                JOIN fms_pump_nozzle n ON n.id  = me.nozzle_id
+                JOIN fms_pump       p ON p.id  = n.pump_id
+                WHERE s.state = 'closed'
+            )
+        """)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# R10 · Attribution Residuals (today's list — diagnostic half blocked on D11)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class FMSReportResidualException(models.Model):
+    """R10 — Open residuals per shift × product. Diagnostic columns added after D11."""
+
+    _name        = 'fms.report.residual.exception'
+    _description = 'Attribution Residuals'
+    _auto        = False
+    _order       = 'shift_date desc, product_name'
+
+    shift_id       = fields.Many2one('fms.shift',       'Shift',      readonly=True)
+    shift_date     = fields.Date(                        'Date',       readonly=True)
+    shift_label    = fields.Selection([
+        ('day', 'Day'), ('evening', 'Evening'), ('night', 'Night'),
+    ], string='Period', readonly=True)
+    product_id     = fields.Many2one('product.product', 'Product',    readonly=True)
+    product_name   = fields.Char(                        'Product',   readonly=True)
+    company_id     = fields.Many2one('res.company',     'Company',    readonly=True)
+    supervisor_id  = fields.Many2one('hr.employee',     'Supervisor', readonly=True)
+
+    meter_volume   = fields.Float('Meter (L)',           readonly=True, digits=(16, 2))
+    volume_residual = fields.Float('Volume Residual (L)', readonly=True, digits=(16, 2))
+    cash_residual  = fields.Float('Cash Residual (KES)', readonly=True, digits=(16, 2))
+    residual_type  = fields.Selection([
+        ('none', 'Balanced'),
+        ('over', 'Over-invoiced'),
+        ('under', 'Under-invoiced'),
+    ], string='Type', readonly=True)
+    is_allocated   = fields.Boolean('Allocated',         readonly=True)
+
+    def init(self):
+        self.env.cr.execute("""
+            CREATE OR REPLACE VIEW fms_report_residual_exception AS (
+                SELECT
+                    ps.id                                               AS id,
+                    ps.shift_id                                         AS shift_id,
+                    s.date                                              AS shift_date,
+                    s.label                                             AS shift_label,
+                    ps.product_id                                       AS product_id,
+                    pt.name->>'en_US'                                   AS product_name,
+                    s.company_id                                        AS company_id,
+                    s.supervisor_id                                     AS supervisor_id,
+                    COALESCE(ps.meter_volume, 0)                        AS meter_volume,
+                    COALESCE(ps.volume_residual, 0)                     AS volume_residual,
+                    COALESCE(ps.cash_residual, 0)                       AS cash_residual,
+                    COALESCE(ps.residual_type, 'none')                  AS residual_type,
+                    EXISTS (
+                        SELECT 1 FROM fms_shift_residual_allocation ra
+                        WHERE ra.shift_id = ps.shift_id
+                          AND (ra.source_product_id = ps.product_id
+                               OR ra.target_product_id = ps.product_id)
+                    )                                                   AS is_allocated
+                FROM fms_shift_product_sales ps
+                JOIN fms_shift         s  ON s.id  = ps.shift_id
+                JOIN product_product   pp ON pp.id = ps.product_id
+                JOIN product_template  pt ON pt.id = pp.product_tmpl_id
+                WHERE s.state = 'closed'
+                  AND (ABS(COALESCE(ps.volume_residual, 0)) > 0.5
+                       OR ABS(COALESCE(ps.cash_residual, 0)) > 10)
+            )
+        """)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# R16 · GL Reconciliation Journal
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class FMSReportGLReconciliation(models.Model):
+    """R16 — Sales journal entries linked to closed shifts."""
+
+    _name        = 'fms.report.gl.reconciliation'
+    _description = 'GL Reconciliation Journal'
+    _auto        = False
+    _order       = 'shift_date desc, account_code'
+
+    shift_id      = fields.Many2one('fms.shift',          'Shift',       readonly=True)
+    shift_date    = fields.Date(                           'Date',        readonly=True)
+    shift_label   = fields.Selection([
+        ('day', 'Day'), ('evening', 'Evening'), ('night', 'Night'),
+    ], string='Period', readonly=True)
+    move_id       = fields.Many2one('account.move',       'Journal Entry', readonly=True)
+    move_name     = fields.Char(                           'Entry',       readonly=True)
+    account_id    = fields.Many2one('account.account',    'Account',     readonly=True)
+    account_code  = fields.Char(                           'Account Code', readonly=True)
+    account_name  = fields.Char(                           'Account Name', readonly=True)
+    partner_id    = fields.Many2one('res.partner',        'Partner',     readonly=True)
+    company_id    = fields.Many2one('res.company',        'Company',     readonly=True)
+    debit         = fields.Float('Debit (KES)',            readonly=True, digits=(16, 2))
+    credit        = fields.Float('Credit (KES)',           readonly=True, digits=(16, 2))
+    balance       = fields.Float('Balance (KES)',          readonly=True, digits=(16, 2))
+    label         = fields.Char('Label',                   readonly=True)
+
+    def init(self):
+        self.env.cr.execute("""
+            CREATE OR REPLACE VIEW fms_report_gl_reconciliation AS (
+                SELECT
+                    aml.id                                              AS id,
+                    s.id                                                AS shift_id,
+                    s.date                                              AS shift_date,
+                    s.label                                             AS shift_label,
+                    aml.move_id                                         AS move_id,
+                    am.name                                             AS move_name,
+                    aml.account_id                                      AS account_id,
+                    aa.code_store->>(s.company_id::text)                AS account_code,
+                    aa.name->>'en_US'                                   AS account_name,
+                    aml.partner_id                                      AS partner_id,
+                    s.company_id                                        AS company_id,
+                    COALESCE(aml.debit, 0)                              AS debit,
+                    COALESCE(aml.credit, 0)                             AS credit,
+                    COALESCE(aml.debit, 0) - COALESCE(aml.credit, 0)   AS balance,
+                    aml.name                                            AS label
+                FROM fms_shift s
+                JOIN account_move      am  ON am.id = s.sales_journal_entry_id
+                JOIN account_move_line aml ON aml.move_id = am.id
+                JOIN account_account   aa  ON aa.id = aml.account_id
+                WHERE s.state = 'closed'
+                  AND s.sales_journal_entry_id IS NOT NULL
+            )
+        """)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# R19 · Sales Summary
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class FMSReportSalesSummary(models.Model):
+    """R19 — Granular sales per nozzle × shift. Pivot groups any dimension."""
+
+    _name        = 'fms.report.sales.summary'
+    _description = 'Sales Summary'
+    _auto        = False
+    _order       = 'shift_date desc, product_name, attendant_name'
+
+    shift_id      = fields.Many2one('fms.shift',        'Shift',      readonly=True)
+    shift_date    = fields.Date(                         'Date',       readonly=True)
+    shift_label   = fields.Selection([
+        ('day', 'Day'), ('evening', 'Evening'), ('night', 'Night'),
+    ], string='Period', readonly=True)
+    nozzle_id     = fields.Many2one('fms.pump.nozzle',  'Nozzle',     readonly=True)
+    nozzle_name   = fields.Char(                         'Nozzle',     readonly=True)
+    pump_id       = fields.Many2one('fms.pump',          'Pump',       readonly=True)
+    pump_name     = fields.Char(                         'Pump',       readonly=True)
+    attendant_id  = fields.Many2one('hr.employee',       'Attendant',  readonly=True)
+    attendant_name = fields.Char(                        'Attendant',  readonly=True)
+    product_id    = fields.Many2one('product.product',   'Product',    readonly=True)
+    product_name  = fields.Char(                         'Product',    readonly=True)
+    categ_id      = fields.Many2one('product.category',  'Category',   readonly=True)
+    company_id    = fields.Many2one('res.company',       'Company',    readonly=True)
+
+    qty_sold_elec  = fields.Float('Volume (L)',           readonly=True, digits=(16, 2))
+    elec_cash_sold = fields.Float('Cash Meter (KES)',     readonly=True, digits=(16, 2))
+    rtt_volume     = fields.Float('RTT (L)',              readonly=True, digits=(16, 2))
+
+    def init(self):
+        self.env.cr.execute("""
+            CREATE OR REPLACE VIEW fms_report_sales_summary AS (
+                SELECT
+                    me.id                                               AS id,
+                    me.shift_id                                         AS shift_id,
+                    s.date                                              AS shift_date,
+                    s.label                                             AS shift_label,
+                    me.nozzle_id                                        AS nozzle_id,
+                    n.name                                              AS nozzle_name,
+                    n.pump_id                                           AS pump_id,
+                    p.name                                              AS pump_name,
+                    me.attendant_id                                     AS attendant_id,
+                    e.name                                              AS attendant_name,
+                    me.product_id                                       AS product_id,
+                    pt.name->>'en_US'                                   AS product_name,
+                    pp.categ_id                                         AS categ_id,
+                    s.company_id                                        AS company_id,
+                    COALESCE(me.qty_sold_elec,  0)                      AS qty_sold_elec,
+                    COALESCE(me.elec_cash_sold, 0)                      AS elec_cash_sold,
+                    COALESCE(me.rtt_volume,     0)                      AS rtt_volume
+                FROM fms_shift_meter_entry me
+                JOIN fms_shift         s   ON s.id   = me.shift_id
+                JOIN fms_pump_nozzle   n   ON n.id   = me.nozzle_id
+                JOIN fms_pump          p   ON p.id   = n.pump_id
+                JOIN hr_employee       e   ON e.id   = me.attendant_id
+                JOIN product_product   pp  ON pp.id  = me.product_id
+                JOIN product_template  pt  ON pt.id  = pp.product_tmpl_id
+                WHERE s.state = 'closed'
+            )
+        """)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# R21 · Throughput Trend
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class FMSReportThroughput(models.Model):
+    """R21 — Daily throughput by product; graph-first for trend view."""
+
+    _name        = 'fms.report.throughput'
+    _description = 'Throughput Trend'
+    _auto        = False
+    _order       = 'shift_date desc, product_name'
+
+    shift_date   = fields.Date(                        'Date',     readonly=True)
+    product_id   = fields.Many2one('product.product',  'Product',  readonly=True)
+    product_name = fields.Char(                         'Product', readonly=True)
+    company_id   = fields.Many2one('res.company',      'Company',  readonly=True)
+
+    qty_sold     = fields.Float('Volume (L)',            readonly=True, digits=(16, 2))
+    cash_total   = fields.Float('Cash Meter (KES)',      readonly=True, digits=(16, 2))
+    shift_count  = fields.Integer('Shifts',              readonly=True)
+
+    def init(self):
+        self.env.cr.execute("""
+            CREATE OR REPLACE VIEW fms_report_throughput AS (
+                SELECT
+                    ROW_NUMBER() OVER ()                                AS id,
+                    s.date                                              AS shift_date,
+                    me.product_id                                       AS product_id,
+                    pt.name->>'en_US'                                   AS product_name,
+                    s.company_id                                        AS company_id,
+                    SUM(COALESCE(me.qty_sold_elec,  0))                 AS qty_sold,
+                    SUM(COALESCE(me.elec_cash_sold, 0))                 AS cash_total,
+                    COUNT(DISTINCT me.shift_id)                         AS shift_count
+                FROM fms_shift_meter_entry me
+                JOIN fms_shift        s  ON s.id  = me.shift_id
+                JOIN product_product  pp ON pp.id = me.product_id
+                JOIN product_template pt ON pt.id = pp.product_tmpl_id
+                WHERE s.state = 'closed'
+                GROUP BY s.date, me.product_id, pt.name->>'en_US', s.company_id
+            )
+        """)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# R22 · Pump & Nozzle Performance
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class FMSReportNozzlePerf(models.Model):
+    """R22 — Aggregate performance per nozzle over a date range."""
+
+    _name        = 'fms.report.nozzle.perf'
+    _description = 'Pump & Nozzle Performance'
+    _auto        = False
+    _order       = 'total_qty desc'
+
+    nozzle_id    = fields.Many2one('fms.pump.nozzle',  'Nozzle',   readonly=True)
+    nozzle_name  = fields.Char(                         'Nozzle',  readonly=True)
+    pump_id      = fields.Many2one('fms.pump',          'Pump',    readonly=True)
+    pump_name    = fields.Char(                         'Pump',    readonly=True)
+    product_id   = fields.Many2one('product.product',  'Product',  readonly=True)
+    product_name = fields.Char(                         'Product', readonly=True)
+    company_id   = fields.Many2one('res.company',      'Company',  readonly=True)
+
+    shift_count  = fields.Integer('Shifts',             readonly=True)
+    total_qty    = fields.Float('Total Volume (L)',      readonly=True, digits=(16, 0))
+    avg_qty      = fields.Float('Avg per Shift (L)',     readonly=True, digits=(16, 0))
+    total_cash   = fields.Float('Total Cash (KES)',      readonly=True, digits=(16, 0))
+    total_rtt    = fields.Float('Total RTT (L)',         readonly=True, digits=(16, 0))
+    avg_variance = fields.Float('Avg Mech Variance (L)', readonly=True, digits=(16, 2))
+
+    def init(self):
+        self.env.cr.execute("""
+            CREATE OR REPLACE VIEW fms_report_nozzle_perf AS (
+                SELECT
+                    n.id                                                AS id,
+                    n.id                                                AS nozzle_id,
+                    n.name                                              AS nozzle_name,
+                    n.pump_id                                           AS pump_id,
+                    p.name                                              AS pump_name,
+                    n.product_id                                        AS product_id,
+                    pt.name->>'en_US'                                   AS product_name,
+                    rc.id                                               AS company_id,
+                    COUNT(DISTINCT me.shift_id)                         AS shift_count,
+                    COALESCE(SUM(me.qty_sold_elec),  0)                 AS total_qty,
+                    COALESCE(AVG(me.qty_sold_elec),  0)                 AS avg_qty,
+                    COALESCE(SUM(me.elec_cash_sold), 0)                 AS total_cash,
+                    COALESCE(SUM(me.rtt_volume),     0)                 AS total_rtt,
+                    COALESCE(AVG(
+                        COALESCE(me.qty_sold_man, 0) - COALESCE(me.qty_sold_elec, 0)
+                    ), 0)                                               AS avg_variance
+                FROM fms_pump_nozzle   n
+                JOIN fms_pump          p   ON p.id  = n.pump_id
+                JOIN product_product   pp  ON pp.id = n.product_id
+                JOIN product_template  pt  ON pt.id = pp.product_tmpl_id
+                CROSS JOIN (SELECT id FROM res_company LIMIT 1) rc
+                LEFT JOIN fms_shift_meter_entry me ON me.nozzle_id = n.id
+                LEFT JOIN fms_shift s ON s.id = me.shift_id AND s.state = 'closed'
+                WHERE n.active = TRUE
+                GROUP BY n.id, n.name, n.pump_id, p.name, n.product_id, pt.name->>'en_US', rc.id
+            )
+        """)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# R25 · Attendant Sales by Category
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class FMSReportAttendantCategory(models.Model):
+    """R25 — Attendant sales at nozzle × shift granularity (fuel only until D11)."""
+
+    _name        = 'fms.report.attendant.category'
+    _description = 'Attendant Sales by Category'
+    _auto        = False
+    _order       = 'shift_date desc, attendant_name, product_name'
+
+    shift_id       = fields.Many2one('fms.shift',        'Shift',      readonly=True)
+    shift_date     = fields.Date(                         'Date',       readonly=True)
+    shift_label    = fields.Selection([
+        ('day', 'Day'), ('evening', 'Evening'), ('night', 'Night'),
+    ], string='Period', readonly=True)
+    attendant_id   = fields.Many2one('hr.employee',      'Attendant',  readonly=True)
+    attendant_name = fields.Char(                         'Attendant', readonly=True)
+    nozzle_id      = fields.Many2one('fms.pump.nozzle',  'Nozzle',    readonly=True)
+    nozzle_name    = fields.Char(                         'Nozzle',    readonly=True)
+    product_id     = fields.Many2one('product.product',  'Product',    readonly=True)
+    product_name   = fields.Char(                         'Product',   readonly=True)
+    categ_id       = fields.Many2one('product.category', 'Category',   readonly=True)
+    company_id     = fields.Many2one('res.company',      'Company',    readonly=True)
+
+    qty_sold_elec  = fields.Float('Volume (L)',            readonly=True, digits=(16, 2))
+    elec_cash_sold = fields.Float('Value (KES)',           readonly=True, digits=(16, 2))
+    rtt_volume     = fields.Float('RTT (L)',               readonly=True, digits=(16, 2))
+
+    def init(self):
+        self.env.cr.execute("""
+            CREATE OR REPLACE VIEW fms_report_attendant_category AS (
+                SELECT
+                    me.id                                               AS id,
+                    me.shift_id                                         AS shift_id,
+                    s.date                                              AS shift_date,
+                    s.label                                             AS shift_label,
+                    me.attendant_id                                     AS attendant_id,
+                    e.name                                              AS attendant_name,
+                    me.nozzle_id                                        AS nozzle_id,
+                    n.name                                              AS nozzle_name,
+                    me.product_id                                       AS product_id,
+                    pt.name->>'en_US'                                   AS product_name,
+                    pp.categ_id                                         AS categ_id,
+                    s.company_id                                        AS company_id,
+                    COALESCE(me.qty_sold_elec,  0)                      AS qty_sold_elec,
+                    COALESCE(me.elec_cash_sold, 0)                      AS elec_cash_sold,
+                    COALESCE(me.rtt_volume,     0)                      AS rtt_volume
+                FROM fms_shift_meter_entry me
+                JOIN fms_shift         s   ON s.id  = me.shift_id
+                JOIN hr_employee       e   ON e.id  = me.attendant_id
+                JOIN fms_pump_nozzle   n   ON n.id  = me.nozzle_id
+                JOIN product_product   pp  ON pp.id = me.product_id
+                JOIN product_template  pt  ON pt.id = pp.product_tmpl_id
+                WHERE s.state = 'closed'
+            )
+        """)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# R26 · Shortage & Overage Ledger
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class FMSReportShortage(models.Model):
+    """R26 — Running shortage/overage per attendant with PostgreSQL window function."""
+
+    _name        = 'fms.report.shortage'
+    _description = 'Shortage & Overage Ledger'
+    _auto        = False
+    _order       = 'attendant_name, shift_date'
+
+    shift_id          = fields.Many2one('fms.shift',     'Shift',      readonly=True)
+    shift_date        = fields.Date(                      'Date',       readonly=True)
+    shift_label       = fields.Selection([
+        ('day', 'Day'), ('evening', 'Evening'), ('night', 'Night'),
+    ], string='Period', readonly=True)
+    attendant_id      = fields.Many2one('hr.employee',   'Attendant',  readonly=True)
+    attendant_name    = fields.Char(                      'Attendant', readonly=True)
+    supervisor_id     = fields.Many2one('hr.employee',   'Supervisor', readonly=True)
+    company_id        = fields.Many2one('res.company',   'Company',    readonly=True)
+
+    reported_sales    = fields.Float('Expected (KES)',   readonly=True, digits=(16, 2))
+    cash_collected    = fields.Float('Declared (KES)',   readonly=True, digits=(16, 2))
+    mpesa_amount      = fields.Float('MPesa (KES)',      readonly=True, digits=(16, 2))
+    card_amount       = fields.Float('Card (KES)',       readonly=True, digits=(16, 2))
+    ar_amount         = fields.Float('AR (KES)',         readonly=True, digits=(16, 2))
+    expense_amount    = fields.Float('Expenses (KES)',   readonly=True, digits=(16, 2))
+    balance           = fields.Float('Shortage/Overage', readonly=True, digits=(16, 2))
+    cumulative_balance = fields.Float('Cumulative (KES)', readonly=True, digits=(16, 2))
+
+    def init(self):
+        self.env.cr.execute("""
+            CREATE OR REPLACE VIEW fms_report_shortage AS (
+                SELECT
+                    ac.id                                               AS id,
+                    ac.shift_id                                         AS shift_id,
+                    s.date                                              AS shift_date,
+                    s.label                                             AS shift_label,
+                    ac.attendant_id                                     AS attendant_id,
+                    e.name                                              AS attendant_name,
+                    s.supervisor_id                                     AS supervisor_id,
+                    s.company_id                                        AS company_id,
+                    COALESCE(ac.reported_sales,  0)                     AS reported_sales,
+                    COALESCE(ac.cash_collected,  0)                     AS cash_collected,
+                    COALESCE(ac.mpesa_amount,    0)                     AS mpesa_amount,
+                    COALESCE(ac.card_amount,     0)                     AS card_amount,
+                    COALESCE(ac.ar_amount,       0)                     AS ar_amount,
+                    COALESCE(ac.expense_amount,  0)                     AS expense_amount,
+                    COALESCE(ac.balance,         0)                     AS balance,
+                    SUM(COALESCE(ac.balance, 0)) OVER (
+                        PARTITION BY ac.attendant_id
+                        ORDER BY s.date,
+                                 CASE s.label WHEN 'day' THEN 1
+                                              WHEN 'evening' THEN 2
+                                              ELSE 3 END
+                        ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+                    )                                                   AS cumulative_balance
+                FROM fms_shift_attendant_cash ac
+                JOIN fms_shift   s ON s.id  = ac.shift_id
+                JOIN hr_employee e ON e.id  = ac.attendant_id
+                WHERE s.state = 'closed'
+            )
+        """)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# R27 · Attendant Performance
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class FMSReportAttendantPerf(models.Model):
+    """R27 — Aggregated KPIs per attendant × month."""
+
+    _name        = 'fms.report.attendant.perf'
+    _description = 'Attendant Performance'
+    _auto        = False
+    _order       = 'total_qty desc'
+
+    attendant_id   = fields.Many2one('hr.employee',   'Attendant',  readonly=True)
+    attendant_name = fields.Char(                      'Attendant', readonly=True)
+    company_id     = fields.Many2one('res.company',   'Company',    readonly=True)
+
+    shift_count    = fields.Integer('Shifts',           readonly=True)
+    total_qty      = fields.Float('Volume (L)',          readonly=True, digits=(16, 0))
+    avg_qty        = fields.Float('Avg L/shift',         readonly=True, digits=(16, 0))
+    total_cash_due = fields.Float('Total Due (KES)',     readonly=True, digits=(16, 0))
+    total_shortage = fields.Float('Total Shortage (KES)', readonly=True, digits=(16, 0))
+    shortage_shifts = fields.Integer('Short Shifts',     readonly=True)
+    overage_shifts  = fields.Integer('Over Shifts',      readonly=True)
+    accuracy_pct    = fields.Float('Cash Accuracy %',    readonly=True, digits=(16, 1))
+    total_rtt      = fields.Float('Total RTT (L)',        readonly=True, digits=(16, 0))
+
+    def init(self):
+        self.env.cr.execute("""
+            CREATE OR REPLACE VIEW fms_report_attendant_perf AS (
+                SELECT
+                    e.id                                                AS id,
+                    e.id                                                AS attendant_id,
+                    e.name                                              AS attendant_name,
+                    rc.id                                               AS company_id,
+                    COUNT(DISTINCT ac.shift_id)                         AS shift_count,
+                    COALESCE(SUM(me_agg.qty),  0)                       AS total_qty,
+                    COALESCE(AVG(me_agg.qty),  0)                       AS avg_qty,
+                    COALESCE(SUM(ac.reported_sales), 0)                 AS total_cash_due,
+                    COALESCE(SUM(
+                        CASE WHEN ac.balance < 0 THEN ABS(ac.balance) ELSE 0 END
+                    ), 0)                                               AS total_shortage,
+                    COUNT(*) FILTER (WHERE ac.balance < -1)             AS shortage_shifts,
+                    COUNT(*) FILTER (WHERE ac.balance > 1)              AS overage_shifts,
+                    CASE
+                        WHEN COUNT(*) > 0
+                        THEN 100.0 * COUNT(*) FILTER (WHERE ABS(ac.balance) <= 1)
+                             / COUNT(*)
+                        ELSE 100
+                    END                                                 AS accuracy_pct,
+                    COALESCE(SUM(me_agg.rtt), 0)                        AS total_rtt
+                FROM hr_employee e
+                CROSS JOIN (SELECT id FROM res_company LIMIT 1) rc
+                LEFT JOIN fms_shift_attendant_cash ac ON ac.attendant_id = e.id
+                LEFT JOIN fms_shift s ON s.id = ac.shift_id AND s.state = 'closed'
+                LEFT JOIN LATERAL (
+                    SELECT
+                        SUM(me.qty_sold_elec) AS qty,
+                        SUM(me.rtt_volume)    AS rtt
+                    FROM fms_shift_meter_entry me
+                    WHERE me.shift_id = ac.shift_id
+                      AND me.attendant_id = e.id
+                ) me_agg ON TRUE
+                WHERE e.fms_is_attendant = TRUE
+                GROUP BY e.id, e.name, rc.id
+                HAVING COUNT(DISTINCT ac.shift_id) > 0
+            )
+        """)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# R28 · Attendant Risk & Anomaly
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class FMSReportRiskAnomaly(models.Model):
+    """R28 — Per-attendant anomaly summary. Restricted to supervisor+."""
+
+    _name        = 'fms.report.risk.anomaly'
+    _description = 'Attendant Risk & Anomaly'
+    _auto        = False
+    _order       = 'risk_score desc'
+
+    attendant_id      = fields.Many2one('hr.employee', 'Attendant',  readonly=True)
+    attendant_name    = fields.Char(                    'Attendant', readonly=True)
+    company_id        = fields.Many2one('res.company', 'Company',    readonly=True)
+
+    shift_count       = fields.Integer('Shifts Analysed',     readonly=True)
+    shortage_shifts   = fields.Integer('Shortage Shifts',      readonly=True)
+    consecutive_short = fields.Integer('Max Consecutive Short', readonly=True)
+    round_readings    = fields.Integer('Round Meter Readings',  readonly=True)
+    high_variance_shifts = fields.Integer('High Mech Variance Shifts', readonly=True)
+    rtt_shifts        = fields.Integer('Shifts with RTT',      readonly=True)
+    total_shortage    = fields.Float('Total Shortage (KES)',    readonly=True, digits=(16, 2))
+    avg_shortage      = fields.Float('Avg Shortage/shift (KES)', readonly=True, digits=(16, 2))
+    risk_score        = fields.Integer('Risk Score',            readonly=True)
+
+    def init(self):
+        self.env.cr.execute("""
+            CREATE OR REPLACE VIEW fms_report_risk_anomaly AS (
+                WITH base AS (
+                    SELECT
+                        ac.attendant_id,
+                        ac.shift_id,
+                        s.date                                          AS shift_date,
+                        COALESCE(ac.balance, 0)                         AS balance,
+                        -- round-number closing elec volume: closing ends in 000
+                        COUNT(*) FILTER (
+                            WHERE CAST(me.closing_elec_volume AS INTEGER) % 100 = 0
+                              AND me.closing_elec_volume > 0
+                        )                                               AS round_count,
+                        -- high mechanical variance: abs(man-elec) > 10L on any nozzle
+                        COUNT(*) FILTER (
+                            WHERE ABS(COALESCE(me.qty_sold_man, 0)
+                                      - COALESCE(me.qty_sold_elec, 0)) > 10
+                        )                                               AS high_var_count,
+                        -- RTT activity
+                        CASE WHEN SUM(COALESCE(me.rtt_volume, 0)) > 0 THEN 1 ELSE 0 END AS rtt_flag
+                    FROM fms_shift_attendant_cash ac
+                    JOIN fms_shift s ON s.id = ac.shift_id AND s.state = 'closed'
+                    LEFT JOIN fms_shift_meter_entry me
+                           ON me.shift_id = ac.shift_id AND me.attendant_id = ac.attendant_id
+                    GROUP BY ac.attendant_id, ac.shift_id, s.date, ac.balance
+                )
+                SELECT
+                    e.id                                                AS id,
+                    e.id                                                AS attendant_id,
+                    e.name                                              AS attendant_name,
+                    rc.id                                               AS company_id,
+                    COUNT(b.shift_id)                                   AS shift_count,
+                    COUNT(*) FILTER (WHERE b.balance < -1)              AS shortage_shifts,
+                    -- max consecutive shortage: approximate via dense window ranking
+                    COALESCE(MAX(rn.consec), 0)                        AS consecutive_short,
+                    COALESCE(SUM(b.round_count), 0)                    AS round_readings,
+                    COUNT(*) FILTER (WHERE b.high_var_count > 0)        AS high_variance_shifts,
+                    COALESCE(SUM(b.rtt_flag), 0)                        AS rtt_shifts,
+                    COALESCE(SUM(
+                        CASE WHEN b.balance < 0 THEN ABS(b.balance) ELSE 0 END
+                    ), 0)                                               AS total_shortage,
+                    CASE
+                        WHEN COUNT(*) FILTER (WHERE b.balance < -1) > 0
+                        THEN COALESCE(SUM(
+                            CASE WHEN b.balance < 0 THEN ABS(b.balance) ELSE 0 END
+                        ), 0) / COUNT(*) FILTER (WHERE b.balance < -1)
+                        ELSE 0
+                    END                                                 AS avg_shortage,
+                    -- risk score: shortage_shifts*2 + round_readings + high_variance_shifts*2
+                    (   COUNT(*) FILTER (WHERE b.balance < -1) * 2
+                      + COALESCE(SUM(b.round_count), 0)
+                      + COUNT(*) FILTER (WHERE b.high_var_count > 0) * 2
+                    )                                                   AS risk_score
+                FROM hr_employee e
+                CROSS JOIN (SELECT id FROM res_company LIMIT 1) rc
+                LEFT JOIN base b ON b.attendant_id = e.id
+                LEFT JOIN LATERAL (
+                    SELECT MAX(cnt) AS consec
+                    FROM (
+                        SELECT COUNT(*) AS cnt
+                        FROM base b2
+                        WHERE b2.attendant_id = e.id AND b2.balance < -1
+                        GROUP BY (
+                            SELECT COUNT(*) FROM base b3
+                            WHERE b3.attendant_id = e.id
+                              AND b3.shift_date <= b2.shift_date
+                              AND b3.balance >= -1
+                        )
+                    ) grp
+                ) rn ON TRUE
+                WHERE e.fms_is_attendant = TRUE
+                GROUP BY e.id, e.name, rc.id
+                HAVING COUNT(b.shift_id) > 0
+            )
+        """)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# R29 · Nozzle Assignment & Handover Log
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class FMSReportNozzleHandover(models.Model):
+    """R29 — Per-shift nozzle assignment. No handover event model yet (D4 pending)."""
+
+    _name        = 'fms.report.nozzle.handover'
+    _description = 'Nozzle Assignment & Handover Log'
+    _auto        = False
+    _order       = 'shift_date desc, pump_name, nozzle_name'
+
+    shift_id       = fields.Many2one('fms.shift',       'Shift',      readonly=True)
+    shift_date     = fields.Date(                        'Date',       readonly=True)
+    shift_label    = fields.Selection([
+        ('day', 'Day'), ('evening', 'Evening'), ('night', 'Night'),
+    ], string='Period', readonly=True)
+    nozzle_id      = fields.Many2one('fms.pump.nozzle', 'Nozzle',    readonly=True)
+    nozzle_name    = fields.Char(                        'Nozzle',    readonly=True)
+    pump_id        = fields.Many2one('fms.pump',         'Pump',      readonly=True)
+    pump_name      = fields.Char(                        'Pump',      readonly=True)
+    attendant_id   = fields.Many2one('hr.employee',     'Attendant',  readonly=True)
+    attendant_name = fields.Char(                        'Attendant', readonly=True)
+    product_id     = fields.Many2one('product.product', 'Product',    readonly=True)
+    supervisor_id  = fields.Many2one('hr.employee',     'Supervisor', readonly=True)
+    company_id     = fields.Many2one('res.company',     'Company',    readonly=True)
+
+    opening_vol    = fields.Float('Opening Elec (L)',    readonly=True, digits=(16, 2))
+    closing_vol    = fields.Float('Closing Elec (L)',    readonly=True, digits=(16, 2))
+    qty_sold       = fields.Float('Volume Sold (L)',     readonly=True, digits=(16, 2))
+
+    def init(self):
+        self.env.cr.execute("""
+            CREATE OR REPLACE VIEW fms_report_nozzle_handover AS (
+                SELECT
+                    me.id                                               AS id,
+                    me.shift_id                                         AS shift_id,
+                    s.date                                              AS shift_date,
+                    s.label                                             AS shift_label,
+                    me.nozzle_id                                        AS nozzle_id,
+                    n.name                                              AS nozzle_name,
+                    n.pump_id                                           AS pump_id,
+                    p.name                                              AS pump_name,
+                    me.attendant_id                                     AS attendant_id,
+                    e.name                                              AS attendant_name,
+                    me.product_id                                       AS product_id,
+                    s.supervisor_id                                     AS supervisor_id,
+                    s.company_id                                        AS company_id,
+                    COALESCE(me.opening_elec_volume, 0)                 AS opening_vol,
+                    COALESCE(me.closing_elec_volume, 0)                 AS closing_vol,
+                    COALESCE(me.qty_sold_elec, 0)                       AS qty_sold
+                FROM fms_shift_meter_entry me
+                JOIN fms_shift         s  ON s.id  = me.shift_id
+                JOIN fms_pump_nozzle   n  ON n.id  = me.nozzle_id
+                JOIN fms_pump          p  ON p.id  = n.pump_id
+                JOIN hr_employee       e  ON e.id  = me.attendant_id
+                WHERE s.state = 'closed'
+            )
+        """)
