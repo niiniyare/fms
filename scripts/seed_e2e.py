@@ -64,7 +64,7 @@ get_or_create_account('121000', 'Undeposited Funds',         'asset_current')
 get_or_create_account('130000', 'Prepaid Expenses',          'asset_prepayments')
 get_or_create_account('140000', 'Employee Cash Advances',    'asset_current')
 get_or_create_account('141000', 'Allowance for Bad Debt',    'asset_current')
-get_or_create_account('191600', 'FMS Cash Clearing',         'asset_current')
+# 191600 owned by fms module (fms_company_defaults.xml) — skip here
 get_or_create_account('150000', 'Property, Plant & Equipment', 'asset_fixed')
 get_or_create_account('151000', 'Accumulated Depreciation on PP&E', 'asset_fixed')
 get_or_create_account('160000', 'Long-Term Investments',     'asset_non_current')
@@ -116,7 +116,7 @@ get_or_create_account('500001', 'Diesel Cost of Sales',      'expense_direct_cos
 get_or_create_account('500002', 'Unleaded Cost of Sales',    'expense_direct_cost')
 get_or_create_account('500003', 'V-Power Cost of Sales',     'expense_direct_cost')
 get_or_create_account('500004', 'LPG Cost of Sales',         'expense_direct_cost')
-get_or_create_account('591000', 'Fuel Cost of Sales (FMS)',  'expense_direct_cost')
+# 591000 owned by fms module (fms_company_defaults.xml) — skip here
 get_or_create_account('510000', 'Inventory Shrinkage',       'expense_direct_cost')
 get_or_create_account('511000', 'Tank Loss',                 'expense_direct_cost')
 get_or_create_account('512000', 'Car Wash Purchases',        'expense_direct_cost')

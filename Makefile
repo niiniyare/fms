@@ -241,7 +241,7 @@ odoo-demo-reload: ## Reload demo data into fms_demo (re-runs demo XML)
 
 odoo-e2e-create: ## Create fms_e2e DB with Kenya locale and install FMS modules
 	@echo "$(BLUE)Creating fms_e2e database...$(NC)"
-	@$(ODOO_VENV) $(ODOO_BIN) -d fms_e2e \
+	$(ODOO_VENV) $(ODOO_BIN) -d fms_e2e \
 		-i fms,fms_accounting \
 		--addons-path=$(ODOO_ADDONS) \
 		--stop-after-init --without-demo=all \
