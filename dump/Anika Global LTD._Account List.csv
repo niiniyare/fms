@@ -1,0 +1,158 @@
+Full name,Account type,Account subtype,Description,Total balance
+Cash and cash equivalents,Bank,Cash and cash equivalents,,0
+Cash in the safe,Bank,Cash and cash equivalents,,0.00
+Equity Visa,Bank,Current,,0
+Kcb Account,Bank,Current,,0.00
+Kcb visa,Bank,Current,,0
+Lipa Na Mpesa,Bank,Current,,0.00
+Shell card,Bank,Current,,0
+Accounts Receivable (A/R),Accounts receivable (A/R),Accounts Receivable (A/R),,0.00
+Allowance for bad debt,Other Current Assets,Allowance for bad debts,,0
+Available for sale assets (short-term),Other Current Assets,Assets available for sale,,0.00
+Employee Cash Advances,Other Current Assets,Other current assets,,0
+Employee Cash Advances:Abdi Musa,Other Current Assets,Other current assets,,0.00
+Employee Cash Advances:Abdihakim Ismail,Other Current Assets,Other current assets,,0
+Employee Cash Advances:Abdirahman  Ahmed,Other Current Assets,Other current assets,,0.00
+Employee Cash Advances:AH Arab,Other Current Assets,Other current assets,,0
+Employee Cash Advances:Albaik,Other Current Assets,Other current assets,,0.00
+Employee Cash Advances:Ali Mohamed Ismail,Other Current Assets,Other current assets,,0
+Employee Cash Advances:Derrick,Other Current Assets,Employee Cash Advances,,0.00
+Employee Cash Advances:GEDION MILIMU,Other Current Assets,Employee Cash Advances,,0
+Employee Cash Advances:James Kitiapi,Other Current Assets,Employee Cash Advances,,0.00
+Employee Cash Advances:Joel Musambi,Other Current Assets,Other current assets,,0
+Employee Cash Advances:John Wasonga,Other Current Assets,Employee Cash Advances,,0.00
+Employee Cash Advances:Joseph Matale Paul,Other Current Assets,Employee Cash Advances,,0
+Employee Cash Advances:Julius Sila,Other Current Assets,Allowance for bad debts,,0.00
+Employee Cash Advances:kelvin,Other Current Assets,Allowance for bad debts,,0
+Employee Cash Advances:Mohamed Juma,Other Current Assets,Other current assets,,0.00
+Employee Cash Advances:Peter Mbeve,Other Current Assets,Other current assets,,0
+Employee Cash Advances:Shedrock Kimulu,Other Current Assets,Other current assets,,0
+Employee Cash Advances:Shop,Other Current Assets,Other current assets,,0.00
+Inventory,Other Current Assets,Inventory,,0
+Inventory Asset,Other Current Assets,Inventory,,0.00
+Prepaid expenses,Other Current Assets,Prepaid Expenses,,0
+Uncategorised Asset,Other Current Assets,Other current assets,,0.00
+Undeposited Funds,Other Current Assets,Undeposited Funds,,0
+Victor Kipruto,Other Current Assets,Employee Cash Advances,,0.00
+"Accumulated depreciation on property, plant and equipment",Fixed Assets,"Accumulated depreciation on property, plant and equipment",,0
+"Property, plant and equipment",Fixed Assets,Land,,0.00
+Assets held for sale,Other Assets,Assets held for sale,,0
+Deferred tax assets,Other Assets,Deferred tax,,0.00
+Goodwill,Other Assets,Goodwill,,0
+Intangibles,Other Assets,Intangible Assets,,0.00
+Long-Term Investments,Other Assets,Long-term investments,,0
+Accounts Payable (A/P),Accounts payable (A/P),Accounts Payable (A/P),,0.00
+Accrued liabilities,Other Current Liabilities,Accrued liabilities,,0
+Dividends payable,Other Current Liabilities,Dividends payable,,0.00
+Income tax payable,Other Current Liabilities,Income tax payable,,0
+Inventory Offset,Other Current Liabilities,Current Liabilities,,0.00
+Payroll Clearing,Other Current Liabilities,Payroll Clearing,,0
+Payroll liabilities,Other Current Liabilities,Current Tax Liability,,0.00
+Short-term debit,Other Current Liabilities,Other current liabilities,,0
+Accrued holiday payable,Long Term Liabilities,Accrued holiday payable,,0.00
+Accrued non-current liabilities,Long Term Liabilities,Accrued non-current liabilities,,0
+Liabilities related to assets held for sale,Long Term Liabilities,Liabilities related to assets held for sale,,0.00
+Long-term debt,Long Term Liabilities,Long-term debt,,0
+Dividend disbursed,Equity,Dividend disbursed,,0
+Equity in earnings of subsidiaries,Equity,Equity in earnings of subsidiaries,,0.00
+Opening Balance Equity,Equity,Opening Balance Equity,,0
+Other comprehensive income,Equity,Other comprehensive income,,0.00
+Retained Earnings,Equity,Retained Earnings,,0
+Share capital,Equity,Share capital,,0.00
+Billable Expense Income,Income,Service/Fee Income,,0
+Discounts given,Income,Discounts/Refunds Given,,0.00
+Rent Income,Income,Revenue - General,,0
+Revenue - General,Income,Revenue - General,,0.00
+Sales - retail,Income,Sales - retail,,0
+Sales - wholesale,Income,Sales - wholesale,,0.00
+Sales of Product Income,Income,Sales of Product Income,,0
+Sales of Product Income:Sales of Diesel Income,Income,Sales of Product Income,,0.00
+Sales of Product Income:Sales of LPG Income,Income,Sales of Product Income,,0
+Sales of Product Income:Sales of Lubricant Income,Income,Sales of Product Income,,0.00
+Sales of Product Income:Sales of Unleaded Income,Income,Sales of Product Income,,0
+Sales of Product Income:Sales of Vpower Income,Income,Sales of Product Income,,0.00
+Services,Income,Service/Fee Income,,0
+Services:Car wash Income,Income,Service/Fee Income,,0.00
+Services:Rent Monthly  Income,Income,Revenue - General,,0
+Shipping Income,Income,Service/Fee Income,,0.00
+Unapplied Cash Payment Income,Income,Unapplied Cash Payment Income,,0
+Uncategorised Income,Income,Service/Fee Income,,0.00
+VP Promo Cr Note,Income,Discounts/Refunds Given,,0
+Car Wash Purchases,Cost of Goods Sold,Supplies and materials - COS,,0.00
+Cost of sales,Cost of Goods Sold,Supplies and materials - COS,,0
+Cost of sales:Diesel Cost of Sales,Cost of Goods Sold,Supplies and materials - COS,,0
+Cost of sales:LPG Cost of Sales,Cost of Goods Sold,Supplies and materials - COS,,0.00
+Cost of sales:Unleaded Cos of Sales,Cost of Goods Sold,Supplies and materials - COS,,0
+Cost of sales:Vpower Cos of Sales,Cost of Goods Sold,Supplies and materials - COS,,0.00
+Freight and delivery - COS,Cost of Goods Sold,"Shipping, Freight and Delivery - COS",,0
+Inventory Shrinkage,Cost of Goods Sold,Supplies and materials - COS,,0.00
+Inventory Shrinkage-1,Cost of Goods Sold,Supplies and materials - COS,,0
+Tank Loss,Cost of Goods Sold,Other costs of sales - COS,,0.00
+VP Compensation,Cost of Goods Sold,Cost of labour - COS,,0
+Amortisation expense,Expenses,Amortisation expense,,0.00
+Bad debts,Expenses,Bad debts,,0
+Bank charges,Expenses,Bank charges,,0.00
+Bank charges:Bank Commissions,Expenses,Bank charges,,0
+Car wash Purchase,Expenses,Office/General Administrative Expenses,,0.00
+Cleaning And Sanitation,Expenses,Office/General Administrative Expenses,,0
+Commissions and fees,Expenses,Commissions and fees,,0.00
+Director Drawings,Expenses,Management compensation,,0
+Dues and subscriptions,Expenses,Dues and Subscriptions,,0.00
+Electric and Lighting Cost,Expenses,Office/General Administrative Expenses,,0
+Equipment rental,Expenses,Equipment rental,,0.00
+Forcourt Expenses,Expenses,Other selling expenses,,0
+Forecourt Throughput Charge,Expenses,Other Miscellaneous Service Cost,,0.00
+Generator expenses,Expenses,Office/General Administrative Expenses,,0
+Income tax expense,Expenses,Income tax expense,,0.00
+Insurance - Disability,Expenses,Insurance,,0
+Insurance - General,Expenses,Insurance,,0.00
+Insurance - Liability,Expenses,Insurance,,0
+Interest expense,Expenses,Interest paid,,0
+Internet Expense,Expenses,Utilities,,0.00
+kplc,Expenses,Office/General Administrative Expenses,,0
+Legal and professional fees,Expenses,Legal and professional fees,,0.00
+Legal and professional fees:Accounting Fees,Expenses,Commissions and fees,,0
+"Loss on discontinued operations, net of tax",Expenses,"Loss on discontinued operations, net of tax",,0.00
+Management compensation,Expenses,Management compensation,,0
+Meals and entertainment,Expenses,Meals and entertainment,,0.00
+Motor vehicle Running cost,Expenses,Office/General Administrative Expenses,,0
+Office expenses,Expenses,Office/General Administrative Expenses,,0.00
+Other general and administrative expenses,Expenses,Office/General Administrative Expenses,,0
+Other selling expenses,Expenses,Other selling expenses,,0.00
+Other Types of Expenses-Advertising Expenses,Expenses,Advertising/Promotional,,0
+Own Use Petroleum,Expenses,Office/General Administrative Expenses,,0.00
+Payroll Expenses,Expenses,Office/General Administrative Expenses,,0
+Payroll Expenses:Housing Levy,Expenses,Other selling expenses,,0.00
+Payroll Expenses:NITA levy,Expenses,Taxes Paid,,0
+Payroll Expenses:NSSF  Employer Contribution,Expenses,Cost of Labour,,0.00
+Permit and License Fees,Expenses,Legal and professional fees,,0
+Plumbing Costs,Expenses,Utilities,,0.00
+Purchases,Expenses,Supplies and materials,,0
+Rent or lease payments,Expenses,Rent or Lease of Buildings,,0.00
+Repairs and Maintenance,Expenses,Repair and maintenance,,0
+Sales Discount - Fuels,Expenses,Office/General Administrative Expenses,,0.00
+Security Guard Expenses,Expenses,Office/General Administrative Expenses,,0
+Shipping and delivery expense,Expenses,Shipping and delivery expense,,0.00
+Software Licences,Expenses,Office/General Administrative Expenses,,0
+Staff Meal cost,Expenses,Office/General Administrative Expenses,,0
+Stationery and printing,Expenses,Office/General Administrative Expenses,,0.00
+Supplies,Expenses,Supplies and materials,,0
+Travel expenses - general and admin expenses,Expenses,Travel expenses - general and admin expenses,,0.00
+Travel expenses - selling expenses,Expenses,Travel expenses - selling expense,,0
+Unapplied Cash Bill Payment Expense,Expenses,Unapplied Cash Bill Payment Expense,,0.00
+Uncategorised Expense,Expenses,Other Miscellaneous Service Cost,,0
+Utilities,Expenses,Utilities,,0.00
+Wage expenses,Expenses,Payroll Expenses,,0
+Water cost,Expenses,Office/General Administrative Expenses,,0.00
+Zakat,Expenses,Legal and professional fees,,0
+Dividend income,Other Income,Dividend income,,0.00
+Interest income,Other Income,Interest earned,,0
+Loss on disposal of assets,Other Income,Loss on disposal of assets,,0.00
+Other operating income (expenses),Other Income,Other operating income,,0
+"Unrealised loss on securities, net of tax",Other Income,"Unrealised loss on securities, net of tax",,0.00
+Fire Safety Costs,Other Expense,Other Miscellaneous Expense,,0
+Garden Maintenance Cost,Other Expense,Other Miscellaneous Expense,,0.00
+Other Expense,Other Expense,Other Miscellaneous Expense,,0
+Reconciliation Discrepancies,Other Expense,Other Miscellaneous Expense,,0.00
+TOTAL,,,,0
+,,,,0.00
