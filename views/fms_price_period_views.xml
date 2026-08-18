@@ -51,10 +51,10 @@
                             <field name="price_line_ids">
                                 <list editable="bottom">
                                     <field name="product_id"/>
-                                    <field name="epra_cap"        string="EPRA Cap (KES/L)"/>
-                                    <field name="pump_price"      string="Pump Price (KES/L)"/>
-                                    <field name="landed_cost"     string="Landed Cost (KES/L)" optional="show"/>
-                                    <field name="margin_per_litre" string="Margin (KES/L)" readonly="1"/>
+                                    <field name="epra_cap"        string="EPRA Cap (/L)"/>
+                                    <field name="pump_price"      string="Pump Price (/L)"/>
+                                    <field name="landed_cost"     string="Landed Cost (/L)" optional="show"/>
+                                    <field name="margin_per_litre" string="Margin (/L)" readonly="1"/>
                                 </list>
                             </field>
                         </page>

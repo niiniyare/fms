@@ -21,11 +21,11 @@
                 <field name="nozzle_id"      optional="show"/>
                 <field name="product_id"     optional="show"/>
                 <field name="litres"         string="Litres"    sum="Litres"/>
-                <field name="amount"         string="Value (KES)" sum="Value (KES)"/>
+                <field name="amount"         string="Value" sum="Value"/>
                 <field name="plate"          optional="show"/>
                 <field name="ob_number"      optional="show"/>
                 <field name="recovery_status"/>
-                <field name="recovery_amount" string="Recovered (KES)" sum="Recovered" optional="show"/>
+                <field name="recovery_amount" string="Recovered" sum="Recovered" optional="show"/>
                 <field name="state" widget="badge"
                        decoration-info="state == 'draft'"
                        decoration-warning="state == 'reported'"
@@ -199,8 +199,8 @@
                 <field name="date"          type="row" interval="month"/>
                 <field name="incident_type" type="row"/>
                 <field name="litres"        type="measure" string="Litres Lost"/>
-                <field name="amount"        type="measure" string="Value (KES)"/>
-                <field name="recovery_amount" type="measure" string="Recovered (KES)"/>
+                <field name="amount"        type="measure" string="Value"/>
+                <field name="recovery_amount" type="measure" string="Recovered"/>
             </pivot>
         </field>
     </record>

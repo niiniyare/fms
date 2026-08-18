@@ -53,7 +53,7 @@
                                            decoration-warning="state == 'initialized'"
                                            decoration-success="state == 'active'"/>
                                     <field name="current_elec_volume"  string="Elec Vol (L)"   readonly="1"/>
-                                    <field name="current_elec_cash"    string="Elec Cash (KES)" readonly="1"/>
+                                    <field name="current_elec_cash"    string="Elec Cash" readonly="1"/>
                                     <field name="current_mech_volume"  string="Mech Vol (L)"   readonly="1"/>
                                 </list>
                             </field>
@@ -114,14 +114,14 @@
                     <group string="Opening Meter Readings (entered once at commissioning)"
                            invisible="state == 'active'">
                         <field name="init_elec_volume"  string="1. Electronic Volume (L)"/>
-                        <field name="init_elec_cash"    string="2. Electronic Cash (KES)"/>
+                        <field name="init_elec_cash"    string="2. Electronic Cash"/>
                         <field name="init_mech_volume"  string="3. Mechanical Volume (L)"/>
                     </group>
 
                     <group string="Current Meter Positions (updated automatically on each shift close)"
                            invisible="state == 'draft'">
                         <field name="current_elec_volume"  string="Electronic Volume (L)"   readonly="1"/>
-                        <field name="current_elec_cash"    string="Electronic Cash (KES)"   readonly="1"/>
+                        <field name="current_elec_cash"    string="Electronic Cash"   readonly="1"/>
                         <field name="current_mech_volume"  string="Mechanical Volume (L)"   readonly="1"/>
                     </group>
                 </sheet>
@@ -149,7 +149,7 @@
                        decoration-warning="state == 'initialized'"
                        decoration-success="state == 'active'"/>
                 <field name="current_elec_volume"  string="Elec Vol (L)"/>
-                <field name="current_elec_cash"    string="Elec Cash (KES)"/>
+                <field name="current_elec_cash"    string="Elec Cash"/>
                 <field name="current_mech_volume"  string="Mech Vol (L)"/>
             </list>
         </field>

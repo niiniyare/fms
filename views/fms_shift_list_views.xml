@@ -140,7 +140,7 @@
                 <field name="closing_elec_volume" string="Close Elec (L)" optional="show"/>
                 <field name="qty_sold_elec"       string="Elec Sold (L)"  sum="Elec Sold (L)"/>
                 <field name="qty_sold_man"        string="Man Sold (L)"   sum="Man Sold (L)" optional="show"/>
-                <field name="amount_elec"         string="Sales (KES)"    sum="Sales (KES)"/>
+                <field name="amount_elec"         string="Sales"    sum="Sales"/>
                 <field name="rtt_volume"          string="RTT (L)"        sum="RTT (L)" optional="show"/>
             </list>
         </field>
@@ -154,7 +154,7 @@
                 <field name="recorded_date" type="row" interval="day"/>
                 <field name="product_id"    type="row"/>
                 <field name="qty_sold_elec" type="measure" string="Elec Sold (L)"/>
-                <field name="amount_elec"   type="measure" string="Sales (KES)"/>
+                <field name="amount_elec"   type="measure" string="Sales"/>
                 <field name="rtt_volume"    type="measure" string="RTT (L)"/>
             </pivot>
         </field>

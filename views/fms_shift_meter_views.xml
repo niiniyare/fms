@@ -16,11 +16,11 @@
                 <field name="nozzle_id"/>
                 <field name="product_id"/>
                 <field name="attendant_id"/>
-                <field name="closing_elec_cash" string="Elec Cash (KES)"/>
+                <field name="closing_elec_cash" string="Elec Cash"/>
                 <field name="closing_elec_volume" string="Elec Vol (L)"/>
                 <field name="closing_man_mech" string="Manual (L)"/>
                 <field name="rtt_volume" string="RTT (L)" optional="show"/>
-                <field name="elec_cash_sold" string="Cash Sold (KES)" sum="Total Cash KES"/>
+                <field name="elec_cash_sold" string="Cash Sold" sum="Total Cash KES"/>
                 <field name="qty_sold_elec" string="Vol Sold (L)" sum="Total L"/>
             </list>
         </field>
@@ -42,13 +42,13 @@
                             <field name="attendant_id"
                                    domain="[('fms_is_attendant','=',True)]"/>
                         </group>
-                        <group string="Elec Cash Meter (KES)">
+                        <group string="Elec Cash Meter">
                             <field name="opening_elec_cash" readonly="1"
-                                   string="Opening (KES)"/>
+                                   string="Opening"/>
                             <field name="closing_elec_cash"
-                                   string="Closing (KES)"/>
+                                   string="Closing"/>
                             <field name="elec_cash_sold" readonly="1"
-                                   string="Cash Sold (KES)"/>
+                                   string="Cash Sold"/>
                         </group>
                         <group string="Elec Volume Meter (L)">
                             <field name="opening_elec_volume" readonly="1"

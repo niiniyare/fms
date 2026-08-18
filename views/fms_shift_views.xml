@@ -125,7 +125,7 @@
 
                                     <!-- Closing readings only (3 meters) -->
                                     <field name="closing_elec_cash"
-                                           string="Elec Cash (KES)"/>
+                                           string="Elec Cash"/>
                                     <field name="closing_elec_volume"
                                            string="Elec Meter (L)"/>
                                     <field name="closing_man_mech"
@@ -142,7 +142,7 @@
 
                                     <!-- Computed net sold (after RTT) -->
                                     <field name="elec_cash_sold" readonly="1"
-                                           string="Cash Sold (KES)" sum="Total Cash KES"/>
+                                           string="Cash Sold" sum="Total Cash KES"/>
                                     <field name="qty_sold_elec" readonly="1"
                                            string="Vol Sold (L)" sum="Total L"
                                            optional="show"/>
@@ -154,7 +154,7 @@
                             <group>
                                 <group string="Meter Totals">
                                     <field name="total_meter_sales" readonly="1"
-                                           string="Total Meter Sales (KES)"/>
+                                           string="Total Meter Sales"/>
                                 </group>
                             </group>
                         </page>
@@ -244,34 +244,34 @@
                                     <!-- INCOMING — auto-computed from nozzle cash meters -->
                                     <!-- Blind count: hide expected cash while attendant is entering declared cash -->
                                     <field name="reported_sales" readonly="1"
-                                           string="Meter Sales (KES)"
+                                           string="Meter Sales"
                                            sum="Total Meter Sales"
                                            column_invisible="parent.state in ('open', 'closing')"/>
                                     <field name="mpesa_amount" readonly="1"
-                                           string="MPesa (KES)" sum="MPesa Total"
+                                           string="MPesa" sum="MPesa Total"
                                            optional="show"/>
                                     <field name="card_amount" readonly="1"
-                                           string="Card (KES)" sum="Card Total"
+                                           string="Card" sum="Card Total"
                                            optional="show"/>
                                     <field name="ar_amount" readonly="1"
-                                           string="AR/Credit (KES)" sum="AR Total"
+                                           string="AR/Credit" sum="AR Total"
                                            optional="show"/>
 
                                     <!-- OUTGOING — expense from GL, cash is MANUAL -->
                                     <field name="expense_amount" readonly="1"
-                                           string="Expenses (KES)" sum="Expenses Total"
+                                           string="Expenses" sum="Expenses Total"
                                            optional="show"/>
                                     <field name="cash_collected"
-                                           string="Cash Dropped (KES)"
+                                           string="Cash Dropped"
                                            sum="Cash Total"/>
 
                                     <!-- SUMMARY — all read-only computed -->
                                     <field name="total_in" readonly="1"
-                                           string="Total In (KES)" sum="Grand In"/>
+                                           string="Total In" sum="Grand In"/>
                                     <field name="total_out" readonly="1"
-                                           string="Total Out (KES)" sum="Grand Out"/>
+                                           string="Total Out" sum="Grand Out"/>
                                     <field name="balance" readonly="1"
-                                           string="Balance (KES)" sum="Net Balance"
+                                           string="Balance" sum="Net Balance"
                                            decoration-success="balance == 0"
                                            decoration-danger="balance != 0"/>
 
@@ -283,11 +283,11 @@
                             <group>
                                 <group string="FC Cash Gate">
                                     <field name="total_reported_sales" readonly="1"
-                                           string="Total Meter Sales (KES)"/>
+                                           string="Total Meter Sales"/>
                                     <field name="total_meter_sales" readonly="1"
-                                           string="Total Meter Sales (KES)"/>
+                                           string="Total Meter Sales"/>
                                     <field name="fc_cash_balance" readonly="1"
-                                           string="FC Cash Balance (KES)"
+                                           string="FC Cash Balance"
                                            decoration-success="fc_cash_balance == 0"
                                            decoration-danger="fc_cash_balance != 0"/>
                                 </group>
@@ -319,12 +319,12 @@
                                            optional="show"/>
                                     <!-- Cash side -->
                                     <field name="elec_cash_sold"
-                                           string="Cash Meter (KES)" sum="Total Cash KES"/>
+                                           string="Cash Meter" sum="Total Cash KES"/>
                                     <field name="pos_cash_collected"
-                                           string="POS Total (KES)" sum="Total POS KES"
+                                           string="POS Total" sum="Total POS KES"
                                            optional="show"/>
                                     <field name="cash_residual"
-                                           string="Cash Residual (KES)"
+                                           string="Cash Residual"
                                            decoration-success="cash_residual &gt; -100 and cash_residual &lt; 100"
                                            decoration-warning="cash_residual &gt;= 100 or cash_residual &lt;= -100"
                                            optional="show"/>
@@ -340,7 +340,7 @@
                                            decoration-danger="residual_type == 'over'"
                                            optional="show"/>
                                     <field name="price_at_close"
-                                           string="Price (KES/L)" optional="hide"/>
+                                           string="Price (/L)" optional="hide"/>
                                     <field name="meter_volume_man"
                                            string="Manual Vol (L)" optional="hide"/>
                                 </list>
@@ -349,11 +349,11 @@
                             <group>
                                 <group string="Shift Totals">
                                     <field name="total_meter_sales" readonly="1"
-                                           string="Total Meter Sales (KES)"/>
+                                           string="Total Meter Sales"/>
                                     <field name="total_reported_sales" readonly="1"
-                                           string="Total Reported Sales (KES)"/>
+                                           string="Total Reported Sales"/>
                                     <field name="fc_cash_balance" readonly="1"
-                                           string="FC Cash Balance (KES)"
+                                           string="FC Cash Balance"
                                            decoration-success="fc_cash_balance == 0"
                                            decoration-danger="fc_cash_balance != 0"/>
                                 </group>
@@ -378,7 +378,7 @@
                                     <field name="target_product_id"
                                            string="To (Under-reported)"/>
                                     <field name="qty_litres" string="Qty (L)"/>
-                                    <field name="amount" string="Amount (KES)"
+                                    <field name="amount" string="Amount"
                                            sum="Total Reallocated"/>
                                     <field name="journal_entry_id" optional="hide"
                                            string="GL Entry"/>

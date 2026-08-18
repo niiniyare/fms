@@ -264,16 +264,53 @@ class FMSShift(models.Model):
             by_product[pid]['meter_volume_man'] += entry.qty_sold_man
             by_product[pid]['elec_cash_sold']   += entry.elec_cash_sold
 
+        # FIN-007: also aggregate dry-stock lines from posted invoices linked to this
+        # shift (requires fms_accounting). Dry-stock products have fms_is_fuel=False
+        # and no meter entries — they appear only on invoices.
+        AccountMove = self.env['account.move']
+        if 'fms_shift_id' in AccountMove._fields:
+            dry_moves = AccountMove.search([
+                ('fms_shift_id', '=', self.id),
+                ('move_type', 'in', ('out_invoice', 'out_receipt')),
+                ('state', '=', 'posted'),
+            ])
+            for move in dry_moves:
+                for line in move.invoice_line_ids:
+                    pid = line.product_id.id if line.product_id else None
+                    if not pid:
+                        continue
+                    if line.product_id.fms_is_fuel:
+                        continue  # Fuel products already captured from meter
+                    if pid not in by_product:
+                        by_product[pid] = {
+                            'meter_volume':     0.0,
+                            'meter_volume_man': 0.0,
+                            'elec_cash_sold':   0.0,
+                            '_invoice_qty':     0.0,
+                            '_invoice_amount':  0.0,
+                        }
+                    by_product[pid].setdefault('_invoice_qty', 0.0)
+                    by_product[pid].setdefault('_invoice_amount', 0.0)
+                    by_product[pid]['_invoice_qty']    += line.quantity
+                    by_product[pid]['_invoice_amount'] += line.price_subtotal
+
         for product_id, totals in by_product.items():
             product = self.env['product.product'].browse(product_id)
-            self.env['fms.shift.product.sales'].create({
+            vals = {
                 'shift_id':         self.id,
                 'product_id':       product_id,
                 'meter_volume':     totals['meter_volume'],
                 'meter_volume_man': totals['meter_volume_man'],
                 'elec_cash_sold':   totals['elec_cash_sold'],
                 'price_at_close':   product.list_price or 0.0,
-            })
+            }
+            # For dry-stock: use invoice qty as the "accounted volume" proxy stored
+            # in allocated_volume (no meter, so volume_residual will be 0).
+            inv_qty = totals.get('_invoice_qty', 0.0)
+            if inv_qty and not product.fms_is_fuel:
+                vals['allocated_volume'] = inv_qty
+                vals['allocated_amount'] = totals.get('_invoice_amount', 0.0)
+            self.env['fms.shift.product.sales'].create(vals)
 
     # ------------------------------------------------------------------
     # Display name

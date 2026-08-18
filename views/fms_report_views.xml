@@ -15,7 +15,7 @@
                 <field name="shift_label"/>
                 <field name="product_id"/>
                 <field name="qty_litres"  string="Volume (L)"   sum="Volume (L)"/>
-                <field name="amount_kes"  string="Sales (KES)"  sum="Sales (KES)"/>
+                <field name="amount_kes"  string="Sales"  sum="Sales"/>
                 <field name="rtt_volume"  string="RTT (L)"      sum="RTT (L)" optional="hide"/>
                 <field name="supervisor_id" optional="hide"/>
                 <field name="company_id"  groups="base.group_multi_company" optional="hide"/>
@@ -122,13 +122,13 @@
                 <field name="shift_date"/>
                 <field name="shift_label"/>
                 <field name="attendant_id"/>
-                <field name="reported_sales" string="Reported (KES)"  sum="Reported"/>
-                <field name="mpesa_amount"   string="MPesa (KES)"     sum="MPesa"     optional="show"/>
-                <field name="card_amount"    string="Card (KES)"      sum="Card"      optional="show"/>
-                <field name="ar_amount"      string="AR (KES)"        sum="AR"        optional="show"/>
-                <field name="expense_amount" string="Expenses (KES)"  sum="Expenses"  optional="show"/>
-                <field name="cash_collected" string="Cash Drop (KES)" sum="Cash Drop"/>
-                <field name="balance"        string="Shortage (KES)"  sum="Shortage"
+                <field name="reported_sales" string="Reported"  sum="Reported"/>
+                <field name="mpesa_amount"   string="MPesa"     sum="MPesa"     optional="show"/>
+                <field name="card_amount"    string="Card"      sum="Card"      optional="show"/>
+                <field name="ar_amount"      string="AR"        sum="AR"        optional="show"/>
+                <field name="expense_amount" string="Expenses"  sum="Expenses"  optional="show"/>
+                <field name="cash_collected" string="Cash Drop" sum="Cash Drop"/>
+                <field name="balance"        string="Shortage"  sum="Shortage"
                        decoration-danger="balance &gt; 0.01"
                        decoration-success="balance &lt;= 0.01 and balance &gt;= -0.01"/>
             </list>

@@ -28,7 +28,7 @@
                 <field name="variance_pct" string="Variance %"
                        decoration-danger="variance_pct &gt; 1 or variance_pct &lt; -1"/>
                 <field name="rtt_volume" string="RTT (L)" optional="show" sum="Total RTT"/>
-                <field name="elec_cash_sold" string="Cash Meter (KES)" optional="show"/>
+                <field name="elec_cash_sold" string="Cash Meter" optional="show"/>
                 <field name="shift_id" string="Shift" optional="hide"/>
             </list>
         </field>
@@ -121,7 +121,7 @@
                 <field name="volume_residual" string="Volume Residual (L)"
                        decoration-danger="volume_residual &gt; 50 or volume_residual &lt; -50"
                        sum="Total Volume Residual"/>
-                <field name="cash_residual" string="Cash Residual (KES)"
+                <field name="cash_residual" string="Cash Residual"
                        decoration-danger="cash_residual &gt; 5000 or cash_residual &lt; -5000"
                        sum="Total Cash Residual"/>
                 <field name="is_allocated" string="Allocated" widget="boolean"/>
@@ -195,9 +195,9 @@
                 <field name="account_name" string="Account Name"/>
                 <field name="label" string="Description"/>
                 <field name="partner_id" string="Partner" optional="show"/>
-                <field name="debit" string="Debit (KES)" sum="Total Debit"/>
-                <field name="credit" string="Credit (KES)" sum="Total Credit"/>
-                <field name="balance" string="Balance (KES)" sum="Net"/>
+                <field name="debit" string="Debit" sum="Total Debit"/>
+                <field name="credit" string="Credit" sum="Total Credit"/>
+                <field name="balance" string="Balance" sum="Net"/>
             </list>
         </field>
     </record>
@@ -258,7 +258,7 @@
             <pivot string="Sales Summary" disable_linking="false">
                 <field name="product_id" type="row"/>
                 <field name="qty_sold_elec" type="measure" string="Volume (L)"/>
-                <field name="elec_cash_sold" type="measure" string="Value (KES)"/>
+                <field name="elec_cash_sold" type="measure" string="Value"/>
                 <field name="rtt_volume" type="measure" string="RTT (L)"/>
             </pivot>
         </field>
@@ -287,7 +287,7 @@
                 <field name="attendant_id" string="Attendant"/>
                 <field name="product_id" string="Product"/>
                 <field name="qty_sold_elec" string="Volume (L)" sum="Total"/>
-                <field name="elec_cash_sold" string="Value (KES)" sum="Total"/>
+                <field name="elec_cash_sold" string="Value" sum="Total"/>
                 <field name="rtt_volume" string="RTT (L)" sum="Total" optional="show"/>
             </list>
         </field>
@@ -353,7 +353,7 @@
                 <field name="shift_date" type="row" interval="week"/>
                 <field name="product_id" type="col"/>
                 <field name="qty_sold" type="measure" string="Volume (L)"/>
-                <field name="cash_total" type="measure" string="Value (KES)"/>
+                <field name="cash_total" type="measure" string="Value"/>
             </pivot>
         </field>
     </record>
@@ -366,7 +366,7 @@
                 <field name="shift_date" string="Date"/>
                 <field name="product_id" string="Product"/>
                 <field name="qty_sold" string="Volume (L)" sum="Total"/>
-                <field name="cash_total" string="Value (KES)" sum="Total"/>
+                <field name="cash_total" string="Value" sum="Total"/>
                 <field name="shift_count" string="Shifts"/>
             </list>
         </field>
@@ -421,7 +421,7 @@
                 <field name="shift_count" string="Shifts"/>
                 <field name="total_qty" string="Total Volume (L)" sum="Total"/>
                 <field name="avg_qty" string="Avg/Shift (L)"/>
-                <field name="total_cash" string="Total Cash (KES)" sum="Total" optional="show"/>
+                <field name="total_cash" string="Total Cash" sum="Total" optional="show"/>
                 <field name="total_rtt" string="Total RTT (L)" sum="Total" optional="show"/>
                 <field name="avg_variance" string="Avg Mech Variance (L)"
                        decoration-warning="avg_variance &gt; 5 or avg_variance &lt; -5"
@@ -483,7 +483,7 @@
                 <field name="attendant_id" type="row"/>
                 <field name="product_id" type="row"/>
                 <field name="qty_sold_elec" type="measure" string="Volume (L)"/>
-                <field name="elec_cash_sold" type="measure" string="Value (KES)"/>
+                <field name="elec_cash_sold" type="measure" string="Value"/>
             </pivot>
         </field>
     </record>
@@ -511,7 +511,7 @@
                 <field name="nozzle_id" string="Nozzle"/>
                 <field name="product_id" string="Product"/>
                 <field name="qty_sold_elec" string="Volume (L)" sum="Total"/>
-                <field name="elec_cash_sold" string="Value (KES)" sum="Total"/>
+                <field name="elec_cash_sold" string="Value" sum="Total"/>
                 <field name="rtt_volume" string="RTT (L)" optional="show" sum="Total"/>
             </list>
         </field>
@@ -564,15 +564,15 @@
                 <field name="shift_date" string="Date"/>
                 <field name="shift_label" string="Period"/>
                 <field name="supervisor_id" string="Supervisor" optional="show"/>
-                <field name="reported_sales" string="Expected (KES)"/>
-                <field name="cash_collected" string="Declared (KES)"/>
+                <field name="reported_sales" string="Expected"/>
+                <field name="cash_collected" string="Declared"/>
                 <field name="mpesa_amount" string="MPesa" optional="show"/>
                 <field name="card_amount" string="Card" optional="show"/>
                 <field name="ar_amount" string="AR" optional="show"/>
-                <field name="balance" string="Shortage/Overage (KES)"
+                <field name="balance" string="Shortage/Overage"
                        decoration-danger="balance &lt; -10"
                        decoration-success="balance &gt; 0"/>
-                <field name="cumulative_balance" string="Cumulative (KES)"
+                <field name="cumulative_balance" string="Cumulative"
                        decoration-danger="cumulative_balance &lt; -100"/>
                 <field name="shift_id" string="Shift" optional="hide"/>
             </list>
@@ -586,9 +586,9 @@
             <pivot string="Shortage &amp; Overage">
                 <field name="attendant_id" type="row"/>
                 <field name="shift_date" type="row" interval="month"/>
-                <field name="reported_sales" type="measure" string="Expected (KES)"/>
-                <field name="balance" type="measure" string="Shortage (KES)"/>
-                <field name="cumulative_balance" type="measure" string="Cumulative (KES)"/>
+                <field name="reported_sales" type="measure" string="Expected"/>
+                <field name="balance" type="measure" string="Shortage"/>
+                <field name="cumulative_balance" type="measure" string="Cumulative"/>
             </pivot>
         </field>
     </record>
@@ -649,7 +649,7 @@
                 <field name="shortage_shifts" string="Short Shifts"
                        decoration-danger="shortage_shifts &gt; 3"/>
                 <field name="overage_shifts" string="Over Shifts" optional="show"/>
-                <field name="total_shortage" string="Total Shortage (KES)"
+                <field name="total_shortage" string="Total Shortage"
                        decoration-danger="total_shortage &gt; 1000" optional="show"/>
                 <field name="total_rtt" string="Total RTT (L)" optional="show"/>
             </list>
@@ -665,7 +665,7 @@
                 <field name="shift_count" type="measure" string="Shifts"/>
                 <field name="total_qty" type="measure" string="Volume (L)"/>
                 <field name="accuracy_pct" type="measure" string="Accuracy %"/>
-                <field name="total_shortage" type="measure" string="Shortage (KES)"/>
+                <field name="total_shortage" type="measure" string="Shortage"/>
             </pivot>
         </field>
     </record>
@@ -712,9 +712,9 @@
                        decoration-danger="shortage_shifts &gt; 5"/>
                 <field name="consecutive_short" string="Max Consecutive Short"
                        decoration-danger="consecutive_short &gt; 3"/>
-                <field name="total_shortage" string="Total Shortage (KES)"
+                <field name="total_shortage" string="Total Shortage"
                        decoration-danger="total_shortage &gt; 2000"/>
-                <field name="avg_shortage" string="Avg Shortage/Shift (KES)" optional="show"/>
+                <field name="avg_shortage" string="Avg Shortage/Shift" optional="show"/>
                 <field name="round_readings" string="Round Readings"
                        decoration-warning="round_readings &gt; 3" optional="show"/>
                 <field name="high_variance_shifts" string="High Mech Variance"
@@ -808,6 +808,63 @@
 
     <!-- menu moved to views/fms_menus.xml -->
 
+    <!-- ═══════════════════════════════════════════════════════════════
+         FIN-008: Attendant Cash Breakdown (R27)
+    ═══════════════════════════════════════════════════════════════ -->
 
+    <record id="view_fms_attendant_cash_breakdown_list" model="ir.ui.view">
+        <field name="name">fms.report.attendant.cash.breakdown.list</field>
+        <field name="model">fms.report.attendant.cash.breakdown</field>
+        <field name="arch" type="xml">
+            <list string="Attendant Cash Breakdown" create="false" edit="false" delete="false">
+                <field name="shift_date"/>
+                <field name="shift_label"/>
+                <field name="company_id" groups="base.group_multi_company"/>
+                <field name="attendant_name"/>
+                <field name="meter_sales" sum="Meter Sales"/>
+                <field name="customer_receipts" sum="Customer Receipts" optional="show"/>
+                <field name="float_received" sum="Float" optional="hide"/>
+                <field name="cash_drops" sum="Cash Drops" optional="hide"/>
+                <field name="mpesa" sum="MPesa" optional="show"/>
+                <field name="card" sum="Card" optional="show"/>
+                <field name="ar_credit" sum="AR / Credit" optional="show"/>
+                <field name="vendor_payments" sum="Vendor Payments" optional="show"/>
+                <field name="expenses" sum="Expenses" optional="show"/>
+                <field name="expected_cash" sum="Expected Cash"/>
+                <field name="cash_declared" sum="Declared Cash"/>
+                <field name="variance" sum="Variance"
+                       decoration-danger="not is_balanced"
+                       decoration-success="is_balanced"/>
+                <field name="is_balanced" widget="boolean" string="OK"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_fms_attendant_cash_breakdown_search" model="ir.ui.view">
+        <field name="name">fms.report.attendant.cash.breakdown.search</field>
+        <field name="model">fms.report.attendant.cash.breakdown</field>
+        <field name="arch" type="xml">
+            <search string="Attendant Cash Breakdown">
+                <field name="attendant_id"/>
+                <field name="shift_id"/>
+                <filter string="This Month" name="this_month"
+                        domain="[('shift_date', '&gt;=', (context_today() + relativedelta(day=1)).strftime('%Y-%m-%d'))]"/>
+                <filter string="Unbalanced" name="unbalanced"
+                        domain="[('is_balanced', '=', False)]"/>
+                <group expand="0" string="Group By">
+                    <filter string="Attendant" name="group_attendant" context="{'group_by': 'attendant_id'}"/>
+                    <filter string="Shift" name="group_shift" context="{'group_by': 'shift_id'}"/>
+                    <filter string="Date" name="group_date" context="{'group_by': 'shift_date:month'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_fms_attendant_cash_breakdown" model="ir.actions.act_window">
+        <field name="name">Attendant Cash Breakdown</field>
+        <field name="res_model">fms.report.attendant.cash.breakdown</field>
+        <field name="view_mode">list</field>
+    </record>
 
 </odoo>
+

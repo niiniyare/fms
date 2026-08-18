@@ -326,15 +326,15 @@ class FMSShiftAttendantCash(models.Model):
 
     # ── PAYMENT METHOD SPLITS (from POS) ─────────────────────────────────────
     mpesa_amount = fields.Float(
-        'MPesa', compute='_compute_from_pos', digits=(16, 2),
+        'MPesa', compute='_compute_from_pos', store=True, digits=(16, 2),
         help="POS payments via MPesa payment method.",
     )
     card_amount = fields.Float(
-        'Card', compute='_compute_from_pos', digits=(16, 2),
+        'Card', compute='_compute_from_pos', store=True, digits=(16, 2),
         help="POS payments via Card payment method.",
     )
     ar_amount = fields.Float(
-        'AR / Credit Sales', compute='_compute_from_pos', digits=(16, 2),
+        'AR / Credit Sales', compute='_compute_from_pos', store=True, digits=(16, 2),
         help="POS payments via Account/AR payment method (credit sales).",
     )
 
@@ -363,15 +363,15 @@ class FMSShiftAttendantCash(models.Model):
 
     # ── TOTALS ────────────────────────────────────────────────────────────────
     total_in = fields.Float(
-        'Expected Cash', compute='_compute_balance', digits=(16, 2),
+        'Expected Cash', compute='_compute_balance', store=True, digits=(16, 2),
         help="All cash this attendant should have: sales + receipts + float - drops.",
     )
     total_out = fields.Float(
-        'Accounted Cash', compute='_compute_balance', digits=(16, 2),
+        'Accounted Cash', compute='_compute_balance', store=True, digits=(16, 2),
         help="Physical cash + digital payments + expenses + vendor payments.",
     )
     balance = fields.Float(
-        'Balance', compute='_compute_balance', digits=(16, 2),
+        'Balance', compute='_compute_balance', store=True, digits=(16, 2),
         help="Expected Cash − Accounted Cash. Must be 0 for shift to close.",
     )
 

@@ -25,8 +25,13 @@ class FMSShiftProductSales(models.Model):
     _name = 'fms.shift.product.sales'
     _description = 'Shift Product Sales Summary'
     _order = 'product_id'
+    # FIN-010: composite index for Gate 8 (meter vs sales) and report queries
+    _sql_constraints = [
+        ('shift_product_uniq', 'UNIQUE(shift_id, product_id)',
+         'Duplicate product sales line for same shift — use _refresh_product_sales.'),
+    ]
 
-    shift_id   = fields.Many2one('fms.shift', 'Shift', required=True, ondelete='cascade')
+    shift_id   = fields.Many2one('fms.shift', 'Shift', required=True, ondelete='cascade', index=True)
     product_id = fields.Many2one('product.product', 'Product', required=True, readonly=True)
 
     # ── VOLUME SIDE — inventory reconciliation ────────────────────────────────
@@ -81,6 +86,12 @@ class FMSShiftProductSales(models.Model):
         help="elec_cash_sold − pos_cash_collected. "
              "+ve = pump charged more than POS recorded (pump over-charged or POS missed a sale). "
              "-ve = POS recorded more than pump charged (price mismatch or POS error).",
+    )
+
+    # ── PRODUCT TYPE ──────────────────────────────────────────────────────────
+    is_fuel = fields.Boolean(
+        'Fuel Product', related='product_id.fms_is_fuel', store=True,
+        help="True for pump-metered fuel products. False for dry-stock (carwash, LPG, misc).",
     )
 
     # ── STATUS ────────────────────────────────────────────────────────────────

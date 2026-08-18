@@ -102,7 +102,7 @@
                                 <div class="card-body text-center">
                                     <div class="text-muted small">Sales Value</div>
                                     <div class="fs-4 fw-bold">
-                                        KES <field name="yesterday_sales_kes"
+                                        <field name="yesterday_sales_kes"
                                                    options="{'digits': [16,0]}"/>
                                     </div>
                                     <div class="text-muted small mt-1">
@@ -119,11 +119,11 @@
                                     <div class="text-muted small">FC Cash Balance</div>
                                     <div class="fs-4 fw-bold text-success"
                                          invisible="yesterday_cash_var != 0">
-                                        KES 0 ✓
+                                        0 ✓
                                     </div>
                                     <div class="fs-4 fw-bold text-danger"
                                          invisible="yesterday_cash_var == 0">
-                                        KES <field name="yesterday_cash_var"/>
+                                        <field name="yesterday_cash_var"/>
                                     </div>
                                     <div class="text-muted small mt-1">
                                         <span invisible="yesterday_cash_var == 0">
@@ -221,7 +221,7 @@
                                 <div class="card-body text-center">
                                     <div class="text-muted small">Total Outstanding</div>
                                     <div class="fs-5 fw-bold">
-                                        KES <field name="total_ar"
+                                        <field name="total_ar"
                                                    options="{'digits': [16,0]}"/>
                                     </div>
                                 </div>
@@ -251,7 +251,7 @@
                                 <div class="card-body text-center">
                                     <div class="text-muted small">90+ Days Overdue</div>
                                     <div class="fs-5 fw-bold text-warning">
-                                        KES <field name="ar_overdue_90"
+                                        <field name="ar_overdue_90"
                                                    options="{'digits': [16,0]}"/>
                                     </div>
                                 </div>
@@ -317,7 +317,7 @@
                                 <div class="card-body">
                                     <div class="text-muted small">Outstanding Shortages</div>
                                     <div class="fw-bold text-danger">
-                                        KES <field name="open_shortage_kes"
+                                        <field name="open_shortage_kes"
                                                    options="{'digits': [16,0]}"/>
                                     </div>
                                 </div>

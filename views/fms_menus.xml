@@ -168,6 +168,13 @@
               groups="fms.group_fms_supervisor"
               sequence="200"/>
 
+    <menuitem id="menu_fms_report_attendant_cash_breakdown"
+              name="Attendant Cash Breakdown"
+              parent="menu_fms_reporting"
+              action="action_fms_attendant_cash_breakdown"
+              groups="fms.group_fms_supervisor"
+              sequence="205"/>
+
     <!-- ══════════════════════════════════════════════════
          CONFIGURATION
          Station Setup | Nozzles | Shift Definitions & Prices
