@@ -340,24 +340,24 @@ class FMSShiftAttendantCash(models.Model):
 
     # ── CASH MOVEMENTS (from account.payment with fms_shift_id) ──────────────
     customer_receipt_amount = fields.Float(
-        'Customer Receipts', compute='_compute_from_payments', digits=(16, 2),
+        'Customer Receipts', compute='_compute_from_payments', store=True, digits=(16, 2),
         help="Cash collected from customers paying outstanding invoices. "
              "Source: account.payment with fms_payment_context=customer_receipt, posted.",
     )
     float_amount = fields.Float(
-        'Cash Float', compute='_compute_from_payments', digits=(16, 2),
+        'Cash Float', compute='_compute_from_payments', store=True, digits=(16, 2),
         help="Opening/additional float issued to this attendant. Not revenue — increases expected holding.",
     )
     cash_drop_amount = fields.Float(
-        'Cash Drops', compute='_compute_from_payments', digits=(16, 2),
+        'Cash Drops', compute='_compute_from_payments', store=True, digits=(16, 2),
         help="Mid-shift cash drops/pickups. Reduces expected holding (cash already in safe).",
     )
     vendor_payment_amount = fields.Float(
-        'Vendor Payments', compute='_compute_from_payments', digits=(16, 2),
+        'Vendor Payments', compute='_compute_from_payments', store=True, digits=(16, 2),
         help="Cash paid to vendors from shift cash. Reduces expected holding.",
     )
     expense_amount = fields.Float(
-        'Expenses', compute='_compute_from_payments', digits=(16, 2),
+        'Expenses', compute='_compute_from_payments', store=True, digits=(16, 2),
         help="Small expenses paid directly from shift cash.",
     )
 
