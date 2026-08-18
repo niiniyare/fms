@@ -202,14 +202,19 @@ class TestFINDryStockAggregation(TestFINBase):
 
     def test_shift_product_sales_unique_constraint(self):
         """UNIQUE(shift_id, product_id) prevents duplicate rows."""
+        # Use a fresh product to avoid any collision with rows from sibling tests
+        unique_product = self.env['product.product'].create({
+            'name': 'Unique-Constraint-Test-Product',
+            'fms_is_fuel': True,
+        })
         self.env['fms.shift.product.sales'].create({
             'shift_id': self.shift.id,
-            'product_id': self.fuel.id,
+            'product_id': unique_product.id,
         })
         with self.assertRaises(Exception):  # IntegrityError or ValidationError
             self.env['fms.shift.product.sales'].create({
                 'shift_id': self.shift.id,
-                'product_id': self.fuel.id,
+                'product_id': unique_product.id,
             })
 
 

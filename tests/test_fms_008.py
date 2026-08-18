@@ -592,14 +592,14 @@ class TestUAT7Gate2CashBlock(FMSUATBase):
             shift._gate_check_cash_reconciliation()
         self.assertIn('GATE 2', str(ctx.exception))
 
-    def test_uat7_cash_gap_error_shows_kes(self):
-        """Gate 2 error message includes the KES amount."""
+    def test_uat7_cash_gap_error_shows_amount(self):
+        """Gate 2 error message includes the cash gap amount."""
         shift = self._shift_with_cash_meter(elec_cash_sold=25_000.0)
         shift._refresh_product_sales()
 
         with self.assertRaises(ValidationError) as ctx:
             shift._gate_check_cash_reconciliation()
-        self.assertIn('KES', str(ctx.exception))
+        self.assertIn('25,000', str(ctx.exception))
 
     def test_uat7_zero_cash_meter_passes_cash_gate(self):
         """When no cash is recorded (all zeros) the cash gate passes."""
