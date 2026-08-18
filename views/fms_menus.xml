@@ -198,7 +198,7 @@
     <menuitem id="menu_fms_site_preferences"
               name="Site Preferences"
               parent="menu_fms_config"
-              action="action_fms_site_preferences"
+              action="action_fms_site_preferences_open"
               groups="fms.group_fms_supervisor"
               sequence="40"/>
 

@@ -115,7 +115,12 @@ class FMSSitePreferences(models.Model):
         company = company or self.env.company
         prefs = self.search([('company_id', '=', company.id)], limit=1)
         if not prefs:
-            prefs = self.create({'company_id': company.id})
+            with self.env.cr.savepoint():
+                try:
+                    prefs = self.sudo().create({'company_id': company.id})
+                except Exception:
+                    # Another transaction raced us — savepoint auto-rolls back the failed INSERT.
+                    prefs = self.search([('company_id', '=', company.id)], limit=1)
         return prefs
 
     @api.model

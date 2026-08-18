@@ -5,7 +5,7 @@
         <field name="name">fms.site.preferences.form</field>
         <field name="model">fms.site.preferences</field>
         <field name="arch" type="xml">
-            <form string="Site Preferences">
+            <form string="Site Preferences" create="false" delete="false">
                 <sheet>
                     <div class="oe_title">
                         <h1>FMS Site Preferences</h1>
@@ -82,6 +82,25 @@
         <field name="view_mode">form</field>
         <field name="target">inline</field>
         <field name="context">{'form_view_initial_mode': 'edit'}</field>
+    </record>
+
+    <!-- Server action used by the menu: resolves existing record to avoid UNIQUE constraint -->
+    <record id="action_fms_site_preferences_open" model="ir.actions.server">
+        <field name="name">Open Site Preferences</field>
+        <field name="model_id" ref="model_fms_site_preferences"/>
+        <field name="state">code</field>
+        <field name="code">
+prefs = env['fms.site.preferences'].get_for_company(env.company)
+action = {
+    'type': 'ir.actions.act_window',
+    'name': 'Site Preferences',
+    'res_model': 'fms.site.preferences',
+    'view_mode': 'form',
+    'res_id': prefs.id,
+    'target': 'main',
+    'context': {'form_view_initial_mode': 'edit'},
+}
+        </field>
     </record>
 
     <!-- menu moved to views/fms_menus.xml -->
