@@ -366,3 +366,7 @@ See audit output. Gaps prioritized in Phases C-I below.
 |------|------|--------|-------|
 | 2026-08-18 | Phase A audit | Complete | 15 gaps identified |
 | 2026-08-18 | task.md created | Complete | All phases mapped |
+| 2026-08-18 | Phase C1 (11 tasks) | Complete | COGS gate, three-meter, emergency override, chatter logging, disputed shifts, etc. |
+| 2026-08-18 | Phase C2 (8 tasks) | Complete | Vehicle/Driver models, account.move FMS fields, Gate 6, receipt block without shift |
+| 2026-08-18 | Phase C3 (4 tasks) | Complete | Attendant assignment modes, pre-assigned auto-populate, per-nozzle validation |
+| 2026-08-18 | Phase G7 (indexes) | Partial | shift company_id/state, FK indexes on child models |
