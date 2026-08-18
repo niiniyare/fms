@@ -54,7 +54,7 @@ Does not affect revenue lines — only reclassifies COGS.
 
 For each fuel product, two accounts must be set:
 
-**Forecourt → Products → [Fuel Product] → FMS tab** (or Inventory → Products)
+**Inventory → Products → [Fuel Product] → FMS tab** (or Inventory → Products)
 
 | Field | Account type | Example |
 |---|---|---|

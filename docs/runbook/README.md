@@ -21,13 +21,50 @@ Anika Global Limited | Shell Maanzoni Service Station
 
 ---
 
+## Navigation
+
+FMS follows Odoo Inventory-style information architecture:
+
+```
+Forecourt
+  ├── Overview
+  │   ├── Dashboard          (station health at a glance)
+  │   └── Active Shift       (open/closing shifts — primary operational entry)
+  ├── Operations
+  │   ├── Shifts             (full shift history)
+  │   ├── Fuel Deliveries    (stock.picking filtered to FMS deliveries)
+  │   ├── Meter Readings     (immutable meter log audit)
+  │   ├── Dip Readings       (immutable dip log audit)
+  │   └── Short Sales Adjustments
+  ├── Sales & Cash
+  │   ├── Cash Reconciliation
+  │   ├── Credit Customers
+  │   ├── PDC Register
+  │   ├── Petty Cash Transactions
+  │   └── Sales Receipts
+  ├── Reporting
+  │   ├── Shift Reconciliation / Wetstock / Meter Reading Audit
+  │   ├── Shift Summary / EPRA Throughput
+  │   ├── Attendant Sales / Shortage & Overage / Performance
+  │   ├── P&L / Balance Sheet / Trial Balance / Debtors Aging  (accountant)
+  │   └── + 7 more operational reports
+  └── Configuration
+      ├── Station Setup      (pumps + nozzles)
+      ├── Nozzles
+      ├── Shift Definitions & Prices
+      ├── Site Preferences
+      └── GL Account Setup Check
+```
+
+---
+
 ## Roles
 
 | Role | Odoo group | Key permissions |
 |---|---|---|
-| Attendant | `fms.group_fms_attendant` | View shifts, enter readings |
-| Supervisor | `fms.group_fms_supervisor` | Open/close shifts, print reports |
-| Accountant | `fms.group_fms_accountant` | Site preferences, GL, price periods |
+| Attendant | `fms.group_fms_attendant` | Overview, Shifts |
+| Supervisor | `fms.group_fms_supervisor` | All operational menus, Reporting |
+| Accountant | `fms.group_fms_accountant` | Financial reports, Configuration |
 | Sysadmin | Odoo Administrator | Shell access, state resets, upgrades |
 
 Groups are hierarchical: Accountant ⊃ Supervisor ⊃ Attendant permissions.
@@ -37,13 +74,13 @@ Groups are hierarchical: Accountant ⊃ Supervisor ⊃ Attendant permissions.
 ## Shift in 60 Seconds
 
 ```
-New → Open Shift
+Forecourt → Overview → Active Shift → New
+  ↓ Open Shift
   ↓ Enter closing meter readings (Meter Readings tab)
   ↓ Enter tank dips (Tank Dips tab)
   ↓ Start Closing
-  ↓ Link POS sessions (Attendant Cash tab)
-  ↓ Enter Cash Dropped per attendant until Balance = 0
-  ↓ Close Shift  ← all 5 gates must pass
+  ↓ Link POS sessions, enter Cash Dropped until Balance = 0
+  ↓ Close Shift  ← 5 gates must pass
   ↓ Print Shift Report
 ```
 
@@ -51,10 +88,20 @@ Target: 15 minutes from last pump transaction.
 
 ---
 
+## Development Commands
+
+```bash
+make odoo-e2e-update   # update fms + fms_accounting in fms_e2e after code changes
+make odoo-e2e          # start app on port 8070
+make odoo-update       # update fms in test_fms
+```
+
+---
+
 ## Key Rules (non-negotiable)
 
-1. **Every KES must be accounted for.** FC Cash Balance must be exactly 0.
-2. **Every attendant must clear.** Each individual Balance must be exactly 0.
-3. **Dip variance within meniscus.** Default ±0.5% per tank.
-4. **No "close anyway" button.** Gates cannot be bypassed.
-5. **Meter/dip logs are immutable.** Written on close, cannot be edited or deleted.
+1. Every KES must be accounted for — FC Cash Balance must be exactly 0.
+2. Every attendant must clear — each Balance must be exactly 0.
+3. Dip variance within meniscus — default ±0.5% per tank.
+4. No "close anyway" button — gates cannot be bypassed.
+5. Meter/dip logs are immutable — written on close, cannot be edited or deleted.

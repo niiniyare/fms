@@ -1,13 +1,11 @@
 # 05 — Reports
 
 Audience: Manager / Accountant
-Role required: `fms.group_fms_accountant` (for GL-linked reports), Supervisor for shift-level reports.
+Role required: `fms.group_fms_accountant` for financial reports; Supervisor for operational reports.
 
 ---
 
-## Shift Reports (per shift)
-
-Access from the closed shift form header.
+## Shift Reports (per shift, from the shift form)
 
 | Button | Content |
 |---|---|
@@ -21,65 +19,55 @@ Access from the closed shift form header.
 
 **Forecourt → Reporting**
 
-| Report | Filter options | Use |
-|---|---|---|
-| Wetstock Movement | Date range, product, tank | Daily stock reconciliation per tank |
-| Attendant Sales Summary | Date range, attendant | Who sold what, per period |
-| Shortage / Overage | Date range | Shifts where variance exceeded meniscus |
-| Attendant Performance | Date range, attendant | Shift count, accuracy, shortage rate |
-| Risk & Anomaly | Date range | Flags round readings, large variances, unusual patterns |
+| Report | What it answers |
+|---|---|
+| Shift Reconciliation | What happened during each shift? Full meter/cash/dip picture. |
+| Wetstock | How much stock received, sold, lost/gained per tank? |
+| Meter Reading Audit | What did each nozzle meter record? Variance between elec and manual. |
+| Shift Summary | Complete final shift picture — sales by product, attendant totals. |
+| EPRA Throughput | What throughput must be reported to EPRA? |
+| Attendant Sales | Who sold what per period? MPesa / card / cash split. |
+| Shortage & Overage | Which shifts had variance beyond meniscus? |
+| Attendant Performance | Shift count, accuracy rate, shortage frequency per attendant. |
+| Nozzle Performance | Volume and cash per nozzle over time. |
+| Risk & Anomaly | Flags: round readings, large variances, unusual patterns. |
+| Stock Position | Current stock level, days of cover, reorder status per tank. |
+| Incident Register | Drive-offs, incidents, litres lost, value recovered. |
+| Attribution Residuals | Lumped sales reclassified between products. |
+| Nozzle Handover | Nozzle assignment summary per shift — handover audit. |
+| Sales by Category | Revenue breakdown by product category. |
 
 ---
 
-## Financial Reports (fms_accounting module)
+## Financial Reports (fms_accounting module — Accountant only)
 
-**Accounting → FMS Reports** (or Forecourt → Reporting → Financial)
+**Forecourt → Reporting** (visible to `fms.group_fms_accountant`)
 
-### Profit & Loss
+| Report | What it answers |
+|---|---|
+| Profit & Loss | Revenue vs COGS vs expenses — net profit/loss. |
+| Balance Sheet | Assets, liabilities, shareholders' equity at a point in time. |
+| Trial Balance | All accounts with debit/credit totals — balanced check. |
+| Debtors Aging | Outstanding credit customer balances by aging bucket. |
+| GL Reconciliation Journal | Shift GL entries cross-referenced to bank/MPesa statements. |
 
-Menu: **Accounting → FMS Reports → Profit & Loss**
-
-Filters: Date range (month, quarter, YTD, custom).
-
-Sections:
-- Revenue (fuel, lubricants, LPG, carwash, other)
-- Cost of Sales (COGS per product line)
-- Gross Profit
-- Operating Expenses
-- Net Profit / Loss
-
-Output: PDF in Apple SEC filing style (black and white, Arial 10pt).
-
-### Balance Sheet
-
-Menu: **Accounting → FMS Reports → Balance Sheet**
-
-Layout: Single-column stacked.
-- Assets: Current → Non-current → Total Assets
-- Liabilities: Current → Non-current → Total Liabilities
-- Shareholders' Equity
-- Total Liabilities and Equity
-
-### Trial Balance
-
-Menu: **Accounting → FMS Reports → Trial Balance**
-
-Shows all accounts with debit and credit totals. Footer confirms debit = credit (balance check in red if unbalanced).
+All financial reports output PDF in Apple SEC filing style (black and white, Arial 10pt).
 
 ---
 
-## Print a Financial Report
+## How to Print a Financial Report
 
-1. Go to the report menu.
-2. Set date range using the wizard.
-3. Click **Print PDF** or **Export Excel**.
+1. **Forecourt → Reporting → [Report name]**
+2. Set date range in the search bar or wizard.
+3. Click **Print PDF** or **Export XLSX**.
 
-PDF renders via wkhtmltopdf — ensure it is installed on the server (see [01-installation.md](01-installation.md)).
+PDF requires wkhtmltopdf 0.12.6 on the server.
 
 ---
 
 ## Standard Odoo Reports (also useful)
 
 - **Accounting → Reporting → General Ledger** — all posted journal entries.
-- **Accounting → Reporting → Account Moves** — filter by journal to see all FMS shift entries.
+- **Accounting → Journal Entries** — filter Journal = FMS Shifts for shift-specific entries.
 - **Inventory → Reporting → Inventory Valuation** — current stock value per product.
+- **Accounting → Customers → Aged Receivable** — credit customer aging.

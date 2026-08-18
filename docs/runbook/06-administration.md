@@ -8,7 +8,7 @@ Audience: Accountant / System Administrator
 
 When pump price changes:
 
-1. **Forecourt → Configuration → Price Periods → New**
+1. **Forecourt → Configuration → Shift Definitions & Prices → New**
 2. Set **Product**, **Start Date**, **Price per Litre (KES)**.
 3. Save.
 
@@ -21,7 +21,7 @@ Both must match or Gate 2 will fail on the next shift close.
 
 ## Adding a New Pump / Nozzle
 
-1. **Forecourt → Configuration → Pumps → New**
+1. **Forecourt → Configuration → Station Setup → New**
 2. Fill in pump details, add nozzle rows with current meter totalizer values (read from the physical pump display).
 3. Save.
 
@@ -98,8 +98,11 @@ python odoo-bin -d fms_prod -u fms,fms_accounting --stop-after-init
 ```bash
 make odoo-e2e-create   # create fms_e2e with modules installed
 make odoo-e2e-seed     # seed Kenya CoA + all Anika products
+make odoo-e2e-update   # update fms + fms_accounting in fms_e2e after code changes
 make odoo-e2e          # start Odoo on port 8070 pointing at fms_e2e
 make odoo-e2e-drop     # drop fms_e2e
 ```
+
+After any code change, run `make odoo-e2e-update` before `make odoo-e2e` — the server does not hot-reload module XML/Python changes without an upgrade.
 
 Seed script: `scripts/seed_e2e.py` — creates Anika Global Limited company, 143 accounts, 145 products (fuel, LPG, lubricants, filters, spare parts) with opening stock.

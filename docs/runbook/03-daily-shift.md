@@ -28,7 +28,7 @@ Draft ──[Open Shift]──► Open ──[Start Closing]──► Closing �
 
 | Step | Location | Time |
 |---|---|---|
-| 1. Create shift | Forecourt → Shifts → New | 1 min |
+| 1. Create shift | Forecourt → Operations → Shifts → New | 1 min |
 | 2. Open shift | Header button | < 1 min |
 | 3. Enter closing meter readings | Meter Readings tab | 5 min |
 | 4. Enter tank dips | Tank Dips tab | 3 min |
@@ -42,7 +42,7 @@ Draft ──[Open Shift]──► Open ──[Start Closing]──► Closing �
 
 ## Step 1 — Create the Shift
 
-**Forecourt → Shifts → New**
+**Forecourt → Operations → Shifts → New**
 
 | Field | What to set |
 |---|---|
@@ -67,7 +67,7 @@ System auto-generates:
 
 **Dip entry rows** — one per fuel tank (locations where `Is Fuel Tank = True`). Opening dip auto-filled from the previous shift's `fms.dip_log.closing_volume`.
 
-> **First shift ever:** Verify opening readings match the physical pump display before any sales begin. If they don't match, correct them in Forecourt → Configuration → Pumps before proceeding.
+> **First shift ever:** Verify opening readings match the physical pump display before any sales begin. If they don't match, correct them in Forecourt → Configuration → Station Setup before proceeding.
 
 ---
 

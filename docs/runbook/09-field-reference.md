@@ -150,7 +150,7 @@ Written on shift close. Cannot be edited or deleted.
 | Net Vol Sold Elec (L) | Closing − Opening Elec Volume − RTT |
 | Net Vol Sold Manual (L) | Closing − Opening Manual |
 
-View: Forecourt → Compliance → Meter Logs
+View: Forecourt → Operations → Meter Readings
 
 ---
 
@@ -168,4 +168,4 @@ Written on shift close. Cannot be edited or deleted.
 | Variance (L) | Opening − Closing − Meter Sold |
 | Variance % | `abs(Variance) / Closing × 100` |
 
-View: Forecourt → Wetstock → Dip Logs
+View: Forecourt → Operations → Dip Readings

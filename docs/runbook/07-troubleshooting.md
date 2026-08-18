@@ -12,7 +12,7 @@ Opening readings come from the nozzle's stored current meter positions (set when
 
 Fix:
 1. Do not close this shift yet.
-2. **Forecourt → Configuration → Pumps** → open the affected nozzle.
+2. **Forecourt → Configuration → Station Setup** → open the affected nozzle.
 3. Correct **Current Elec Cash**, **Current Elec Volume**, or **Current Manual Meter**.
 4. Delete this shift's meter entry rows for that nozzle.
 5. Click **Open Shift** again — system regenerates meter rows with corrected values.
@@ -21,7 +21,7 @@ Fix:
 
 ### "A nozzle totalizer was reset to zero (nozzle replaced)"
 
-1. **Forecourt → Configuration → Pumps** → open the nozzle.
+1. **Forecourt → Configuration → Station Setup** → open the nozzle.
 2. Set all current meter fields to the new (reset) values from the physical display.
 3. The next shift opened picks them up as opening readings.
 4. Document the reset in that shift's Notes tab.
@@ -149,7 +149,7 @@ All closed shifts write to:
 These records raise a `ValidationError` if any write or delete is attempted. Do not bypass via SQL — this breaks EPRA audit compliance.
 
 View logs:
-- **Forecourt → Compliance → Meter Logs**
-- **Forecourt → Wetstock → Dip Logs**
+- **Forecourt → Operations → Meter Readings**
+- **Forecourt → Operations → Dip Readings**
 
 GL entries: **Accounting → Journal Entries** → filter journal = FMS Shifts.

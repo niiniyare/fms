@@ -37,7 +37,7 @@ Products without these set are skipped during GL posting (a warning is logged).
 
 ## 3. Pumps and Nozzles
 
-**Forecourt → Configuration → Pumps**
+**Forecourt → Configuration → Station Setup**
 
 For each physical pump:
 1. Click **New**.
@@ -79,7 +79,7 @@ For each forecourt attendant:
 
 ## 6. Price Periods
 
-**Forecourt → Configuration → Price Periods**
+**Forecourt → Configuration → Shift Definitions & Prices**
 
 Create a price period whenever the pump price changes:
 - **Product** — fuel product
