@@ -15,13 +15,15 @@ Run: make odoo-test
 
 from odoo.tests import TransactionCase
 from odoo.exceptions import ValidationError, AccessError
+from .test_common import FMSGLMixin
 
 
-class FMSSecurityBase(TransactionCase):
+class FMSSecurityBase(FMSGLMixin, TransactionCase):
 
     def setUp(self):
         super().setUp()
         self.env['fms.shift'].search([('state', 'in', ('open', 'closing'))]).write({'state': 'draft'})
+        self.setup_fms_gl()
         # Master data
         self.product = self.env['product.product'].create({
             'name': 'SEC-Diesel', 'fms_is_fuel': True, 'list_price': 222.8,

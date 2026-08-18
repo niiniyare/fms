@@ -66,6 +66,22 @@ class FMSGLBase(TransactionCase):
                 'company_id': company.id,
             })
 
+        # Wire journal + clearing account into site preferences so _get_fms_journal() works
+        clearing = self.env['account.account'].search([
+            ('account_type', '=', 'asset_current'),
+            ('company_ids', 'in', company.id),
+        ], limit=1) or self.env['account.account'].create({
+            'name': 'FMS Test Clearing',
+            'code': 'FMS9003',
+            'account_type': 'asset_current',
+            'company_ids': [(4, company.id)],
+        })
+        prefs = self.env['fms.site.preferences'].get_for_company(company)
+        prefs.write({
+            'sales_journal_id': self.journal.id,
+            'clearing_account_id': clearing.id,
+        })
+
         self.product_diesel = self.env['product.product'].create({
             'name': 'GL-Diesel',
             'fms_is_fuel': True,

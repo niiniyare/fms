@@ -9,6 +9,7 @@ Run: pytest tests/test_fms_001.py -v
 
 from odoo.tests import TransactionCase
 from odoo.exceptions import ValidationError
+from .test_common import FMSGLMixin
 
 
 class TestFMSPump(TransactionCase):
@@ -79,7 +80,7 @@ class TestFMSPump(TransactionCase):
         self.assertTrue(nozzle2.id)
 
 
-class TestFMSShift(TransactionCase):
+class TestFMSShift(FMSGLMixin, TransactionCase):
 
     def setUp(self):
         super().setUp()
@@ -88,6 +89,7 @@ class TestFMSShift(TransactionCase):
         prefs.auto_open_next_shift = False
         self.shift_model = self.env['fms.shift']
         self.supervisor = self.env['hr.employee'].create({'name': 'Jane Supervisor'})
+        self.setup_fms_gl()
 
     def _make_shift(self, **kw):
         vals = {

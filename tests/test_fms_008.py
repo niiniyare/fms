@@ -24,9 +24,10 @@ Run: make odoo-test
 from datetime import date, timedelta
 from odoo.tests import TransactionCase
 from odoo.exceptions import ValidationError
+from .test_common import FMSGLMixin
 
 
-class FMSUATBase(TransactionCase):
+class FMSUATBase(FMSGLMixin, TransactionCase):
     """Shared setup for all UAT scenarios."""
 
     def setUp(self):
@@ -34,6 +35,7 @@ class FMSUATBase(TransactionCase):
 
         # Reset any open shifts so the single-open-shift constraint doesn't block tests
         self.env['fms.shift'].search([('state', '=', 'open')]).write({'state': 'draft'})
+        self.setup_fms_gl()
 
         # Revenue account for GL posting
         # Note: Odoo 18 uses company_ids (Many2many) on account.account

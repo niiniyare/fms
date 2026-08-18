@@ -14,13 +14,15 @@ Run: make odoo-test
 
 from odoo.tests import TransactionCase
 from odoo.exceptions import ValidationError
+from .test_common import FMSGLMixin
 
 
-class FMSGateBase(TransactionCase):
+class FMSGateBase(FMSGLMixin, TransactionCase):
 
     def setUp(self):
         super().setUp()
         self.env['fms.shift'].search([('state', 'in', ('open', 'closing'))]).write({'state': 'draft'})
+        self.setup_fms_gl()
         self.supervisor = self.env['hr.employee'].create({'name': 'Gate-Supervisor'})
         self.attendant1 = self.env['hr.employee'].create({
             'name': 'Gate-Attendant-1', 'fms_is_attendant': True,
@@ -31,6 +33,7 @@ class FMSGateBase(TransactionCase):
         self.product = self.env['product.product'].create({
             'name': 'Gate-Diesel', 'fms_is_fuel': True, 'list_price': 200.0,
         })
+        self.wire_product_accounts(self.product)
         self.pump = self.env['fms.pump'].create({'name': 'Gate-Pump1', 'order': 20})
         self.nozzle = self.env['fms.pump.nozzle'].create({
             'pump_id': self.pump.id,

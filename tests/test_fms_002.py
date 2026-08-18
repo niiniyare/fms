@@ -13,17 +13,19 @@ Run: make odoo-test
 
 from odoo.tests import TransactionCase
 from odoo.exceptions import ValidationError
+from .test_common import FMSGLMixin
 
 
 # ---------------------------------------------------------------------------
 # Helpers shared across test classes
 # ---------------------------------------------------------------------------
 
-class FMSBase(TransactionCase):
+class FMSBase(FMSGLMixin, TransactionCase):
 
     def setUp(self):
         super().setUp()
         self.env['fms.shift'].search([('state', 'in', ('open', 'closing'))]).write({'state': 'draft'})
+        self.setup_fms_gl()
         self.supervisor = self.env['hr.employee'].create({'name': 'Supervisor A'})
         self.product_diesel = self.env['product.product'].create({
             'name': 'Diesel', 'fms_is_fuel': True, 'list_price': 222.8,
