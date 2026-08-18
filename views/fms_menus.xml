@@ -1,15 +1,35 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Leaf menus — loaded LAST after all action records are defined -->
+<!-- Leaf menus — loaded LAST in fms module after all fms action records are defined.
+     Menus requiring fms_accounting actions live in fms_accounting/views/fms_accounting_menus.xml -->
 <odoo>
-    <!-- Overview (references action_fms_overview_server from fms_overview_views.xml) -->
-    <menuitem id="menu_fms_overview"
-              name="Overview"
-              parent="menu_fms_root"
-              action="fms.action_fms_overview_server"
-              groups="fms.group_fms_attendant"
-              sequence="5"/>
 
-    <!-- Shifts (references action_fms_shift from fms_shift_list_views.xml) -->
+    <!-- ══════════════════════════════════════════════════
+         OVERVIEW
+         Dashboard  |  Active Shift
+    ══════════════════════════════════════════════════ -->
+
+    <menuitem id="menu_fms_overview"
+              name="Dashboard"
+              parent="menu_fms_overview_section"
+              action="action_fms_overview_server"
+              groups="fms.group_fms_attendant"
+              sequence="10"/>
+
+    <!-- Active Shift: filtered list/form on open+closing shifts -->
+    <menuitem id="menu_fms_active_shift"
+              name="Active Shift"
+              parent="menu_fms_overview_section"
+              action="action_fms_active_shift"
+              groups="fms.group_fms_attendant"
+              sequence="20"/>
+
+    <!-- ══════════════════════════════════════════════════
+         OPERATIONS
+         Shifts | Meter Readings | Dip Readings
+         Short Sales Adjustments
+         (Fuel Deliveries added by fms_accounting_menus.xml)
+    ══════════════════════════════════════════════════ -->
+
     <menuitem id="menu_fms_shifts"
               name="Shifts"
               parent="menu_fms_operations"
@@ -17,18 +37,176 @@
               groups="fms.group_fms_attendant"
               sequence="10"/>
 
-    <!-- Compliance sub-items -->
     <menuitem id="menu_fms_meter_logs"
-              name="Meter Logs"
-              parent="menu_fms_section_compliance"
+              name="Meter Readings"
+              parent="menu_fms_operations"
               action="action_fms_meter_log"
               groups="fms.group_fms_supervisor"
-              sequence="10"/>
+              sequence="30"/>
 
     <menuitem id="menu_fms_dip_logs"
-              name="Dip Logs"
-              parent="menu_fms_section_wetstock"
+              name="Dip Readings"
+              parent="menu_fms_operations"
               action="action_fms_dip_log"
               groups="fms.group_fms_supervisor"
               sequence="40"/>
+
+    <menuitem id="menu_fms_incidents"
+              name="Short Sales Adjustments"
+              parent="menu_fms_operations"
+              action="action_fms_incident"
+              groups="fms.group_fms_supervisor"
+              sequence="50"/>
+
+    <!-- ══════════════════════════════════════════════════
+         REPORTING — fms module reports
+         (Sales & Cash and accounting reports added by fms_accounting_menus.xml)
+    ══════════════════════════════════════════════════ -->
+
+    <menuitem id="menu_fms_report_shift_reconciliation"
+              name="Shift Reconciliation"
+              parent="menu_fms_reporting"
+              action="action_fms_daily_station_report"
+              groups="fms.group_fms_supervisor"
+              sequence="10"/>
+
+    <menuitem id="menu_fms_report_wetstock"
+              name="Wetstock"
+              parent="menu_fms_reporting"
+              action="action_fms_wetstock_report"
+              groups="fms.group_fms_supervisor"
+              sequence="20"/>
+
+    <menuitem id="menu_fms_report_meter_audit"
+              name="Meter Reading Audit"
+              parent="menu_fms_reporting"
+              action="action_fms_meter_variance"
+              groups="fms.group_fms_supervisor"
+              sequence="30"/>
+
+    <menuitem id="menu_fms_report_shift_summary"
+              name="Shift Summary"
+              parent="menu_fms_reporting"
+              action="action_fms_sales_summary"
+              groups="fms.group_fms_supervisor"
+              sequence="40"/>
+
+    <menuitem id="menu_fms_report_epra"
+              name="EPRA Throughput"
+              parent="menu_fms_reporting"
+              action="action_fms_throughput"
+              groups="fms.group_fms_supervisor"
+              sequence="50"/>
+
+    <menuitem id="menu_fms_report_attendant"
+              name="Attendant Sales"
+              parent="menu_fms_reporting"
+              action="action_fms_attendant_sales_report"
+              groups="fms.group_fms_supervisor"
+              sequence="100"/>
+
+    <menuitem id="menu_fms_report_shortage"
+              name="Shortage &amp; Overage"
+              parent="menu_fms_reporting"
+              action="action_fms_shortage"
+              groups="fms.group_fms_supervisor"
+              sequence="110"/>
+
+    <menuitem id="menu_fms_report_attendant_perf"
+              name="Attendant Performance"
+              parent="menu_fms_reporting"
+              action="action_fms_attendant_perf"
+              groups="fms.group_fms_supervisor"
+              sequence="120"/>
+
+    <menuitem id="menu_fms_report_nozzle_perf"
+              name="Nozzle Performance"
+              parent="menu_fms_reporting"
+              action="action_fms_nozzle_perf"
+              groups="fms.group_fms_supervisor"
+              sequence="130"/>
+
+    <menuitem id="menu_fms_report_risk_anomaly"
+              name="Risk &amp; Anomaly"
+              parent="menu_fms_reporting"
+              action="action_fms_risk_anomaly"
+              groups="fms.group_fms_supervisor"
+              sequence="140"/>
+
+    <menuitem id="menu_fms_report_stock_position"
+              name="Stock Position"
+              parent="menu_fms_reporting"
+              action="action_fms_stock_position"
+              groups="fms.group_fms_supervisor"
+              sequence="150"/>
+
+    <menuitem id="menu_fms_report_incidents"
+              name="Incident Register"
+              parent="menu_fms_reporting"
+              action="action_fms_incident_report"
+              groups="fms.group_fms_supervisor"
+              sequence="160"/>
+
+    <menuitem id="menu_fms_report_residuals"
+              name="Attribution Residuals"
+              parent="menu_fms_reporting"
+              action="action_fms_residual_exception"
+              groups="fms.group_fms_supervisor"
+              sequence="170"/>
+
+    <menuitem id="menu_fms_report_nozzle_handover"
+              name="Nozzle Handover"
+              parent="menu_fms_reporting"
+              action="action_fms_nozzle_handover"
+              groups="fms.group_fms_supervisor"
+              sequence="190"/>
+
+    <menuitem id="menu_fms_report_attendant_category"
+              name="Sales by Category"
+              parent="menu_fms_reporting"
+              action="action_fms_attendant_category"
+              groups="fms.group_fms_supervisor"
+              sequence="200"/>
+
+    <!-- ══════════════════════════════════════════════════
+         CONFIGURATION
+         Station Setup | Nozzles | Shift Definitions & Prices
+         Site Preferences | GL Account Setup Check
+    ══════════════════════════════════════════════════ -->
+
+    <menuitem id="menu_fms_pumps"
+              name="Station Setup"
+              parent="menu_fms_config"
+              action="action_fms_pump"
+              groups="fms.group_fms_supervisor"
+              sequence="10"/>
+
+    <menuitem id="menu_fms_nozzles"
+              name="Nozzles"
+              parent="menu_fms_config"
+              action="action_fms_nozzle"
+              groups="fms.group_fms_supervisor"
+              sequence="20"/>
+
+    <menuitem id="menu_fms_price_periods"
+              name="Shift Definitions &amp; Prices"
+              parent="menu_fms_config"
+              action="action_fms_price_period"
+              groups="fms.group_fms_supervisor"
+              sequence="30"/>
+
+    <menuitem id="menu_fms_site_preferences"
+              name="Site Preferences"
+              parent="menu_fms_config"
+              action="action_fms_site_preferences"
+              groups="fms.group_fms_supervisor"
+              sequence="40"/>
+
+    <menuitem id="menu_fms_setup_check"
+              name="GL Account Setup Check"
+              parent="menu_fms_config"
+              action="action_fms_setup_check_server"
+              groups="fms.group_fms_accountant"
+              sequence="50"/>
+
 </odoo>

@@ -95,11 +95,7 @@
         <field name="context">{'search_default_last_30': 1, 'search_default_group_nozzle': 1}</field>
     </record>
 
-    <menuitem id="menu_fms_report_meter_variance"
-              name="Meter Variance Log"
-              parent="menu_fms_section_wetstock"
-              action="action_fms_meter_variance"
-              sequence="30"/>
+    <!-- menu moved to views/fms_menus.xml -->
 
 
     <!-- ================================================================
@@ -179,12 +175,7 @@
         <field name="context">{'search_default_unallocated': 1}</field>
     </record>
 
-    <menuitem id="menu_fms_report_residuals"
-              name="Attribution Residuals"
-              parent="menu_fms_section_cash_credit"
-              action="action_fms_residual_exception"
-              sequence="20"
-              groups="fms.group_fms_supervisor"/>
+    <!-- menu moved to views/fms_menus.xml -->
 
 
     <!-- ================================================================
@@ -253,12 +244,7 @@
         <field name="context">{'search_default_this_month': 1, 'search_default_group_shift': 1}</field>
     </record>
 
-    <menuitem id="menu_fms_report_gl_reconciliation"
-              name="GL Reconciliation Journal"
-              parent="menu_fms_section_compliance"
-              action="action_fms_gl_reconciliation"
-              sequence="20"
-              groups="fms.group_fms_supervisor"/>
+    <!-- menu moved to views/fms_menus.xml -->
 
 
     <!-- ================================================================
@@ -340,11 +326,7 @@
         <field name="context">{'search_default_this_month': 1, 'search_default_group_product': 1}</field>
     </record>
 
-    <menuitem id="menu_fms_report_sales_summary"
-              name="Sales Summary"
-              parent="menu_fms_section_sales_margin"
-              action="action_fms_sales_summary"
-              sequence="10"/>
+    <!-- menu moved to views/fms_menus.xml -->
 
 
     <!-- ================================================================
@@ -420,11 +402,7 @@
         <field name="context">{'search_default_last_30': 1, 'search_default_group_product': 1}</field>
     </record>
 
-    <menuitem id="menu_fms_report_throughput"
-              name="Throughput Trend"
-              parent="menu_fms_section_sales_margin"
-              action="action_fms_throughput"
-              sequence="50"/>
+    <!-- menu moved to views/fms_menus.xml -->
 
 
     <!-- ================================================================
@@ -490,11 +468,7 @@
         <field name="context">{'search_default_group_pump': 1}</field>
     </record>
 
-    <menuitem id="menu_fms_report_nozzle_perf"
-              name="Pump &amp; Nozzle Performance"
-              parent="menu_fms_section_sales_margin"
-              action="action_fms_nozzle_perf"
-              sequence="60"/>
+    <!-- menu moved to views/fms_menus.xml -->
 
 
     <!-- ================================================================
@@ -571,11 +545,7 @@
         <field name="context">{'search_default_this_month': 1, 'search_default_group_attendant': 1}</field>
     </record>
 
-    <menuitem id="menu_fms_report_attendant_category"
-              name="Sales by Category"
-              parent="menu_fms_section_attendants"
-              action="action_fms_attendant_category"
-              sequence="30"/>
+    <!-- menu moved to views/fms_menus.xml -->
 
 
     <!-- ================================================================
@@ -655,12 +625,7 @@
         <field name="context">{'search_default_short': 1, 'search_default_group_attendant': 1}</field>
     </record>
 
-    <menuitem id="menu_fms_report_shortage"
-              name="Shortage &amp; Overage Ledger"
-              parent="menu_fms_section_attendants"
-              action="action_fms_shortage"
-              sequence="40"
-              groups="fms.group_fms_supervisor"/>
+    <!-- menu moved to views/fms_menus.xml -->
 
 
     <!-- ================================================================
@@ -726,11 +691,7 @@
         <field name="context">{}</field>
     </record>
 
-    <menuitem id="menu_fms_report_attendant_perf"
-              name="Attendant Performance"
-              parent="menu_fms_section_attendants"
-              action="action_fms_attendant_perf"
-              sequence="50"/>
+    <!-- menu moved to views/fms_menus.xml -->
 
 
     <!-- ================================================================
@@ -789,12 +750,7 @@
         <field name="context">{'search_default_any_anomaly': 1}</field>
     </record>
 
-    <menuitem id="menu_fms_report_risk_anomaly"
-              name="Risk &amp; Anomaly"
-              parent="menu_fms_section_attendants"
-              action="action_fms_risk_anomaly"
-              sequence="60"
-              groups="fms.group_fms_supervisor"/>
+    <!-- menu moved to views/fms_menus.xml -->
 
 
     <!-- ================================================================
@@ -850,11 +806,7 @@
         <field name="context">{'search_default_this_week': 1}</field>
     </record>
 
-    <menuitem id="menu_fms_report_nozzle_handover"
-              name="Nozzle Assignment &amp; Handover"
-              parent="menu_fms_section_attendants"
-              action="action_fms_nozzle_handover"
-              sequence="70"/>
+    <!-- menu moved to views/fms_menus.xml -->
 
 
 

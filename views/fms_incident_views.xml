@@ -183,11 +183,7 @@
          Operations sub-menu
     ================================================================ -->
 
-    <menuitem id="menu_fms_incidents"
-              name="Incidents"
-              parent="menu_fms_operations"
-              action="action_fms_incident"
-              sequence="20"/>
+    <!-- menu moved to views/fms_menus.xml -->
 
     <!-- ================================================================
          R9 Reporting view — pivot + graph + list (summary for the report)
@@ -232,11 +228,6 @@
         </field>
     </record>
 
-    <!-- Reporting sub-menu — uses the reporting action (pivot first) -->
-    <menuitem id="menu_fms_report_incidents"
-              name="Drive-off &amp; Incident Register"
-              parent="menu_fms_section_wetstock"
-              action="action_fms_incident_report"
-              sequence="50"/>
+    <!-- menu moved to views/fms_menus.xml -->
 
 </odoo>

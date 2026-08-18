@@ -97,7 +97,21 @@
         <field name="context">{'create': False}</field>
     </record>
 
-    <!-- Shifts list action (Operations > Shifts — default filter: open) -->
+    <!-- Active Shift action (Overview > Active Shift — shows open/closing shifts) -->
+    <record id="action_fms_active_shift" model="ir.actions.act_window">
+        <field name="name">Active Shift</field>
+        <field name="res_model">fms.shift</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_fms_shift_search"/>
+        <field name="domain">[('state', 'in', ('open', 'closing'))]</field>
+        <field name="context">{'search_default_open': 1, 'create': True}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No active shift.</p>
+            <p>Click <strong>New</strong> to open today's shift.</p>
+        </field>
+    </record>
+
+    <!-- Shifts list action (Operations > Shifts — full history) -->
     <record id="action_fms_shift" model="ir.actions.act_window">
         <field name="name">Shifts</field>
         <field name="res_model">fms.shift</field>

@@ -104,10 +104,6 @@
          Configuration menu item
     ================================================================ -->
 
-    <menuitem id="menu_fms_price_periods"
-              name="Price Periods"
-              parent="menu_fms_config"
-              action="action_fms_price_period"
-              sequence="25"/>
+    <!-- menu moved to views/fms_menus.xml -->
 
 </odoo>

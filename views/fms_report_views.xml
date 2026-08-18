@@ -242,23 +242,7 @@
          entries already exist there; only new report items added here.
     ================================================================ -->
 
-    <menuitem id="menu_fms_report_daily"
-              name="Daily Station Report"
-              parent="menu_fms_section_sales_margin"
-              action="action_fms_daily_station_report"
-              sequence="5"/>
-
-    <menuitem id="menu_fms_report_wetstock"
-              name="Wetstock Reconciliation"
-              parent="menu_fms_section_wetstock"
-              action="action_fms_wetstock_report"
-              sequence="10"/>
-
-    <menuitem id="menu_fms_report_attendant"
-              name="Attendant Sales &amp; Cash"
-              parent="menu_fms_section_attendants"
-              action="action_fms_attendant_sales_report"
-              sequence="10"/>
+    <!-- menus moved to views/fms_menus.xml -->
 
     <!-- ================================================================
          R5 · Stock Position &amp; Days of Cover
@@ -361,10 +345,6 @@
         </field>
     </record>
 
-    <menuitem id="menu_fms_report_stock_position"
-              name="Stock Position"
-              parent="menu_fms_section_wetstock"
-              action="action_fms_stock_position"
-              sequence="20"/>
+    <!-- menu moved to views/fms_menus.xml -->
 
 </odoo>
