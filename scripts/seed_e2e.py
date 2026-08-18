@@ -11,22 +11,38 @@ env = self.env   # available in odoo-bin shell context
 # ─────────────────────────────────────────────────────────────────────────────
 # 1. COMPANY — Kenya locale, KES
 # ─────────────────────────────────────────────────────────────────────────────
-company = env['res.company'].search([], limit=1)
+company = (
+    env['res.company'].search([('name', '=', 'Anika Global Limited')], limit=1)
+    or env['res.company'].search([], order='id asc', limit=1)
+)
 kenya = env.ref('base.ke')
 kes = env['res.currency'].search([('name', '=', 'KES')], limit=1)
 if not kes:
     kes = env['res.currency'].create({'name': 'KES', 'symbol': 'KSh', 'rounding': 0.01})
 
-company.write({
-    'name': 'Anika Global Limited',
-    'country_id': kenya.id,
-    'currency_id': kes.id,
-    'street': 'Maanzoni Road',
-    'city': 'Machakos',
-    'phone': '+254700000000',
-    'email': 'info@anikaglobal.co.ke',
-    'vat': 'P051234567K',
-})
+try:
+    company.write({
+        'name': 'Anika Global Limited',
+        'country_id': kenya.id,
+        'currency_id': kes.id,
+        'street': 'Maanzoni Road',
+        'city': 'Machakos',
+        'phone': '+254700000000',
+        'email': 'info@anikaglobal.co.ke',
+        'vat': 'P051234567K',
+    })
+except Exception:
+    env.cr.rollback()
+    # Name already set — update other fields only
+    company.write({
+        'country_id': kenya.id,
+        'currency_id': kes.id,
+        'street': 'Maanzoni Road',
+        'city': 'Machakos',
+        'phone': '+254700000000',
+        'email': 'info@anikaglobal.co.ke',
+        'vat': 'P051234567K',
+    })
 env.cr.commit()
 print(f"✓ Company set: {company.name} | {kes.name}")
 
@@ -245,7 +261,12 @@ def make_product(name, categ, cost, price, qty, uom=None, fms_fuel=False, fms_is
     if not tmpl:
         tmpl = ProductTemplate.search([('name', '=', name)], limit=1)
     if tmpl:
-        return tmpl.product_variant_ids[:1]
+        prod = tmpl.product_variant_ids[:1]
+        # Always update price and fms_is_fuel even when product already exists
+        tmpl.write({'list_price': price, 'standard_price': cost})
+        if fms_fuel and prod:
+            prod.write({'fms_is_fuel': True})
+        return prod
 
     tmpl = ProductTemplate.create({
         'name': name,
@@ -543,15 +564,22 @@ env.cr.commit()
 fuel_rev_acc  = AccountAccount.search([('code', '=', '400000'), ('company_ids', 'in', [company.id])], limit=1)
 fuel_cogs_acc = AccountAccount.search([('code', '=', '591000'), ('company_ids', 'in', [company.id])], limit=1)
 
-fuel_names = ['V-Power', 'Unleaded Extra', 'Diesel Extra']
-for fname in fuel_names:
-    prods = env['product.product'].search([('name', '=', fname)], limit=1)
-    if prods and fuel_rev_acc and fuel_cogs_acc:
-        prods.write({
+# Wire GL accounts on ALL fuel products (fms_is_fuel=True) including nozzle-linked ones
+all_fuel_prods = env['product.product'].search([('fms_is_fuel', '=', True)])
+# Also pick up any products linked to nozzles that may not be flagged yet
+nozzle_prods = env['fms.pump.nozzle'].search([]).mapped('product_id')
+for np in nozzle_prods.filtered(lambda p: not p.fms_is_fuel):
+    np.write({'fms_is_fuel': True})
+    print(f"  ✓ fms_is_fuel=True on nozzle product: {np.name}")
+all_fuel_prods |= nozzle_prods.filtered(lambda p: p.fms_is_fuel)
+
+if fuel_rev_acc and fuel_cogs_acc:
+    for prod in all_fuel_prods:
+        prod.write({
             'fms_revenue_account_id': fuel_rev_acc.id,
             'fms_cogs_account_id': fuel_cogs_acc.id,
         })
-        print(f"  ✓ GL wired: {fname}")
+    print(f"  ✓ GL wired on {len(all_fuel_prods)} fuel product(s)")
 
 env.cr.commit()
 
