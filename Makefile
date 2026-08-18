@@ -18,7 +18,7 @@ ODOO_PORT := 8069
 ODOO_VENV    := /home/niini/odoo-venv/bin/python
 ODOO_BIN     := /home/niini/odoo18/odoo-bin
 # Addons: odoo core | fms custom | OCA addons
-ODOO_ADDONS  := /home/niini/odoo18/addons,/home/niini/fms/..,/home/niini/oca/account-financial-reporting,/home/niini/oca/account-financial-tools,/home/niini/oca/account-reconcile,/home/niini/oca/credit-control,/home/niini/oca/web,/home/niini/oca/server-ux,/home/niini/oca/reporting-engine,/home/niini/oca/server-tools
+ODOO_ADDONS  := /home/niini/odoo18/addons,/home/niini/fms/..,/home/niini/oca/account-financial-reporting,/home/niini/oca/account-financial-tools,/home/niini/oca/account-reconcile,/home/niini/oca/credit-control,/home/niini/oca/web,/home/niini/oca/server-ux,/home/niini/oca/reporting-engine,/home/niini/oca/server-tools,/home/niini/oca/mis-builder
 
 # Help target (default)
 .DEFAULT_GOAL := help
