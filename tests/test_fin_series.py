@@ -57,6 +57,11 @@ class TestFINBase(TransactionCase):
 class TestFINPaymentExtension(TestFINBase):
     """FIN-002: account.payment FMS context fields."""
 
+    def setUp(self):
+        super().setUp()
+        if 'fms_shift_id' not in self.env['account.payment']._fields:
+            self.skipTest("fms_accounting not installed — payment FMS fields absent")
+
     def _make_payment(self, context, payment_type='inbound', amount=1000.0, state='draft'):
         pay = self.env['account.payment'].create({
             'payment_type': payment_type,
@@ -299,6 +304,11 @@ class TestFINGatesG9G14(TestFINBase):
 
 class TestFINCompanyIsolation(TestFINBase):
     """FIN-012: company isolation on account.payment FMS fields."""
+
+    def setUp(self):
+        super().setUp()
+        if 'fms_station_id' not in self.env['account.payment']._fields:
+            self.skipTest("fms_accounting not installed — payment company isolation fields absent")
 
     def test_record_rule_exists_for_supervisor(self):
         """Rule rule_fms_payment_supervisor must exist."""

@@ -463,18 +463,18 @@ class FMSShift(models.Model):
                 vals.setdefault('planned_open',  planned_open)
                 vals.setdefault('planned_close', planned_close)
 
-        # Block creating a new shift if one is already active (draft/open/closing).
-        # Check per company being assigned to the new shift record.
+        # Block creating a new shift if one is already open or closing.
+        # Draft shifts are allowed to queue up; only open/closing conflict.
         for vals in vals_list:
             company_id = vals.get('company_id') or self.env.company.id
             conflict = self.search([
                 ('company_id', '=', company_id),
-                ('state', 'in', ('draft', 'open', 'closing')),
+                ('state', 'in', ('open', 'closing')),
             ], limit=1)
             if conflict:
                 raise ValidationError(
                     f"Shift '{conflict.display_name}' is already active "
-                    f"({conflict.state}). Close or delete it before creating a new shift."
+                    f"({conflict.state}). Close it before creating a new shift."
                 )
 
         return super().create(vals_list)
@@ -1662,6 +1662,8 @@ class FMSShift(models.Model):
         over-collection errors.
         """
         self.ensure_one()
+        if 'fms_shift_id' not in self.env['account.payment']._fields:
+            return
         cur = self.company_id.currency_id
         invoiced = sum(
             self.env['account.move'].search([
@@ -1694,6 +1696,8 @@ class FMSShift(models.Model):
         This ensures floats are neither lost nor double-counted.
         """
         self.ensure_one()
+        if 'fms_shift_id' not in self.env['account.payment']._fields:
+            return
         cur = self.company_id.currency_id
         float_total = sum(
             self.env['account.payment'].search([
@@ -1734,6 +1738,8 @@ class FMSShift(models.Model):
         a false balance in the attendant reconciliation.
         """
         self.ensure_one()
+        if 'fms_shift_id' not in self.env['account.payment']._fields:
+            return
         draft_expenses = self.env['account.payment'].search([
             ('fms_shift_id', '=', self.id),
             ('fms_payment_context', '=', 'expense'),
@@ -1752,6 +1758,8 @@ class FMSShift(models.Model):
         Same rationale as G11 — unposted payments create false cash balances.
         """
         self.ensure_one()
+        if 'fms_shift_id' not in self.env['account.payment']._fields:
+            return
         draft_vendor = self.env['account.payment'].search([
             ('fms_shift_id', '=', self.id),
             ('fms_payment_context', '=', 'vendor_payment'),
