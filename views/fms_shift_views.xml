@@ -183,51 +183,6 @@
                             </field>
                         </page>
 
-                        <!-- ═══════════════════════════════════════════
-                             TAB 3: Attendant Cash Reconciliation
-                             Spec Section 3.3 Screen 3
-
-                             INCOMING (from POS — read-only):
-                               POS Sales, MPesa, Card, AR
-                             OUTGOING (manual entry):
-                               Cash Dropped to Safe  ← ONLY EDITABLE FIELD
-                             COMPUTED:
-                               Expenses (from vendor bills), Total In, Total Out, Balance
-
-                             Balance must = 0 for shift to close (Gate 1+2).
-                        ═══════════════════════════════════════════ -->
-                        <page string="Attendant Cash" name="cash">
-                            <field name="attendant_cash_ids"
-                                   readonly="state == 'closed'"
-                                   context="{'default_shift_id': id}">
-                                <list editable="bottom" string="Attendant Cash">
-                                    <field name="attendant_id" string="Attendant"/>
-                                    <field name="cash_collected" string="Amount" sum="Total"/>
-                                </list>
-                            </field>
-                        </page>
-
-                        <!-- ═══════════════════════════════════════════
-                             TAB 4: Residual Allocations (FMS-003)
-                             Auto-populated by residual algorithm.
-                             Read-only.
-                        ═══════════════════════════════════════════ -->
-                        <page string="Residual Allocations" name="residuals">
-                            <field name="residual_allocation_ids" readonly="1">
-                                <list string="Residual Allocations">
-                                    <field name="source_product_id"
-                                           string="From (Over-reported)"/>
-                                    <field name="target_product_id"
-                                           string="To (Under-reported)"/>
-                                    <field name="qty_litres" string="Qty (L)"/>
-                                    <field name="amount" string="Amount"
-                                           sum="Total Reallocated"/>
-                                    <field name="journal_entry_id" optional="hide"
-                                           string="GL Entry"/>
-                                    <field name="notes" optional="hide"/>
-                                </list>
-                            </field>
-                        </page>
 
 
                     </notebook>
