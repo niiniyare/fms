@@ -18,7 +18,7 @@ R28 fms.report.risk.anomaly         — Attendant Risk & Anomaly
 R29 fms.report.nozzle.handover      — Nozzle Assignment & Handover Log
 """
 
-from odoo import models, fields, api
+from odoo import models, fields, api, tools
 
 
 class FMSReportDailyStation(models.Model):
