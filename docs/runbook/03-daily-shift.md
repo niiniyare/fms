@@ -313,3 +313,58 @@ Multiple users can open the same shift simultaneously. Odoo ORM handles concurre
 ## Empty Shifts
 
 A shift with zero sales and zero attendant balances is an **empty shift**. Empty shifts bypass all gate checks and close immediately without posting any GL entries. Use to close a shift that was opened accidentally or for a period with no sales.
+
+---
+
+## Cash Reconciliation Formula (Full)
+
+The attendant cash balance reconciles ALL cash-affecting transactions:
+
+```
+EXPECTED CASH (total_in)
+  = Meter elec_cash_sold          (all fuel sales at pump price)
+  + Customer Receipts             (account.payment inbound, linked to shift+attendant, posted)
+  + Cash Floats received          (account.payment fms_payment_context=cash_float, posted)
+  - Cash Drops to safe mid-shift  (account.payment fms_payment_context=cash_drop, posted)
+
+ACCOUNTED CASH (total_out)
+  = Physical cash dropped to safe  (cash_collected, entered manually)
+  + MPesa                          (digital payment, from POS sessions)
+  + Card                           (card payment, from POS sessions)
+  + AR / Credit                    (credit sales, from POS sessions)
+  + Expenses paid from shift cash  (account.payment fms_payment_context=vendor_payment or expense, posted)
+
+BALANCE = EXPECTED CASH - ACCOUNTED CASH
+Must = 0 before shift can close.
+```
+
+**Key distinction:**
+- A customer credit invoice contributes to SALES but NOT to physical cash collected.
+- A customer receipt (cash payment against a prior invoice) DOES contribute to physical cash collected.
+- An expense recorded but NOT paid from shift cash does NOT affect the balance.
+- Only payments explicitly linked to the shift with fms_shift_id affect reconciliation.
+
+---
+
+## Shift Close Gates (Full Sequence)
+
+| # | Gate | Blocks On |
+|---|------|-----------|
+| 0 | GL Config | Missing revenue/COGS accounts, missing journal/clearing |
+| 1 | Supervisor | No supervisor assigned |
+| 2 | Attendant Assignment | Attendant missing on meter entries (per-nozzle mode) |
+| 3 | Three-Meter (Elec vs Manual) | Any nozzle \|elec - manual\| > 1L |
+| 4 | Elec vs Cash Threshold | Any nozzle \|elec - cash implied\| > threshold |
+| 5 | Volume Reconciliation | Meter volume ≠ POS volume (beyond tolerance) |
+| 6 | Cash Reconciliation | Cash meter ≠ POS cash + payments |
+| 7 | Attendant Balances | Any attendant balance ≠ 0 |
+| 8 | FC Cash | Total FC cash ≠ 0 |
+| 9 | Stock Variance | Any tank dip variance > meniscus % |
+| 10 | Meter vs Sales | Meter fuel volume ≠ posted invoice+receipt fuel volume |
+| 11 | Customer Receipts | Receipts not matching declared cash |
+| 12 | Float Reconciliation | Floats not accounted for |
+| 13 | Expense Reconciliation | Expenses paid from cash not matching declared cash |
+| 14 | Vendor Payment | Vendor payments from cash not matching declared cash |
+
+Gates 11-14 are active only if account.payment records with fms_shift_id exist.
+

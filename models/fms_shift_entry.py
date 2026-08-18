@@ -282,17 +282,24 @@ class FMSShiftAttendantCash(models.Model):
     Per-attendant cash reconciliation for one shift.
 
     ONLY cash_collected (physical cash dropped to safe) is entered manually.
-    All other amounts are queried automatically:
-      - reported_sales : POS orders where cashier = attendant's linked user
-      - mpesa_amount   : POS payments via MPesa-type payment method
-      - card_amount    : POS payments via Card-type payment method
-      - ar_amount      : POS payments via AR/Account-type payment method
-      - expense_amount : Vendor bills (account.move in_invoice) tagged to this shift+attendant
+    All other amounts are derived from source records:
+      - reported_sales     : meter elec_cash_sold for this attendant's nozzles
+      - mpesa_amount       : POS payments via MPesa payment method
+      - card_amount        : POS payments via Card payment method
+      - ar_amount          : POS payments via AR/Account payment method (credit sales)
+      - customer_receipt_amount : account.payment inbound, fms_payment_context=customer_receipt
+      - float_amount       : account.payment fms_payment_context=cash_float (not revenue)
+      - cash_drop_amount   : account.payment fms_payment_context=cash_drop (reduces holding)
+      - vendor_payment_amount : account.payment outbound, fms_payment_context=vendor_payment
+      - expense_amount     : account.payment fms_payment_context=expense
 
-    Balance = (reported_sales) − (cash_collected + mpesa_amount + card_amount + ar_amount + expense_amount)
-    Balance must = 0 for the shift to close (hard gate, FMS-006).
+    Formula:
+      total_in  = reported_sales + customer_receipt_amount + float_amount - cash_drop_amount
+      total_out = cash_collected + mpesa_amount + card_amount + ar_amount
+                  + vendor_payment_amount + expense_amount
+      balance   = total_in - total_out  → must = 0 to close
 
-    Reference: Spec Section 3.3 Screen 3 / Section 7.2
+    Reference: FIN-006, Runbook 03-daily-shift.md
     """
 
     _name = 'fms.shift.attendant.cash'
@@ -308,48 +315,64 @@ class FMSShiftAttendantCash(models.Model):
     # ── ONLY EDITABLE FIELD ───────────────────────────────────────────────────
     cash_collected = fields.Float(
         'Cash Dropped to Safe (KES)', digits=(16, 2),
-        help="Physical cash the attendant handed to the supervisor / dropped in the safe. "
-             "This is the only field entered manually — all other amounts come from POS and GL.",
+        help="Physical cash the attendant handed to the supervisor / dropped in the safe.",
     )
 
-    # ── INCOMING (from nozzle elec cash meters) ───────────────────────────────
+    # ── INCOMING (from meters) ────────────────────────────────────────────────
     reported_sales = fields.Float(
         'Meter Sales (KES)', compute='_compute_from_meters', store=True, digits=(16, 2),
-        help="Sum of elec_cash_sold across all meter entries where attendant = this attendant. "
-             "This is the cash the pump electronics say this attendant collected.",
+        help="Sum of elec_cash_sold for this attendant's nozzles.",
     )
+
+    # ── PAYMENT METHOD SPLITS (from POS) ─────────────────────────────────────
     mpesa_amount = fields.Float(
         'MPesa (KES)', compute='_compute_from_pos', digits=(16, 2),
-        help="POS payments via MPesa payment method (payment method name contains 'mpesa').",
+        help="POS payments via MPesa payment method.",
     )
     card_amount = fields.Float(
         'Card (KES)', compute='_compute_from_pos', digits=(16, 2),
-        help="POS payments via Card payment method (payment method name contains 'card').",
+        help="POS payments via Card payment method.",
     )
     ar_amount = fields.Float(
         'AR / Credit Sales (KES)', compute='_compute_from_pos', digits=(16, 2),
-        help="POS payments via Account/AR payment method, i.e. credit sales posted as receivables.",
+        help="POS payments via Account/AR payment method (credit sales).",
     )
 
-    # ── OUTGOING (queried from GL) ────────────────────────────────────────────
+    # ── CASH MOVEMENTS (from account.payment with fms_shift_id) ──────────────
+    customer_receipt_amount = fields.Float(
+        'Customer Receipts (KES)', compute='_compute_from_payments', digits=(16, 2),
+        help="Cash collected from customers paying outstanding invoices. "
+             "Source: account.payment with fms_payment_context=customer_receipt, posted.",
+    )
+    float_amount = fields.Float(
+        'Cash Float (KES)', compute='_compute_from_payments', digits=(16, 2),
+        help="Opening/additional float issued to this attendant. Not revenue — increases expected holding.",
+    )
+    cash_drop_amount = fields.Float(
+        'Cash Drops (KES)', compute='_compute_from_payments', digits=(16, 2),
+        help="Mid-shift cash drops/pickups. Reduces expected holding (cash already in safe).",
+    )
+    vendor_payment_amount = fields.Float(
+        'Vendor Payments (KES)', compute='_compute_from_payments', digits=(16, 2),
+        help="Cash paid to vendors from shift cash. Reduces expected holding.",
+    )
     expense_amount = fields.Float(
-        'Expenses (KES)', compute='_compute_from_invoices', digits=(16, 2),
-        help="Vendor bills (account.move with move_type=in_invoice) linked to this shift "
-             "where the bill's attendant matches this record.",
+        'Expenses (KES)', compute='_compute_from_payments', digits=(16, 2),
+        help="Small expenses paid directly from shift cash.",
     )
 
     # ── TOTALS ────────────────────────────────────────────────────────────────
     total_in = fields.Float(
-        'Total In (KES)', compute='_compute_balance', digits=(16, 2),
-        help="POS Sales — all money that should have come to this attendant.",
+        'Expected Cash (KES)', compute='_compute_balance', digits=(16, 2),
+        help="All cash this attendant should have: sales + receipts + float - drops.",
     )
     total_out = fields.Float(
-        'Total Out (KES)', compute='_compute_balance', digits=(16, 2),
-        help="Cash + MPesa + Card + AR + Expenses — how the money left the attendant.",
+        'Accounted Cash (KES)', compute='_compute_balance', digits=(16, 2),
+        help="Physical cash + digital payments + expenses + vendor payments.",
     )
     balance = fields.Float(
         'Balance (KES)', compute='_compute_balance', digits=(16, 2),
-        help="Total In minus Total Out. Must be 0 for shift to close (hard gate).",
+        help="Expected Cash − Accounted Cash. Must be 0 for shift to close.",
     )
 
     notes = fields.Char('Notes')
@@ -432,37 +455,99 @@ class FMSShiftAttendantCash(models.Model):
                 rec.card_amount  = 0.0
                 rec.ar_amount    = 0.0
 
-    # ── Compute: Expenses from GL ─────────────────────────────────────────────
+    # ── Compute: Cash movements from account.payment (FIN-002/FIN-006) ──────────
+    # Uses SQL aggregation to avoid N+1 ORM queries across potentially large
+    # payment tables. Groups by (shift_id, attendant_id, fms_payment_context).
 
     @api.depends('shift_id', 'attendant_id')
-    def _compute_from_invoices(self):
-        for rec in self:
-            if not rec.shift_id or not rec.attendant_id:
-                rec.expense_amount = 0.0
-                continue
-            bills = self.env['account.move'].search([
-                ('move_type', '=', 'in_invoice'),
-                ('invoice_date', '=', rec.shift_id.date),
-                ('ref', 'ilike', rec.shift_id._origin.id or rec.shift_id.id),
-            ])
-            rec.expense_amount = sum(bills.mapped('amount_total'))
+    def _compute_from_payments(self):
+        records_with_shift = self.filtered(lambda r: r.shift_id and r.attendant_id)
+        records_without = self - records_with_shift
+
+        for rec in records_without:
+            rec.customer_receipt_amount = 0.0
+            rec.float_amount = 0.0
+            rec.cash_drop_amount = 0.0
+            rec.vendor_payment_amount = 0.0
+            rec.expense_amount = 0.0
+
+        if not records_with_shift:
+            return
+
+        shift_ids = records_with_shift.mapped('shift_id').ids
+        attendant_ids = records_with_shift.mapped('attendant_id').ids
+
+        # Single SQL query — aggregate by shift, attendant, context
+        # Only 'posted' payments count (state='posted' in account.payment)
+        self.env.cr.execute("""
+            SELECT
+                fms_shift_id,
+                COALESCE(fms_attendant_id, 0) AS attendant_id,
+                fms_payment_context,
+                COALESCE(SUM(amount), 0) AS total
+            FROM account_payment
+            WHERE fms_shift_id = ANY(%s)
+              AND state = 'posted'
+              AND fms_payment_context IS NOT NULL
+            GROUP BY fms_shift_id, fms_attendant_id, fms_payment_context
+        """, (shift_ids,))
+        rows = self.env.cr.fetchall()
+
+        # Index: (shift_id, attendant_id, context) -> amount
+        agg = {}
+        for shift_id, att_id, ctx, total in rows:
+            agg[(shift_id, att_id, ctx)] = total
+
+        def _get(rec, ctx, attendant_scoped=True):
+            att = rec.attendant_id.id if attendant_scoped else 0
+            shift = rec.shift_id.id
+            # Try attendant-scoped first, fall back to shift-level (attendant_id NULL)
+            return agg.get((shift, att, ctx), 0.0) + agg.get((shift, 0, ctx), 0.0) if attendant_scoped \
+                else agg.get((shift, 0, ctx), 0.0)
+
+        for rec in records_with_shift:
+            att = rec.attendant_id.id
+            shift = rec.shift_id.id
+            # customer_receipt: attendant-scoped inbound cash from customers
+            rec.customer_receipt_amount = agg.get((shift, att, 'customer_receipt'), 0.0)
+            # float: shift-level (issued to the shift, split by attendant_id if present)
+            rec.float_amount = agg.get((shift, att, 'cash_float'), 0.0) + agg.get((shift, 0, 'cash_float'), 0.0)
+            # cash_drop + cash_pickup: reduces attendant's expected holding
+            rec.cash_drop_amount = (
+                agg.get((shift, att, 'cash_drop'), 0.0)
+                + agg.get((shift, 0, 'cash_drop'), 0.0)
+            )
+            # vendor_payment: outbound from shift cash
+            rec.vendor_payment_amount = agg.get((shift, att, 'vendor_payment'), 0.0)
+            # expense: small expenses from shift cash
+            rec.expense_amount = agg.get((shift, att, 'expense'), 0.0)
 
     # ── Compute: Balance ─────────────────────────────────────────────────────
 
     @api.depends(
         'reported_sales', 'cash_collected',
-        'mpesa_amount', 'card_amount', 'ar_amount', 'expense_amount',
+        'mpesa_amount', 'card_amount', 'ar_amount',
+        'customer_receipt_amount', 'float_amount', 'cash_drop_amount',
+        'vendor_payment_amount', 'expense_amount',
         'shift_id.meter_entry_ids.elec_cash_sold',
         'shift_id.meter_entry_ids.attendant_id',
     )
     def _compute_balance(self):
         for rec in self:
-            rec.total_in  = rec.reported_sales
+            # total_in: all cash this attendant should physically have
+            rec.total_in = (
+                rec.reported_sales
+                + rec.customer_receipt_amount
+                + rec.float_amount
+                - rec.cash_drop_amount
+            )
+            # total_out: all ways the cash left the attendant's hands
             rec.total_out = (
                 rec.cash_collected
                 + rec.mpesa_amount
                 + rec.card_amount
                 + rec.ar_amount
+                + rec.vendor_payment_amount
                 + rec.expense_amount
             )
             rec.balance = rec.total_in - rec.total_out
