@@ -348,23 +348,25 @@ Must = 0 before shift can close.
 
 ## Shift Close Gates (Full Sequence)
 
-| # | Gate | Blocks On |
-|---|------|-----------|
-| 0 | GL Config | Missing revenue/COGS accounts, missing journal/clearing |
-| 1 | Supervisor | No supervisor assigned |
-| 2 | Attendant Assignment | Attendant missing on meter entries (per-nozzle mode) |
-| 3 | Three-Meter (Elec vs Manual) | Any nozzle \|elec - manual\| > 1L |
-| 4 | Elec vs Cash Threshold | Any nozzle \|elec - cash implied\| > threshold |
-| 5 | Volume Reconciliation | Meter volume ≠ POS volume (beyond tolerance) |
-| 6 | Cash Reconciliation | Cash meter ≠ POS cash + payments |
-| 7 | Attendant Balances | Any attendant balance ≠ 0 |
-| 8 | FC Cash | Total FC cash ≠ 0 |
-| 9 | Stock Variance | Any tank dip variance > meniscus % |
-| 10 | Meter vs Sales | Meter fuel volume ≠ posted invoice+receipt fuel volume |
-| 11 | Customer Receipts | Receipts not matching declared cash |
-| 12 | Float Reconciliation | Floats not accounted for |
-| 13 | Expense Reconciliation | Expenses paid from cash not matching declared cash |
-| 14 | Vendor Payment | Vendor payments from cash not matching declared cash |
+| # | Gate | Method | Blocks On |
+|---|------|--------|-----------|
+| 0 | GL Config | `_gate_check_gl_config` | Missing revenue/COGS accounts, missing journal/clearing |
+| 1 | Supervisor | (inline) | No supervisor assigned |
+| 2 | Attendant Assignment | (inline) | Attendant missing on meter entries (per-nozzle mode) |
+| G1 | Elec vs Manual | `_gate_check_meter_elec_vs_manual` | Any nozzle \|elec − manual\| > 1L |
+| G2 | Elec vs Cash | `_gate_check_meter_elec_vs_cash` | Any nozzle \|elec − cash implied\| > threshold |
+| G3 | Volume Reconciliation | `_gate_check_volume_reconciliation` | Meter volume ≠ POS volume (beyond tolerance) |
+| G4 | Cash Reconciliation | `_gate_check_cash_reconciliation` | Cash meter ≠ POS cash (beyond 100 KES) |
+| G5 | Attendant Balances | `_gate_check_attendant_balances` | Any attendant balance ≠ 0 |
+| G6 | FC Cash | `_gate_check_fc_cash` | Total FC cash ≠ 0 |
+| G7 | Stock Variance | `_gate_check_stock_variance` | Any tank dip variance > meniscus % |
+| G8 | Meter vs Sales | `_gate_check_meter_vs_sales` | Meter fuel volume ≠ posted invoice+receipt fuel volume |
+| G9 | Customer Receipts | `_gate_check_customer_receipts` | Receipts exceed invoiced amount for shift |
+| G10 | Float Reconciliation | `_gate_check_float_reconciliation` | Floats not accounted for in drops + cash collected |
+| G11 | Expense Posting | `_gate_check_expense_posting` | Draft expense payments exist on shift |
+| G12 | Vendor Payment Posting | `_gate_check_vendor_payment_posting` | Draft vendor payments exist on shift |
+| G13 | Digital Payments | `_gate_check_digital_payment_reconciliation` | Negative digital payment total from POS |
+| G14 | No Blocking Exceptions | `_gate_check_no_unresolved_exceptions` | Shift still in 'disputed' state |
 
-Gates 11-14 are active only if account.payment records with fms_shift_id exist.
+Gates G9-G14 are active only if account.payment records with `fms_shift_id` exist (FIN-002 integration).
 

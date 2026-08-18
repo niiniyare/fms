@@ -86,7 +86,7 @@ class FMSPumpNozzle(models.Model):
         help="Electronic totalizer volume reading at commissioning.",
     )
     init_elec_cash = fields.Float(
-        'Opening Elec Cash (KES)', digits=(16, 2),
+        'Opening Elec Cash', digits=(16, 2),
         help="Electronic cash totalizer reading at commissioning.",
     )
     init_mech_volume = fields.Float(
@@ -108,7 +108,7 @@ class FMSPumpNozzle(models.Model):
         help="Latest closing electronic volume reading. Auto-updated on shift close.",
     )
     current_elec_cash = fields.Float(
-        'Current Elec Cash (KES)', digits=(16, 2), readonly=True,
+        'Current Elec Cash', digits=(16, 2), readonly=True,
         help="Latest closing electronic cash reading. Auto-updated on shift close.",
     )
     current_mech_volume = fields.Float(

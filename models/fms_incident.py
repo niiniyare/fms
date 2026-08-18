@@ -51,8 +51,8 @@ class FMSIncident(models.Model):
         domain=[('fms_is_fuel', '=', True)], tracking=True,
     )
     litres      = fields.Float('Litres',    digits=(16, 3), tracking=True)
-    unit_price  = fields.Float('Price/L (KES)', digits=(16, 4))
-    amount      = fields.Float('Value (KES)', compute='_compute_amount', store=True,
+    unit_price  = fields.Float('Price/L', digits=(16, 4))
+    amount      = fields.Float('Value', compute='_compute_amount', store=True,
                                digits=(16, 2))
 
     # ── Evidence ─────────────────────────────────────────────────────────
@@ -68,7 +68,7 @@ class FMSIncident(models.Model):
         ('written_off',  'Written Off'),
     ], string='Recovery Status', default='open', required=True, tracking=True)
     recovery_notes  = fields.Text('Recovery Notes')
-    recovery_amount = fields.Float('Amount Recovered (KES)', digits=(16, 2))
+    recovery_amount = fields.Float('Amount Recovered', digits=(16, 2))
 
     # ── Workflow ──────────────────────────────────────────────────────────
     state = fields.Selection([

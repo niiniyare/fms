@@ -39,11 +39,11 @@ class FMSShiftProductSales(models.Model):
         help="Sum of qty_sold_man across all nozzles (backup reading).",
     )
     price_at_close = fields.Float(
-        'Price at Close (KES/L)', digits=(16, 4), readonly=True,
+        'Price at Close (/L)', digits=(16, 4), readonly=True,
         help="Product list price at the time of refresh — used for meter_revenue.",
     )
     meter_revenue = fields.Float(
-        'Meter Revenue (KES)', compute='_compute_volume', store=True, digits=(16, 2),
+        'Meter Revenue', compute='_compute_volume', store=True, digits=(16, 2),
         help="meter_volume × price_at_close. Theoretical value if all volume was sold at list price.",
     )
     accounted_volume = fields.Float(
@@ -61,23 +61,23 @@ class FMSShiftProductSales(models.Model):
         help="Liters reallocated TO this product by the residual algorithm.",
     )
     allocated_amount = fields.Float(
-        'Allocated Amount (KES)', digits=(16, 2), readonly=True,
+        'Allocated Amount', digits=(16, 2), readonly=True,
         help="allocated_volume × price_at_close (for GL posting).",
     )
 
     # ── CASH SIDE — revenue reconciliation ───────────────────────────────────
     elec_cash_sold = fields.Float(
-        'Cash Meter (KES)', digits=(16, 2), readonly=True,
+        'Cash Meter', digits=(16, 2), readonly=True,
         help="Sum of elec_cash_sold across all nozzles for this product. "
              "What the pump's electronic cash register says was collected.",
     )
     pos_cash_collected = fields.Float(
-        'POS Total (KES)', compute='_compute_accounted', digits=(16, 2),
+        'POS Total', compute='_compute_accounted', digits=(16, 2),
         help="Total POS revenue for this product (all payment modes). "
              "Payment-mode breakdown lives at the attendant cash level.",
     )
     cash_residual = fields.Float(
-        'Cash Residual (KES)', compute='_compute_cash_residual', store=True, digits=(16, 2),
+        'Cash Residual', compute='_compute_cash_residual', store=True, digits=(16, 2),
         help="elec_cash_sold − pos_cash_collected. "
              "+ve = pump charged more than POS recorded (pump over-charged or POS missed a sale). "
              "-ve = POS recorded more than pump charged (price mismatch or POS error).",
@@ -93,9 +93,9 @@ class FMSShiftProductSales(models.Model):
     # ── Legacy aliases (kept for backward-compat with existing views/tests) ──
     qty_sold_elec = fields.Float(related='meter_volume',   string='Qty Sold Elec (L)')
     qty_sold_man  = fields.Float(related='meter_volume_man', string='Qty Sold Manual (L)')
-    amount_elec   = fields.Float(related='meter_revenue',  string='Meter Revenue (KES) [alias]')
+    amount_elec   = fields.Float(related='meter_revenue',  string='Meter Revenue [alias]')
     residual_qty  = fields.Float(related='volume_residual', string='Residual Qty (L)')
-    residual_amount = fields.Float(related='cash_residual', string='Residual Amount (KES)')
+    residual_amount = fields.Float(related='cash_residual', string='Residual Amount')
 
     # ------------------------------------------------------------------
     # Compute
@@ -156,7 +156,7 @@ class FMSShiftResidualAllocation(models.Model):
 
     qty_litres = fields.Float('Qty (L)', digits=(16, 2),
                               help="Liters reallocated from source to target.")
-    amount = fields.Float('Amount (KES)', digits=(16, 2),
+    amount = fields.Float('Amount', digits=(16, 2),
                           help="qty_litres × target product price_at_close.")
 
     journal_entry_id = fields.Many2one(

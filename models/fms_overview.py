@@ -39,8 +39,8 @@ class FMSOverview(models.TransientModel):
     yesterday_date          = fields.Date('Yesterday',               readonly=True)
     yesterday_throughput_l  = fields.Float('Throughput (L)',         readonly=True, digits=(16, 0))
     yesterday_throughput_vs = fields.Float('vs 7-day avg (%)',       readonly=True, digits=(16, 1))
-    yesterday_sales_kes     = fields.Float('Sales (KES)',            readonly=True, digits=(16, 0))
-    yesterday_cash_var      = fields.Float('Cash Over/Short (KES)',  readonly=True, digits=(16, 2))
+    yesterday_sales_kes     = fields.Float('Sales',            readonly=True, digits=(16, 0))
+    yesterday_cash_var      = fields.Float('Cash Over/Short',  readonly=True, digits=(16, 2))
     yesterday_shifts        = fields.Integer('Shifts Yesterday',     readonly=True)
 
     # Worst wetstock variance across all tanks (rolling 7-day)
@@ -59,16 +59,16 @@ class FMSOverview(models.TransientModel):
 
     # ── Row 5  Debtors ────────────────────────────────────────────────────────
 
-    total_ar                = fields.Float('Total AR (KES)',         readonly=True, digits=(16, 0))
+    total_ar                = fields.Float('Total AR',         readonly=True, digits=(16, 0))
     over_limit_count        = fields.Integer('Over Limit',           readonly=True)
-    ar_overdue_90           = fields.Float('90+ Days (KES)',         readonly=True, digits=(16, 0))
+    ar_overdue_90           = fields.Float('90+ Days',         readonly=True, digits=(16, 0))
 
     # ── Row 6  People ─────────────────────────────────────────────────────────
 
     current_shift_label     = fields.Char('Current Shift',          readonly=True)
     current_supervisor      = fields.Char('Supervisor',             readonly=True)
     current_attendant_count = fields.Integer('Attendants on Shift', readonly=True)
-    open_shortage_kes       = fields.Float('Outstanding Shortages (KES)', readonly=True, digits=(16, 0))
+    open_shortage_kes       = fields.Float('Outstanding Shortages', readonly=True, digits=(16, 0))
 
     # ------------------------------------------------------------------
     # Singleton entry point — action opens (or refreshes) one record

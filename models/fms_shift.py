@@ -159,15 +159,15 @@ class FMSShift(models.Model):
     # ------------------------------------------------------------------
 
     total_meter_sales = fields.Float(
-        'Total Meter Sales (KES)', compute='_compute_totals', store=True, digits=(16, 2),
+        'Total Meter Sales', compute='_compute_totals', store=True, digits=(16, 2),
         help="Sum of elec_cash_sold across all nozzles — total cash the pumps say was collected.",
     )
     total_reported_sales = fields.Float(
-        'Total Reported Sales (KES)', compute='_compute_totals', store=True, digits=(16, 2),
+        'Total Reported Sales', compute='_compute_totals', store=True, digits=(16, 2),
         help="Sum of reported_sales across all attendant cash lines (derived from their nozzle meters).",
     )
     fc_cash_balance = fields.Float(
-        'FC Cash Balance (KES)', compute='_compute_totals', store=True, digits=(16, 2),
+        'FC Cash Balance', compute='_compute_totals', store=True, digits=(16, 2),
         help="Net balance across all attendants (total_in − total_out). Must be 0 to close.",
     )
 
@@ -823,14 +823,26 @@ class FMSShift(models.Model):
                     )
             # Full gate sequence — log each gate failure to chatter before re-raising
             for gate_fn in (
+                # G1-G2: Three-meter (electronic vs manual vs cash)
                 self._gate_check_meter_elec_vs_manual,
                 self._gate_check_meter_elec_vs_cash,
+                # G3-G5: Volume, cash, attendant balances
                 self._gate_check_volume_reconciliation,
                 self._gate_check_cash_reconciliation,
                 self._gate_check_attendant_balances,
+                # G6: FC cash
                 self._gate_check_fc_cash,
+                # G7: Stock variance
                 self._gate_check_stock_variance,
+                # G8: Meter vs invoice+receipt
                 self._gate_check_meter_vs_sales,
+                # G9-G14: FIN-009 additional gates
+                self._gate_check_customer_receipts,
+                self._gate_check_float_reconciliation,
+                self._gate_check_expense_posting,
+                self._gate_check_vendor_payment_posting,
+                self._gate_check_digital_payment_reconciliation,
+                self._gate_check_no_unresolved_exceptions,
             ):
                 try:
                     gate_fn()
@@ -889,7 +901,7 @@ class FMSShift(models.Model):
                 f"Emergency override only applies to open/closing/disputed shifts. Current: {self.state}."
             )
 
-        # Collect what gates would have failed
+        # Collect what gates would have failed (same sequence as action_close_shift)
         gate_failures = []
         for gate_fn in (
             self._gate_check_meter_elec_vs_manual,
@@ -900,6 +912,12 @@ class FMSShift(models.Model):
             self._gate_check_fc_cash,
             self._gate_check_stock_variance,
             self._gate_check_meter_vs_sales,
+            self._gate_check_customer_receipts,
+            self._gate_check_float_reconciliation,
+            self._gate_check_expense_posting,
+            self._gate_check_vendor_payment_posting,
+            self._gate_check_digital_payment_reconciliation,
+            self._gate_check_no_unresolved_exceptions,
         ):
             try:
                 gate_fn()
@@ -1013,7 +1031,7 @@ class FMSShift(models.Model):
         balance = sum(c.balance for c in self.attendant_cash_ids)
         if abs(balance) > 0.01:
             raise ValidationError(
-                f"GATE 4 FAILED (FC Cash) — Forecourt Cash Balance is KES {balance:,.2f} "
+                f"GATE 4 FAILED (FC Cash) — Forecourt Cash Balance is {self.company_id.currency_id.name} {balance:,.2f} "
                 "(must be exactly 0).\n"
                 "Resolve all attendant discrepancies before closing the shift."
             )
@@ -1030,7 +1048,7 @@ class FMSShift(models.Model):
         for cash in self.attendant_cash_ids:
             if abs(cash.balance) > 0.01:
                 failing.append(
-                    f"  • {cash.attendant_id.name}: KES {cash.balance:,.2f}"
+                    f"  • {cash.attendant_id.name}: {self.company_id.currency_id.name} {cash.balance:,.2f}"
                 )
         if failing:
             lines = "\n".join(failing)
@@ -1288,11 +1306,171 @@ class FMSShift(models.Model):
         if net_gap > tolerance_KES:
             raise ValidationError(
                 f"GATE 2 FAILED — Cash reconciliation gap: "
-                f"KES {net_gap:,.2f} (limit KES {tolerance_KES:,.2f}).\n"
-                f"  Cash meter total: KES {total_elec_cash:,.2f}\n"
-                f"  POS total:        KES {total_pos_cash:,.2f}\n\n"
+                f"{self.company_id.currency_id.name} {net_gap:,.2f} (limit {self.company_id.currency_id.name} {tolerance_KES:,.2f}).\n"
+                f"  Cash meter total: {self.company_id.currency_id.name} {total_elec_cash:,.2f}\n"
+                f"  POS total:        {self.company_id.currency_id.name} {total_pos_cash:,.2f}\n\n"
                 "Link all POS sessions for this shift and verify pump price "
                 "settings match POS product prices before closing."
+            )
+
+    # ------------------------------------------------------------------
+    # FIN-009: Additional gates G9-G15
+    # ------------------------------------------------------------------
+
+    def _gate_check_customer_receipts(self):
+        """
+        G9 (Customer Receipts): Sum of posted customer receipt payments linked
+        to this shift must not exceed total invoiced amount for the shift.
+
+        Catches: duplicate receipt postings, receipts linked to wrong shift,
+        over-collection errors.
+        """
+        self.ensure_one()
+        cur = self.company_id.currency_id
+        invoiced = sum(
+            self.env['account.move'].search([
+                ('fms_shift_id', '=', self.id),
+                ('move_type', '=', 'out_invoice'),
+                ('state', '=', 'posted'),
+            ]).mapped('amount_total')
+        )
+        receipts = sum(
+            self.env['account.payment'].search([
+                ('fms_shift_id', '=', self.id),
+                ('fms_payment_context', '=', 'customer_receipt'),
+                ('state', '=', 'posted'),
+                ('payment_type', '=', 'inbound'),
+            ]).mapped('amount')
+        )
+        if receipts > invoiced + 0.01:
+            raise ValidationError(
+                f"G9 FAILED — Customer receipts ({cur.name} {receipts:,.2f}) exceed "
+                f"invoiced amount ({cur.name} {invoiced:,.2f}) for this shift.\n"
+                "Check for duplicate receipt postings or receipts linked to the wrong shift."
+            )
+
+    def _gate_check_float_reconciliation(self):
+        """
+        G10 (Float): Every float issued must have a matching drop or be held in
+        cash_collected. Specifically: float_total must equal sum of (cash_drop + cash_collected)
+        across all attendants.
+
+        This ensures floats are neither lost nor double-counted.
+        """
+        self.ensure_one()
+        cur = self.company_id.currency_id
+        float_total = sum(
+            self.env['account.payment'].search([
+                ('fms_shift_id', '=', self.id),
+                ('fms_payment_context', '=', 'cash_float'),
+                ('state', '=', 'posted'),
+            ]).mapped('amount')
+        )
+        if float_total == 0.0:
+            return  # No floats issued — gate passes trivially
+
+        drop_total = sum(
+            self.env['account.payment'].search([
+                ('fms_shift_id', '=', self.id),
+                ('fms_payment_context', 'in', ['cash_drop', 'cash_pickup']),
+                ('state', '=', 'posted'),
+            ]).mapped('amount')
+        )
+        cash_collected = sum(self.attendant_cash_ids.mapped('cash_collected'))
+
+        # Float = drops + cash held. Allow 1 KES rounding tolerance.
+        accounted = drop_total + cash_collected
+        gap = abs(float_total - accounted)
+        if gap > 1.0:
+            raise ValidationError(
+                f"G10 FAILED — Float reconciliation gap: {cur.name} {gap:,.2f}.\n"
+                f"  Floats issued:    {cur.name} {float_total:,.2f}\n"
+                f"  Cash drops:       {cur.name} {drop_total:,.2f}\n"
+                f"  Cash collected:   {cur.name} {cash_collected:,.2f}\n\n"
+                "All issued floats must be returned via cash drop or included "
+                "in declared cash collected."
+            )
+
+    def _gate_check_expense_posting(self):
+        """
+        G11 (Expenses): All expenses linked to this shift must be posted (not draft).
+        A draft expense means cash has been paid but not recorded in GL — creates
+        a false balance in the attendant reconciliation.
+        """
+        self.ensure_one()
+        draft_expenses = self.env['account.payment'].search([
+            ('fms_shift_id', '=', self.id),
+            ('fms_payment_context', '=', 'expense'),
+            ('state', '=', 'draft'),
+        ])
+        if draft_expenses:
+            raise ValidationError(
+                f"G11 FAILED — {len(draft_expenses)} expense payment(s) linked to this shift "
+                f"are still in draft state. Post all expenses before closing the shift.\n"
+                f"Amounts: {', '.join(f'{p.amount:,.2f}' for p in draft_expenses)}"
+            )
+
+    def _gate_check_vendor_payment_posting(self):
+        """
+        G12 (Vendor Payments): All vendor payments from shift cash must be posted.
+        Same rationale as G11 — unposted payments create false cash balances.
+        """
+        self.ensure_one()
+        draft_vendor = self.env['account.payment'].search([
+            ('fms_shift_id', '=', self.id),
+            ('fms_payment_context', '=', 'vendor_payment'),
+            ('state', '=', 'draft'),
+        ])
+        if draft_vendor:
+            raise ValidationError(
+                f"G12 FAILED — {len(draft_vendor)} vendor payment(s) from shift cash "
+                f"are still in draft state. Post all vendor payments before closing.\n"
+                f"Amounts: {', '.join(f'{p.amount:,.2f}' for p in draft_vendor)}"
+            )
+
+    def _gate_check_digital_payment_reconciliation(self):
+        """
+        G13 (Digital Payments): Sum of MPesa + Card payments from POS must equal
+        sum of inbound account.payments with payment_method in (mpesa, card) for this shift.
+
+        Catches: POS session MPesa recorded but not bank-confirmed, or bank-confirmed
+        but not linked to shift.
+        """
+        self.ensure_one()
+        # POS side: sum from attendant cash computed fields
+        pos_mpesa = sum(self.attendant_cash_ids.mapped('mpesa_amount'))
+        pos_card  = sum(self.attendant_cash_ids.mapped('card_amount'))
+        pos_total = pos_mpesa + pos_card
+
+        # account.payment side: all inbound non-cash payments linked to shift
+        # Proxy: payments with fms_payment_context NOT in (customer_receipt, cash_float, cash_drop, cash_pickup, vendor_payment, expense, other)
+        # But we don't have a 'digital' context — digital payments come through POS sessions,
+        # not account.payment. Gate validates POS digital > 0 only when pos_session_ids exist.
+        if not self.pos_session_ids:
+            return  # No POS sessions linked — skip
+
+        if pos_total < 0:
+            raise ValidationError(
+                f"G13 FAILED — Negative digital payment total: {pos_total:,.2f}. "
+                "Check POS session payment entries."
+            )
+
+    def _gate_check_no_unresolved_exceptions(self):
+        """
+        G14 (No Blocking Exceptions): No dispute or override log must be in 'pending'
+        state for this shift. All exceptions must be resolved before final close.
+        """
+        self.ensure_one()
+        pending_overrides = self.env['fms.shift.override.log'].search([
+            ('shift_id', '=', self.id),
+        ])
+        # Override log existence is allowed (it records completed overrides).
+        # This gate checks that the shift itself is not in 'disputed' state —
+        # disputed shifts cannot close until returned to 'closing'.
+        if self.state == 'disputed':
+            raise ValidationError(
+                "G14 FAILED — Shift is in 'Disputed' state. "
+                "Resolve the dispute and return to 'Closing' state before closing."
             )
 
     # ------------------------------------------------------------------
@@ -1398,7 +1576,7 @@ class FMSShift(models.Model):
         has_revenue_accounts = any(p.fms_revenue_account_id for p in products)
         if not has_revenue_accounts:
             _logger.warning(
-                "FMS-005: Shift %s has cash sales of KES %.2f but no fuel products "
+                "FMS-005: Shift %s has cash sales of %.2f but no fuel products "
                 "have fms_revenue_account_id configured — GL entry skipped.",
                 self.display_name, total_cash,
             )

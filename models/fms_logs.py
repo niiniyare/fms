@@ -36,10 +36,10 @@ class FMSMeterLog(models.Model):
     closing_elec_volume = fields.Float('Closing Elec Vol (L)', required=True, digits=(16, 2))
 
     # Meter 2: Electronic Cash (KES totalizer)
-    opening_elec_cash = fields.Float('Opening Elec Cash (KES)', digits=(16, 2))
-    closing_elec_cash = fields.Float('Closing Elec Cash (KES)', digits=(16, 2))
+    opening_elec_cash = fields.Float('Opening Elec Cash', digits=(16, 2))
+    closing_elec_cash = fields.Float('Closing Elec Cash', digits=(16, 2))
     elec_cash_sold = fields.Float(
-        'Cash Sold (KES)', compute='_compute_qty', store=True, digits=(16, 2),
+        'Cash Sold', compute='_compute_qty', store=True, digits=(16, 2),
     )
 
     # Meter 3: Manual Mechanical
@@ -56,7 +56,7 @@ class FMSMeterLog(models.Model):
         'Qty Sold Manual (L)', compute='_compute_qty', store=True, digits=(16, 2),
     )
     amount_elec = fields.Float(
-        'Volume × Price (KES)', compute='_compute_amount', store=True, digits=(16, 2),
+        'Volume × Price', compute='_compute_amount', store=True, digits=(16, 2),
     )
 
     recorded_date = fields.Datetime('Recorded At', default=fields.Datetime.now, readonly=True)

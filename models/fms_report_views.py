@@ -48,7 +48,7 @@ class FMSReportDailyStation(models.Model):
 
     # ── Measures ──────────────────────────────────────────────────────
     qty_litres     = fields.Float('Volume (L)',          readonly=True, digits=(16, 2))
-    amount_kes     = fields.Float('Sales (KES)',         readonly=True, digits=(16, 2))
+    amount_kes     = fields.Float('Sales',         readonly=True, digits=(16, 2))
     rtt_volume     = fields.Float('RTT (L)',             readonly=True, digits=(16, 2))
     shift_count    = fields.Integer('Shifts',            readonly=True)
 
@@ -101,12 +101,12 @@ class FMSReportAttendantSales(models.Model):
     company_id     = fields.Many2one('res.company',     'Company',    readonly=True)
 
     # ── Measures ──────────────────────────────────────────────────────
-    reported_sales = fields.Float('Reported Sales (KES)', readonly=True, digits=(16, 2))
-    mpesa_amount   = fields.Float('MPesa (KES)',          readonly=True, digits=(16, 2))
-    card_amount    = fields.Float('Card (KES)',            readonly=True, digits=(16, 2))
-    ar_amount      = fields.Float('AR (KES)',              readonly=True, digits=(16, 2))
-    expense_amount = fields.Float('Expenses (KES)',        readonly=True, digits=(16, 2))
-    cash_collected = fields.Float('Cash Dropped (KES)',    readonly=True, digits=(16, 2))
+    reported_sales = fields.Float('Reported Sales', readonly=True, digits=(16, 2))
+    mpesa_amount   = fields.Float('MPesa',          readonly=True, digits=(16, 2))
+    card_amount    = fields.Float('Card',            readonly=True, digits=(16, 2))
+    ar_amount      = fields.Float('AR',              readonly=True, digits=(16, 2))
+    expense_amount = fields.Float('Expenses',        readonly=True, digits=(16, 2))
+    cash_collected = fields.Float('Cash Dropped',    readonly=True, digits=(16, 2))
     balance        = fields.Float('Shortage / Overage',    readonly=True, digits=(16, 2))
     shift_count    = fields.Integer('Shifts',              readonly=True)
 
@@ -417,7 +417,7 @@ class FMSReportMeterVariance(models.Model):
     qty_sold_man   = fields.Float('Manual (L)',          readonly=True, digits=(16, 2))
     variance_l     = fields.Float('Variance (L)',        readonly=True, digits=(16, 2))
     variance_pct   = fields.Float('Variance %',         readonly=True, digits=(16, 4))
-    elec_cash_sold = fields.Float('Cash Meter (KES)',    readonly=True, digits=(16, 2))
+    elec_cash_sold = fields.Float('Cash Meter',    readonly=True, digits=(16, 2))
     rtt_volume     = fields.Float('RTT (L)',             readonly=True, digits=(16, 2))
 
     def init(self):
@@ -479,7 +479,7 @@ class FMSReportResidualException(models.Model):
 
     meter_volume   = fields.Float('Meter (L)',           readonly=True, digits=(16, 2))
     volume_residual = fields.Float('Volume Residual (L)', readonly=True, digits=(16, 2))
-    cash_residual  = fields.Float('Cash Residual (KES)', readonly=True, digits=(16, 2))
+    cash_residual  = fields.Float('Cash Residual', readonly=True, digits=(16, 2))
     residual_type  = fields.Selection([
         ('none', 'Balanced'),
         ('over', 'Over-invoiced'),
@@ -544,9 +544,9 @@ class FMSReportGLReconciliation(models.Model):
     account_name  = fields.Char(                           'Account Name', readonly=True)
     partner_id    = fields.Many2one('res.partner',        'Partner',     readonly=True)
     company_id    = fields.Many2one('res.company',        'Company',     readonly=True)
-    debit         = fields.Float('Debit (KES)',            readonly=True, digits=(16, 2))
-    credit        = fields.Float('Credit (KES)',           readonly=True, digits=(16, 2))
-    balance       = fields.Float('Balance (KES)',          readonly=True, digits=(16, 2))
+    debit         = fields.Float('Debit',            readonly=True, digits=(16, 2))
+    credit        = fields.Float('Credit',           readonly=True, digits=(16, 2))
+    balance       = fields.Float('Balance',          readonly=True, digits=(16, 2))
     label         = fields.Char('Label',                   readonly=True)
 
     def init(self):
@@ -607,7 +607,7 @@ class FMSReportSalesSummary(models.Model):
     company_id    = fields.Many2one('res.company',       'Company',    readonly=True)
 
     qty_sold_elec  = fields.Float('Volume (L)',           readonly=True, digits=(16, 2))
-    elec_cash_sold = fields.Float('Cash Meter (KES)',     readonly=True, digits=(16, 2))
+    elec_cash_sold = fields.Float('Cash Meter',     readonly=True, digits=(16, 2))
     rtt_volume     = fields.Float('RTT (L)',              readonly=True, digits=(16, 2))
 
     def init(self):
@@ -661,7 +661,7 @@ class FMSReportThroughput(models.Model):
     company_id   = fields.Many2one('res.company',      'Company',  readonly=True)
 
     qty_sold     = fields.Float('Volume (L)',            readonly=True, digits=(16, 2))
-    cash_total   = fields.Float('Cash Meter (KES)',      readonly=True, digits=(16, 2))
+    cash_total   = fields.Float('Cash Meter',      readonly=True, digits=(16, 2))
     shift_count  = fields.Integer('Shifts',              readonly=True)
 
     def init(self):
@@ -709,7 +709,7 @@ class FMSReportNozzlePerf(models.Model):
     shift_count  = fields.Integer('Shifts',             readonly=True)
     total_qty    = fields.Float('Total Volume (L)',      readonly=True, digits=(16, 0))
     avg_qty      = fields.Float('Avg per Shift (L)',     readonly=True, digits=(16, 0))
-    total_cash   = fields.Float('Total Cash (KES)',      readonly=True, digits=(16, 0))
+    total_cash   = fields.Float('Total Cash',      readonly=True, digits=(16, 0))
     total_rtt    = fields.Float('Total RTT (L)',         readonly=True, digits=(16, 0))
     avg_variance = fields.Float('Avg Mech Variance (L)', readonly=True, digits=(16, 2))
 
@@ -773,7 +773,7 @@ class FMSReportAttendantCategory(models.Model):
     company_id     = fields.Many2one('res.company',      'Company',    readonly=True)
 
     qty_sold_elec  = fields.Float('Volume (L)',            readonly=True, digits=(16, 2))
-    elec_cash_sold = fields.Float('Value (KES)',           readonly=True, digits=(16, 2))
+    elec_cash_sold = fields.Float('Value',           readonly=True, digits=(16, 2))
     rtt_volume     = fields.Float('RTT (L)',               readonly=True, digits=(16, 2))
 
     def init(self):
@@ -828,14 +828,14 @@ class FMSReportShortage(models.Model):
     supervisor_id     = fields.Many2one('hr.employee',   'Supervisor', readonly=True)
     company_id        = fields.Many2one('res.company',   'Company',    readonly=True)
 
-    reported_sales    = fields.Float('Expected (KES)',   readonly=True, digits=(16, 2))
-    cash_collected    = fields.Float('Declared (KES)',   readonly=True, digits=(16, 2))
-    mpesa_amount      = fields.Float('MPesa (KES)',      readonly=True, digits=(16, 2))
-    card_amount       = fields.Float('Card (KES)',       readonly=True, digits=(16, 2))
-    ar_amount         = fields.Float('AR (KES)',         readonly=True, digits=(16, 2))
-    expense_amount    = fields.Float('Expenses (KES)',   readonly=True, digits=(16, 2))
+    reported_sales    = fields.Float('Expected',   readonly=True, digits=(16, 2))
+    cash_collected    = fields.Float('Declared',   readonly=True, digits=(16, 2))
+    mpesa_amount      = fields.Float('MPesa',      readonly=True, digits=(16, 2))
+    card_amount       = fields.Float('Card',       readonly=True, digits=(16, 2))
+    ar_amount         = fields.Float('AR',         readonly=True, digits=(16, 2))
+    expense_amount    = fields.Float('Expenses',   readonly=True, digits=(16, 2))
     balance           = fields.Float('Shortage/Overage', readonly=True, digits=(16, 2))
-    cumulative_balance = fields.Float('Cumulative (KES)', readonly=True, digits=(16, 2))
+    cumulative_balance = fields.Float('Cumulative', readonly=True, digits=(16, 2))
 
     def init(self):
         # mpesa_amount, card_amount, ar_amount, expense_amount, balance are computed
@@ -886,8 +886,8 @@ class FMSReportAttendantPerf(models.Model):
     shift_count    = fields.Integer('Shifts',           readonly=True)
     total_qty      = fields.Float('Volume (L)',          readonly=True, digits=(16, 0))
     avg_qty        = fields.Float('Avg L/shift',         readonly=True, digits=(16, 0))
-    total_cash_due = fields.Float('Total Due (KES)',     readonly=True, digits=(16, 0))
-    total_shortage = fields.Float('Total Shortage (KES)', readonly=True, digits=(16, 0))
+    total_cash_due = fields.Float('Total Due',     readonly=True, digits=(16, 0))
+    total_shortage = fields.Float('Total Shortage', readonly=True, digits=(16, 0))
     shortage_shifts = fields.Integer('Short Shifts',     readonly=True)
     overage_shifts  = fields.Integer('Over Shifts',      readonly=True)
     accuracy_pct    = fields.Float('Cash Accuracy %',    readonly=True, digits=(16, 1))
@@ -951,8 +951,8 @@ class FMSReportRiskAnomaly(models.Model):
     round_readings    = fields.Integer('Round Meter Readings',  readonly=True)
     high_variance_shifts = fields.Integer('High Mech Variance Shifts', readonly=True)
     rtt_shifts        = fields.Integer('Shifts with RTT',      readonly=True)
-    total_shortage    = fields.Float('Total Shortage (KES)',    readonly=True, digits=(16, 2))
-    avg_shortage      = fields.Float('Avg Shortage/shift (KES)', readonly=True, digits=(16, 2))
+    total_shortage    = fields.Float('Total Shortage',    readonly=True, digits=(16, 2))
+    avg_shortage      = fields.Float('Avg Shortage/shift', readonly=True, digits=(16, 2))
     risk_score        = fields.Integer('Risk Score',            readonly=True)
 
     def init(self):

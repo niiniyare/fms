@@ -93,12 +93,12 @@ class FMSPricePeriodLine(models.Model):
         'product.product', 'Product', required=True,
         domain=[('fms_is_fuel', '=', True)],
     )
-    epra_cap   = fields.Float('EPRA Cap (KES/L)', required=True, digits=(16, 4))
-    pump_price = fields.Float('Pump Price (KES/L)', required=True, digits=(16, 4))
-    landed_cost = fields.Float('Landed Cost (KES/L)', digits=(16, 4),
+    epra_cap   = fields.Float('EPRA Cap (/L)', required=True, digits=(16, 4))
+    pump_price = fields.Float('Pump Price (/L)', required=True, digits=(16, 4))
+    landed_cost = fields.Float('Landed Cost (/L)', digits=(16, 4),
                                help="AVCO landed cost at start of period — for F11.")
     margin_per_litre = fields.Float(
-        'Margin (KES/L)', compute='_compute_margin', store=True, digits=(16, 4),
+        'Margin (/L)', compute='_compute_margin', store=True, digits=(16, 4),
     )
 
     @api.depends('pump_price', 'landed_cost')

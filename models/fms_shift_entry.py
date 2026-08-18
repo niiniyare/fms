@@ -51,11 +51,11 @@ class FMSShiftMeterEntry(models.Model):
 
     # ── Meter 2: Electronic Cash (KES totalizer) ─────────────────────────────
     opening_elec_cash = fields.Float(
-        'Opening Elec Cash (KES)', digits=(16, 2),
+        'Opening Elec Cash', digits=(16, 2),
         help="Electronic cash totalizer reading at shift start (KES).",
     )
     closing_elec_cash = fields.Float(
-        'Closing Elec Cash (KES)', digits=(16, 2),
+        'Closing Elec Cash', digits=(16, 2),
         help="Electronic cash totalizer reading at shift end (KES).",
     )
 
@@ -79,11 +79,11 @@ class FMSShiftMeterEntry(models.Model):
         'Qty Sold Manual (L)', compute='_compute_qty', store=True, digits=(16, 2),
     )
     elec_cash_sold = fields.Float(
-        'Cash Sold (KES)', compute='_compute_qty', store=True, digits=(16, 2),
+        'Cash Sold', compute='_compute_qty', store=True, digits=(16, 2),
         help="(Closing − Opening) elec cash − RTT cash. Amount the attendant must account for.",
     )
     amount_elec = fields.Float(
-        'Volume × Price (KES)', compute='_compute_amount', store=True, digits=(16, 2),
+        'Volume × Price', compute='_compute_amount', store=True, digits=(16, 2),
         help="Theoretical value: qty_sold_elec × product list price.",
     )
 
@@ -158,7 +158,7 @@ class FMSShiftMeterEntry(models.Model):
                 raise ValidationError(
                     f"Nozzle {entry.nozzle_id.name or entry.id}: "
                     f"Cash meter reading produces a negative cash sale "
-                    f"(KES {entry.elec_cash_sold:,.2f}). "
+                    f"({entry.shift_id.company_id.currency_id.name} {entry.elec_cash_sold:,.2f}). "
                     "Check closing vs opening cash meter readings."
                 )
 
@@ -314,64 +314,64 @@ class FMSShiftAttendantCash(models.Model):
 
     # ── ONLY EDITABLE FIELD ───────────────────────────────────────────────────
     cash_collected = fields.Float(
-        'Cash Dropped to Safe (KES)', digits=(16, 2),
+        'Cash Dropped to Safe', digits=(16, 2),
         help="Physical cash the attendant handed to the supervisor / dropped in the safe.",
     )
 
     # ── INCOMING (from meters) ────────────────────────────────────────────────
     reported_sales = fields.Float(
-        'Meter Sales (KES)', compute='_compute_from_meters', store=True, digits=(16, 2),
+        'Meter Sales', compute='_compute_from_meters', store=True, digits=(16, 2),
         help="Sum of elec_cash_sold for this attendant's nozzles.",
     )
 
     # ── PAYMENT METHOD SPLITS (from POS) ─────────────────────────────────────
     mpesa_amount = fields.Float(
-        'MPesa (KES)', compute='_compute_from_pos', digits=(16, 2),
+        'MPesa', compute='_compute_from_pos', digits=(16, 2),
         help="POS payments via MPesa payment method.",
     )
     card_amount = fields.Float(
-        'Card (KES)', compute='_compute_from_pos', digits=(16, 2),
+        'Card', compute='_compute_from_pos', digits=(16, 2),
         help="POS payments via Card payment method.",
     )
     ar_amount = fields.Float(
-        'AR / Credit Sales (KES)', compute='_compute_from_pos', digits=(16, 2),
+        'AR / Credit Sales', compute='_compute_from_pos', digits=(16, 2),
         help="POS payments via Account/AR payment method (credit sales).",
     )
 
     # ── CASH MOVEMENTS (from account.payment with fms_shift_id) ──────────────
     customer_receipt_amount = fields.Float(
-        'Customer Receipts (KES)', compute='_compute_from_payments', digits=(16, 2),
+        'Customer Receipts', compute='_compute_from_payments', digits=(16, 2),
         help="Cash collected from customers paying outstanding invoices. "
              "Source: account.payment with fms_payment_context=customer_receipt, posted.",
     )
     float_amount = fields.Float(
-        'Cash Float (KES)', compute='_compute_from_payments', digits=(16, 2),
+        'Cash Float', compute='_compute_from_payments', digits=(16, 2),
         help="Opening/additional float issued to this attendant. Not revenue — increases expected holding.",
     )
     cash_drop_amount = fields.Float(
-        'Cash Drops (KES)', compute='_compute_from_payments', digits=(16, 2),
+        'Cash Drops', compute='_compute_from_payments', digits=(16, 2),
         help="Mid-shift cash drops/pickups. Reduces expected holding (cash already in safe).",
     )
     vendor_payment_amount = fields.Float(
-        'Vendor Payments (KES)', compute='_compute_from_payments', digits=(16, 2),
+        'Vendor Payments', compute='_compute_from_payments', digits=(16, 2),
         help="Cash paid to vendors from shift cash. Reduces expected holding.",
     )
     expense_amount = fields.Float(
-        'Expenses (KES)', compute='_compute_from_payments', digits=(16, 2),
+        'Expenses', compute='_compute_from_payments', digits=(16, 2),
         help="Small expenses paid directly from shift cash.",
     )
 
     # ── TOTALS ────────────────────────────────────────────────────────────────
     total_in = fields.Float(
-        'Expected Cash (KES)', compute='_compute_balance', digits=(16, 2),
+        'Expected Cash', compute='_compute_balance', digits=(16, 2),
         help="All cash this attendant should have: sales + receipts + float - drops.",
     )
     total_out = fields.Float(
-        'Accounted Cash (KES)', compute='_compute_balance', digits=(16, 2),
+        'Accounted Cash', compute='_compute_balance', digits=(16, 2),
         help="Physical cash + digital payments + expenses + vendor payments.",
     )
     balance = fields.Float(
-        'Balance (KES)', compute='_compute_balance', digits=(16, 2),
+        'Balance', compute='_compute_balance', digits=(16, 2),
         help="Expected Cash − Accounted Cash. Must be 0 for shift to close.",
     )
 
@@ -560,7 +560,7 @@ class FMSShiftAttendantCash(models.Model):
             if rec.reported_sales < 0:
                 raise ValidationError(
                     f"Attendant {rec.attendant_id.name or rec.id}: "
-                    f"Expected cash (KES {rec.reported_sales:,.2f}) is negative. "
+                    f"Expected cash ({rec.shift_id.company_id.currency_id.name} {rec.reported_sales:,.2f}) is negative. "
                     "Meter readings may have been entered in reverse order."
                 )
 

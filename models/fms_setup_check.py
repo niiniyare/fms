@@ -86,7 +86,7 @@ def fms_create_opening_equity(env, company=None):
         ],
     })
     move.action_post()
-    return f"Created opening equity entry {move.name} — KES {opening_amount:,.2f} capital"
+    return f"Created opening equity entry {move.name} — {company.currency_id.name} {opening_amount:,.2f} capital"
 
 
 class FMSSetupCheck(models.TransientModel):
