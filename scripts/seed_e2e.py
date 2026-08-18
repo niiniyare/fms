@@ -584,7 +584,51 @@ if fuel_rev_acc and fuel_cogs_acc:
 env.cr.commit()
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 7. SUMMARY
+# 7. PUMPS, NOZZLES, FUEL TANKS
+# ─────────────────────────────────────────────────────────────────────────────
+print("\n── Pumps, Nozzles & Fuel Tanks ──────────────────────")
+StorLoc = env['stock.location']
+
+fuel_prods = env['product.product'].search([('fms_is_fuel', '=', True)])
+diesel_prod = fuel_prods.filtered(lambda p: 'Diesel' in p.name and 'Extra' in p.name)[:1]
+unleaded_prod = fuel_prods.filtered(lambda p: 'Unleaded' in p.name)[:1]
+vpower_prod = fuel_prods.filtered(lambda p: 'V-Power' in p.name)[:1]
+
+parent_loc = StorLoc.search([('usage', '=', 'internal'), ('company_id', '=', company.id)], limit=1)
+if not parent_loc:
+    parent_loc = StorLoc.search([('usage', '=', 'internal')], limit=1)
+
+tanks = StorLoc.search([('fms_is_fuel_tank', '=', True)])
+if not tanks:
+    for prod, tname in [(diesel_prod, 'Tank 1 Diesel'), (unleaded_prod, 'Tank 2 Unleaded'), (vpower_prod, 'Tank 3 V-Power')]:
+        if prod:
+            StorLoc.create({'name': tname, 'usage': 'internal', 'company_id': company.id,
+                            'fms_is_fuel_tank': True, 'fms_fuel_product_id': prod.id,
+                            'location_id': parent_loc.id})
+    tanks = StorLoc.search([('fms_is_fuel_tank', '=', True)])
+    print(f"  ✓ Created {len(tanks)} fuel tanks")
+else:
+    print(f"  ✓ Tanks exist: {tanks.mapped('name')}")
+
+Pump = env['fms.pump']
+if not Pump.search([]):
+    p1 = Pump.create({'name': 'Pump 1', 'code': 'P1'})
+    p2 = Pump.create({'name': 'Pump 2', 'code': 'P2'})
+    Noz = env['fms.pump.nozzle']
+    for pump, prods in [(p1, [diesel_prod, unleaded_prod]), (p2, [diesel_prod, vpower_prod])]:
+        for i, prod in enumerate(prods):
+            letter = chr(65 + i)  # A, B
+            if prod:
+                Noz.create({'pump_id': pump.id, 'name': f'{pump.code}-{letter}',
+                            'letter': letter, 'product_id': prod.id})
+    print(f"  ✓ Created 2 pumps, 4 nozzles")
+else:
+    print(f"  ✓ Pumps exist: {Pump.search([]).mapped('name')}")
+
+env.cr.commit()
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 8. SUMMARY
 # ─────────────────────────────────────────────────────────────────────────────
 total_products = env['product.template'].search_count([('company_id', '=', company.id)])
 total_accounts = AccountAccount.search_count([('company_ids', 'in', [company.id])])
