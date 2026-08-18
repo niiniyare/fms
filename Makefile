@@ -255,7 +255,14 @@ odoo-e2e-seed: ## Seed fms_e2e with Kenya CoA + all products (run after odoo-e2e
 		< scripts/seed_e2e.py
 	@echo "$(GREEN)✓ Seed complete$(NC)"
 
+odoo-e2e-update: ## Update fms + fms_accounting in fms_e2e after code changes
+	@echo "$(BLUE)Updating fms_e2e...$(NC)"
+	@$(ODOO_VENV) $(ODOO_BIN) -d fms_e2e -u fms,fms_accounting \
+		--addons-path=$(ODOO_ADDONS) --stop-after-init --no-http
+	@echo "$(GREEN)✓ fms_e2e updated$(NC)"
+
 odoo-e2e: ## Start Odoo with the fms_e2e database (http://localhost:8070)
+	@fuser -k 8070/tcp 2>/dev/null || true
 	@echo "$(BLUE)Starting Odoo with fms_e2e on port 8070...$(NC)"
 	@echo "$(YELLOW)Open: http://localhost:8070$(NC)"
 	@$(ODOO_VENV) $(ODOO_BIN) -d fms_e2e -p 8070 \
