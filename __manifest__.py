@@ -45,6 +45,7 @@ Reference: Complete specification in FMS_Complete_Specification_Technical_Guide.
         "point_of_sale",
         "hr",
         "web_dark_mode",
+        "web_responsive",
     ],
     "data": [
         # Security
