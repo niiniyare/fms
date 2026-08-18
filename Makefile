@@ -1,7 +1,6 @@
 .PHONY: help \
-	setup seed upgrade run run-dev stop shell test build \
-	e2e-setup e2e-seed e2e-update e2e-run e2e-drop e2e-reset \
-	test-unit test-coverage test-watch test-specific test-task \
+	setup seed upgrade run stop shell drop reset build \
+	test test-unit test-coverage test-watch test-specific test-task \
 	status task list info report \
 	git-status git-branch git-log git-commit git-merge git-tag \
 	docs docs-quick docs-setup docs-system docs-dev docs-spec \
@@ -25,8 +24,13 @@ NC     := \033[0m
 PROJECT_NAME := FMS (Forecourt Management System)
 PYTHON       := python3
 PYTEST       := pytest
-DB_NAME      := test_fms
-ODOO_PORT    := 8069
+
+# Main working database (fms_e2e) — used for all daily commands
+DB_NAME      := fms_e2e
+ODOO_PORT    := 8070
+
+# Test-only database — recreated fresh for every 'make test' run
+TEST_DB      := test_fms
 
 ODOO_VENV   := /home/niini/odoo-venv/bin/python
 ODOO_BIN    := /home/niini/odoo18/odoo-bin
@@ -43,31 +47,25 @@ help: ## Show this help
 	@echo "$(BLUE)║  $(GREEN)$(PROJECT_NAME)$(BLUE)                     ║$(NC)"
 	@echo "$(BLUE)╚════════════════════════════════════════════════════════════╝$(NC)"
 	@echo ""
-	@echo "$(YELLOW)DEVELOPMENT DB ($(DB_NAME), port $(ODOO_PORT)):$(NC)"
-	@echo "  make setup             Install FMS modules (first time)"
+	@echo "$(YELLOW)DAILY COMMANDS (db: $(DB_NAME), port $(ODOO_PORT)):$(NC)"
+	@echo "  make setup             Create DB + install FMS modules (first time)"
+	@echo "  make seed              Seed Kenya CoA + products + demo data"
 	@echo "  make upgrade           Update modules after code changes"
-	@echo "  make run               Start server → http://localhost:$(ODOO_PORT)"
+	@echo "  make run               Upgrade modules then start server → http://localhost:$(ODOO_PORT)"
 	@echo "  make shell             Open Odoo Python shell"
-	@echo "  make seed              Seed demo data into dev DB"
-	@echo "  make build             Drop + setup + seed (full rebuild)"
-	@echo "  make test              Run FMS test suite"
+	@echo "  make stop              Kill server"
+	@echo "  make drop              Drop the database (with confirmation)"
+	@echo "  make reset             Drop + setup + seed from scratch"
 	@echo ""
-	@echo "$(YELLOW)E2E DB (fms_e2e, port 8070):$(NC)"
-	@echo "  make e2e-setup         Create fms_e2e + install modules"
-	@echo "  make e2e-seed          Seed Kenya CoA + products + demo data"
-	@echo "  make e2e-update        Update modules in fms_e2e"
-	@echo "  make e2e-run           Start server → http://localhost:8070"
-	@echo "  make e2e-reset         Drop + recreate + seed fms_e2e"
+	@echo "$(YELLOW)TESTING (db: $(TEST_DB)):$(NC)"
+	@echo "  make test              Run FMS test suite (recreates $(TEST_DB))"
+	@echo "  make test-coverage     Tests + HTML coverage report"
+	@echo "  make test-task TASK=FMS-001"
 	@echo ""
 	@echo "$(YELLOW)TASK MANAGEMENT:$(NC)"
 	@echo "  make status            Show task progress"
 	@echo "  make task TASK=FMS-001 Start a development task"
 	@echo "  make list              List all tasks"
-	@echo ""
-	@echo "$(YELLOW)TESTING:$(NC)"
-	@echo "  make test              Run all tests (recreates DB)"
-	@echo "  make test-coverage     Tests + HTML coverage report"
-	@echo "  make test-task TASK=FMS-001"
 	@echo ""
 	@echo "$(YELLOW)DOCS:$(NC)"
 	@echo "  make docs              List all documentation"
@@ -82,60 +80,72 @@ help: ## Show this help
 	@grep -E '^[a-z][a-z0-9-]+:.*?## ' Makefile | awk 'BEGIN {FS = ":.*?## "} {printf "  $(GREEN)%-25s$(NC) %s\n", $$1, $$2}' | sort
 
 # ═════════════════════════════════════════════════════════════════════════════
-# DEVELOPMENT DB
+# DAILY COMMANDS  (all target fms_e2e on port 8070)
 # ═════════════════════════════════════════════════════════════════════════════
 
-setup: ## Install FMS modules on dev DB (first time)
-	@echo "$(BLUE)Installing FMS on $(DB_NAME)...$(NC)"
-	@$(ODOO_VENV) $(ODOO_BIN) -d $(DB_NAME) -i fms,fms_accounting \
-		--addons-path=$(ODOO_ADDONS) --stop-after-init --without-demo=all
-	@echo "$(GREEN)✓ Installed. Next: make run$(NC)"
+setup: ## Create fms_e2e DB and install FMS modules (first time)
+	@echo "$(BLUE)Creating $(DB_NAME)...$(NC)"
+	$(ODOO_VENV) $(ODOO_BIN) -d $(DB_NAME) \
+		-i fms,fms_accounting \
+		--addons-path=$(ODOO_ADDONS) \
+		--stop-after-init --without-demo=all \
+		--load-language=en_US
+	@echo "$(GREEN)✓ $(DB_NAME) created. Next: make seed$(NC)"
 
-upgrade: ## Update FMS modules after code changes (dev DB)
-	@echo "$(BLUE)Updating fms,fms_accounting on $(DB_NAME)...$(NC)"
-	@$(ODOO_VENV) $(ODOO_BIN) -d $(DB_NAME) -u fms,fms_accounting \
-		--addons-path=$(ODOO_ADDONS) --stop-after-init
-	@echo "$(GREEN)✓ Updated$(NC)"
-
-run: ## Start Odoo on dev DB → http://localhost:$(ODOO_PORT)
-	@echo "$(BLUE)Starting Odoo (db: $(DB_NAME), port: $(ODOO_PORT))...$(NC)"
-	@echo "$(YELLOW)Open: http://localhost:$(ODOO_PORT)$(NC)"
-	@$(ODOO_VENV) $(ODOO_BIN) -d $(DB_NAME) -p $(ODOO_PORT) \
-		--addons-path=$(ODOO_ADDONS) --dev=all
-
-run-dev: ## Start Odoo on port 8070 when 8069 is busy
-	@echo "$(BLUE)Starting Odoo on port 8070 (db: $(DB_NAME))...$(NC)"
-	@echo "$(YELLOW)Open: http://localhost:8070$(NC)"
-	@$(ODOO_VENV) $(ODOO_BIN) -d $(DB_NAME) -p 8070 \
-		--addons-path=$(ODOO_ADDONS) --dev=all
-
-stop: ## Kill Odoo processes on ports 8069 and 8070
-	@fuser -k 8069/tcp 2>/dev/null || true
-	@fuser -k 8070/tcp 2>/dev/null || true
-	@echo "$(GREEN)✓ Stopped$(NC)"
-
-shell: ## Open Odoo interactive Python shell (dev DB)
-	@echo "$(BLUE)Opening shell (db: $(DB_NAME))...$(NC)"
-	@$(ODOO_VENV) $(ODOO_BIN) shell -d $(DB_NAME) \
-		--addons-path=$(ODOO_ADDONS)
-
-seed: ## Seed dev DB with demo data
+seed: ## Seed fms_e2e with Kenya CoA + products + demo data
 	@echo "$(BLUE)Seeding $(DB_NAME)...$(NC)"
 	@$(ODOO_VENV) $(ODOO_BIN) shell -d $(DB_NAME) \
 		--addons-path=$(ODOO_ADDONS) --no-http \
 		< scripts/seed_e2e.py
 	@echo "$(GREEN)✓ Seed complete$(NC)"
 
-test: ## Run FMS test suite (drops + recreates test DB)
-	@echo "$(BLUE)Running FMS tests (db: $(DB_NAME))...$(NC)"
-	@dropdb --if-exists $(DB_NAME)
-	@$(ODOO_VENV) $(ODOO_BIN) -d $(DB_NAME) \
-		--addons-path=$(ODOO_ADDONS) \
-		--test-enable --stop-after-init -i fms,fms_accounting --without-demo=all -p 8070 \
-		--test-tags fms,fms_accounting
-	@echo "$(GREEN)✓ Tests complete$(NC)"
+upgrade: ## Update fms + fms_accounting modules after code changes
+	@echo "$(BLUE)Updating modules in $(DB_NAME)...$(NC)"
+	@$(ODOO_VENV) $(ODOO_BIN) -d $(DB_NAME) -u fms,fms_accounting \
+		--addons-path=$(ODOO_ADDONS) --stop-after-init --no-http
+	@echo "$(GREEN)✓ Updated$(NC)"
 
-build: ## Full rebuild: drop + setup + seed (dev DB from scratch)
+run: ## Upgrade modules then start server → http://localhost:$(ODOO_PORT)
+	@fuser -k $(ODOO_PORT)/tcp 2>/dev/null || true
+	@echo "$(BLUE)Upgrading modules...$(NC)"
+	@$(ODOO_VENV) $(ODOO_BIN) -d $(DB_NAME) -u fms,fms_accounting \
+		--addons-path=$(ODOO_ADDONS) --stop-after-init --no-http
+	@echo "$(YELLOW)Starting server → http://localhost:$(ODOO_PORT)$(NC)"
+	@$(ODOO_VENV) $(ODOO_BIN) -d $(DB_NAME) -p $(ODOO_PORT) \
+		--addons-path=$(ODOO_ADDONS) --dev=all
+
+stop: ## Kill Odoo server
+	@fuser -k $(ODOO_PORT)/tcp 2>/dev/null || true
+	@fuser -k 8069/tcp 2>/dev/null || true
+	@echo "$(GREEN)✓ Stopped$(NC)"
+
+shell: ## Open Odoo interactive Python shell
+	@echo "$(BLUE)Opening shell (db: $(DB_NAME))...$(NC)"
+	@$(ODOO_VENV) $(ODOO_BIN) shell -d $(DB_NAME) \
+		--addons-path=$(ODOO_ADDONS)
+
+drop: ## Drop fms_e2e database (WARNING: deletes all data!)
+	@echo "$(RED)WARNING: This will delete $(DB_NAME)$(NC)"
+	@read -p "Type 'yes' to confirm: " confirm; \
+	if [ "$$confirm" = "yes" ]; then \
+		dropdb $(DB_NAME); \
+		echo "$(GREEN)✓ $(DB_NAME) dropped$(NC)"; \
+	else \
+		echo "$(YELLOW)Cancelled$(NC)"; \
+	fi
+
+reset: ## Drop + setup + seed fms_e2e from scratch
+	@echo "$(RED)WARNING: Deletes and recreates $(DB_NAME)$(NC)"
+	@read -p "Type 'yes' to confirm: " confirm; \
+	if [ "$$confirm" = "yes" ]; then \
+		dropdb --if-exists $(DB_NAME); \
+		$(MAKE) setup && $(MAKE) seed; \
+		echo "$(GREEN)✓ Reset complete. Run: make run$(NC)"; \
+	else \
+		echo "$(YELLOW)Cancelled$(NC)"; \
+	fi
+
+build: ## Full build: drop + setup + seed (same as reset but no confirmation)
 	@echo "$(BLUE)Full build of $(DB_NAME)...$(NC)"
 	@dropdb --if-exists $(DB_NAME) || true
 	@$(MAKE) setup
@@ -143,62 +153,17 @@ build: ## Full rebuild: drop + setup + seed (dev DB from scratch)
 	@echo "$(GREEN)✓ Build complete. Run: make run$(NC)"
 
 # ═════════════════════════════════════════════════════════════════════════════
-# E2E DB
+# TESTING  (uses separate test_fms DB, recreated each run)
 # ═════════════════════════════════════════════════════════════════════════════
 
-e2e-setup: ## Create fms_e2e DB and install FMS modules
-	@echo "$(BLUE)Creating fms_e2e...$(NC)"
-	$(ODOO_VENV) $(ODOO_BIN) -d fms_e2e \
-		-i fms,fms_accounting \
+test: ## Run FMS test suite (drops + recreates test_fms)
+	@echo "$(BLUE)Running FMS tests (db: $(TEST_DB))...$(NC)"
+	@dropdb --if-exists $(TEST_DB)
+	@$(ODOO_VENV) $(ODOO_BIN) -d $(TEST_DB) \
 		--addons-path=$(ODOO_ADDONS) \
-		--stop-after-init --without-demo=all \
-		--load-language=en_US
-	@echo "$(GREEN)✓ fms_e2e created. Next: make e2e-seed$(NC)"
-
-e2e-seed: ## Seed fms_e2e with Kenya CoA + products + demo data
-	@echo "$(BLUE)Seeding fms_e2e...$(NC)"
-	@$(ODOO_VENV) $(ODOO_BIN) shell -d fms_e2e \
-		--addons-path=$(ODOO_ADDONS) --no-http \
-		< scripts/seed_e2e.py
-	@echo "$(GREEN)✓ e2e seed complete$(NC)"
-
-e2e-update: ## Update fms + fms_accounting in fms_e2e after code changes
-	@echo "$(BLUE)Updating fms_e2e...$(NC)"
-	@$(ODOO_VENV) $(ODOO_BIN) -d fms_e2e -u fms,fms_accounting \
-		--addons-path=$(ODOO_ADDONS) --stop-after-init --no-http
-	@echo "$(GREEN)✓ fms_e2e updated$(NC)"
-
-e2e-run: ## Start Odoo with fms_e2e → http://localhost:8070
-	@fuser -k 8070/tcp 2>/dev/null || true
-	@echo "$(BLUE)Starting Odoo with fms_e2e on port 8070...$(NC)"
-	@echo "$(YELLOW)Open: http://localhost:8070$(NC)"
-	@$(ODOO_VENV) $(ODOO_BIN) -d fms_e2e -p 8070 \
-		--addons-path=$(ODOO_ADDONS) --dev=all
-
-e2e-drop: ## Drop fms_e2e database (WARNING: deletes all data!)
-	@echo "$(RED)WARNING: This will delete fms_e2e$(NC)"
-	@read -p "Type 'yes' to confirm: " confirm; \
-	if [ "$$confirm" = "yes" ]; then \
-		dropdb fms_e2e; \
-		echo "$(GREEN)✓ fms_e2e dropped$(NC)"; \
-	else \
-		echo "$(YELLOW)Cancelled$(NC)"; \
-	fi
-
-e2e-reset: ## Drop + recreate + seed fms_e2e from scratch
-	@echo "$(RED)WARNING: Deletes and recreates fms_e2e$(NC)"
-	@read -p "Type 'yes' to confirm: " confirm; \
-	if [ "$$confirm" = "yes" ]; then \
-		dropdb --if-exists fms_e2e; \
-		$(MAKE) e2e-setup && $(MAKE) e2e-seed; \
-		echo "$(GREEN)✓ fms_e2e reset complete$(NC)"; \
-	else \
-		echo "$(YELLOW)Cancelled$(NC)"; \
-	fi
-
-# ═════════════════════════════════════════════════════════════════════════════
-# TESTING
-# ═════════════════════════════════════════════════════════════════════════════
+		--test-enable --stop-after-init -i fms,fms_accounting --without-demo=all -p 8072 \
+		--test-tags fms,fms_accounting
+	@echo "$(GREEN)✓ Tests complete$(NC)"
 
 test-unit: ## Run unit tests only (no integration tests)
 	@$(PYTEST) tests/ -v -m "not integration"
@@ -275,7 +240,6 @@ git-log: ## View recent commit history
 git-commit: ## Interactive commit (stages all changes)
 	@git add .
 	@git commit
-	@echo "$(GREEN)✓ Committed$(NC)"
 
 git-merge: ## Merge branch to main (usage: make git-merge BRANCH=fms-001)
 	@if [ -z "$(BRANCH)" ]; then \
@@ -405,7 +369,7 @@ structure: ## List all project files
 project-info: ## Show environment info
 	@echo "$(YELLOW)Project:$(NC) $(PROJECT_NAME)"
 	@echo "$(YELLOW)DB:$(NC)      $(DB_NAME)  Port: $(ODOO_PORT)"
-	@echo "$(YELLOW)Python:$(NC)  $(PYTHON)"
+	@echo "$(YELLOW)Test DB:$(NC) $(TEST_DB)"
 	@echo "$(YELLOW)Odoo:$(NC)    $(ODOO_BIN)"
 
 version: ## Show version info
@@ -456,20 +420,20 @@ h: ## Alias: help
 	@$(MAKE) help
 
 # ═════════════════════════════════════════════════════════════════════════════
-# BACKWARD COMPAT — old odoo-* names still work
+# BACKWARD COMPAT — old names still work
 # ═════════════════════════════════════════════════════════════════════════════
 
 odoo:            run
-odoo-dev:        run-dev
+odoo-dev:        run
 odoo-shell:      shell
 odoo-install:    setup
 odoo-update:     upgrade
 odoo-test:       test
-odoo-e2e-create: e2e-setup
-odoo-e2e-seed:   e2e-seed
-odoo-e2e-update: e2e-update
-odoo-e2e:        e2e-run
-odoo-e2e-drop:   e2e-drop
+odoo-e2e-create: setup
+odoo-e2e-seed:   seed
+odoo-e2e-update: upgrade
+odoo-e2e:        run
+odoo-e2e-drop:   drop
 
 # ─────────────────────────────────────────────────────────────────────────────
 # END
