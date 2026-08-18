@@ -100,12 +100,12 @@ Existing reports (read-only SQL views) already in fms_report_views.py:
 ## Phase H — Tests
 - [x] 266 baseline tests passing
 - [x] 25 FIN series tests (test_fin_series.py)
-- [ ] B2: test_invoice_auto_populate_from_shift
-- [ ] B2: test_invoice_blocked_no_active_shift
-- [ ] B3: test_vehicle_auto_populates_customer
-- [ ] B3: test_driver_auto_populates_customer
-- [ ] B3: test_vehicle_customer_mismatch_blocked
-- [ ] Run full suite after each phase
+- [x] B2: test_invoice_auto_populate_from_shift (test_native_integration.py)
+- [x] B2: test_invoice_blocked_no_active_shift (test_native_integration.py)
+- [x] B3: test_vehicle_auto_populates_customer (test_native_integration.py)
+- [x] B3: test_driver_auto_populates_customer (test_native_integration.py)
+- [x] B3: test_vehicle_customer_mismatch_blocked (test_native_integration.py)
+- [x] Full suite scoped run: --test-tags fms,fms_accounting — 0 FAIL / 0 ERROR
 
 ---
 
