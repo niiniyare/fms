@@ -31,12 +31,26 @@
               groups="fms.group_fms_attendant"
               sequence="30"/>
 
+    <!-- Cash — floats, drops, expenses, vendor payments -->
+    <menuitem id="menu_fms_cash"
+              name="Cash"
+              parent="menu_fms_root"
+              groups="fms.group_fms_supervisor"
+              sequence="35"/>
+
     <!-- Inventory — products, stock receipts, adjustments (Odoo shortcuts) -->
     <menuitem id="menu_fms_inventory"
               name="Inventory"
               parent="menu_fms_root"
               groups="fms.group_fms_supervisor"
               sequence="40"/>
+
+    <!-- Customers & Fleet — fleet customers, vehicles, drivers -->
+    <menuitem id="menu_fms_customers_fleet"
+              name="Customers &amp; Fleet"
+              parent="menu_fms_root"
+              groups="fms.group_fms_supervisor"
+              sequence="45"/>
 
     <!-- Reconciliation — shift, meter, wetstock, cash, tank loss -->
     <menuitem id="menu_fms_reconciliation"

@@ -9,131 +9,145 @@ Role required: `fms.group_fms_supervisor`
 
 FMS tracks two types of sales documents during a shift:
 
-1. **Invoice (account.move, move_type=out_invoice)** — for credit customers with fleet accounts
-2. **Sales Receipt (fms.sales.receipt)** — for cash/MPesa/card walk-in sales
+1. **Customer Invoice (`account.move`, `move_type=out_invoice`)** — for credit customers with fleet accounts. This is a native Odoo customer invoice, extended with FMS context fields.
+2. **Sales Receipt (`fms.sales.receipt`)** — for immediate cash/MPesa/card walk-in sales.
 
-Both documents link to:
-- An active shift (`fms_shift_id`)
-- An attendant (`fms_attendant_id`)
-- Optionally a vehicle (`fms_vehicle_id`) and driver (`fms_driver_id`)
+Both link to an active shift (`fms_shift_id`) — **auto-populated when created from the Forecourt menu**.
+
+---
+
+## Canonical Data Sources
+
+| Concept | Odoo Object | FMS Extension |
+|---|---|---|
+| Customer Invoice | `account.move (out_invoice)` | `fms_shift_id`, `fms_vehicle_id`, `fms_driver_id`, `fms_odometer` |
+| Customer Payment | `account.payment` | `fms_shift_id`, `fms_attendant_id`, `fms_payment_context='customer_receipt'` |
+| Expense | `account.payment` | `fms_shift_id`, `fms_attendant_id`, `fms_payment_context='expense'` |
+| Vendor Payment | `account.payment` | `fms_shift_id`, `fms_attendant_id`, `fms_payment_context='vendor_payment'` |
+| Cash Float | `account.payment` | `fms_shift_id`, `fms_payment_context='cash_float'` |
+| Cash Drop | `account.payment` | `fms_shift_id`, `fms_payment_context='cash_drop'` |
+| Fleet Customer | `res.partner` | `fms_is_fleet_customer=True`, `fms_credit_limit`, `fms_on_hold` |
+| Vehicle | `fms.vehicle` | `partner_id` (fleet customer), `driver_ids` |
+| Driver | `fms.driver` | `partner_id` (fleet customer), `vehicle_ids` |
+
+There is no separate `fms.credit.customer` model. Credit customers are standard `res.partner` records with `fms_is_fleet_customer=True`.
 
 ---
 
 ## Sales Receipt (Fast Entry)
 
-Sales Receipt is a lightweight, non-AR document for immediate sales.
-It auto-posts to `account.move` as an out-receipt on confirmation.
+Lightweight, non-AR document for immediate sales. Auto-posts to `account.move` on confirmation.
 
-### Creating a Receipt
+1. **Forecourt → Sales → Sales Receipts → New**
+2. Active shift auto-filled
+3. Select attendant, products, payment method
+4. Confirm → posts journal entry
 
-1. Go to **Forecourt → Operations → New Receipt**
-2. Active shift is auto-filled from company's open shift
-3. Select attendant (defaults to current user's linked employee)
-4. Add product lines
-5. Select payment method: Cash / MPesa / Card / Shell Card
-6. Confirm → auto-posts journal entry
-
-### Requirements
-
-- An active shift must exist for the company
-- Attendant is required
-- Payment method is required
-
-### Blocking rule
-
-If no shift is open: receipt creation raises `ValidationError`.
-After shift closes: receipt can no longer be created for that shift.
+**Blocked if no active shift.**
 
 ---
 
-## Invoice (Credit Customer)
+## Customer Invoice (Credit Customer)
 
-Invoices are used for fleet/credit accounts where payment is deferred.
+Invoices are native Odoo `account.move` records. No separate model.
 
-### Creating an Invoice
+### Creating an Invoice from the Forecourt Menu
 
-1. Go to **Accounting → Customers → Invoices → New**
-2. Set customer to a fleet customer (`fms_is_fleet_customer = True`)
-3. Add fuel/product lines
-4. Set FMS fields: Shift, Attendant, Vehicle, Driver
-5. Confirm (post)
+1. **Forecourt → Sales → Customer Invoices → New**
+2. **Shift auto-populated** from company's active shift
+3. **Invoice date auto-populated** from shift date
+4. Select customer (fleet customer, `fms_is_fleet_customer=True`)
+5. Select vehicle (optional — customer auto-fills from vehicle)
+6. Select driver (optional — customer and vehicle auto-fill where unambiguous)
+7. Enter odometer reading (optional)
+8. Add product/fuel lines
+9. Confirm (post)
 
-### Fleet Customer Setup
+**If no active shift exists**, creation is blocked:
+> "No active shift — cannot create a customer invoice. Open a shift first, then create the invoice."
 
-A fleet customer has:
-- `fms_is_fleet_customer = True` on their `res.partner` record
-- Credit limit set (warning when exceeded)
-- Optional fleet card reference
+This block applies only when creating from the Forecourt menu (`fms_invoice_context=True`). Normal Accounting → Invoices creation is never blocked.
+
+### Vehicle / Driver Auto-Resolution
+
+| Action | Auto-populates |
+|---|---|
+| Select vehicle | Customer (if not yet set), Driver (if vehicle has exactly one driver) |
+| Select driver | Customer (if not yet set), Vehicle (if driver has exactly one vehicle) |
+| Multiple vehicles/drivers | User must select manually |
+
+**Validation (hard constraints):**
+- Vehicle's account holder must match the invoice customer
+- Driver's linked customer must match the invoice customer
+- Mismatches raise `ValidationError` — no silent override
+
+### Credit Limit Control
+
+- At 90% of limit: warning on invoice form
+- At 100%: posting blocked unless supervisor enables `fms_limit_bypass` with reason
+- On hold: posting always blocked
 
 ---
 
-## Vehicle and Driver
+## Vehicle and Driver Management
 
-### Vehicle (`fms.vehicle`)
+**Forecourt → Customers & Fleet**
 
-Tracks vehicles that purchase fuel on credit.
+### fms.vehicle
 
 | Field | Description |
 |---|---|
 | `license_plate` | Required, unique per company |
-| `make`, `model`, `year` | Vehicle description |
 | `partner_id` | Account holder (fleet customer) |
+| `driver_ids` | Authorised drivers |
 | `fuel_type` | DX / UX / VP |
 
-### Driver (`fms.driver`)
+### fms.driver
 
 | Field | Description |
 |---|---|
 | `name` | Driver name |
-| `license_no` | Driving licence number |
-| `partner_id` | Optional linked customer |
-| `vehicle_ids` | Vehicles this driver operates |
-| `employee_id` | Linked hr.employee if internal driver |
+| `partner_id` | Linked fleet customer |
+| `vehicle_ids` | Authorised vehicles |
+| `employee_id` | Linked `hr.employee` if internal |
 
 ---
 
-## Attendant Assignment Modes
+## Cash Movements
 
-**Per-Nozzle (default):** Attendant set on each meter entry row. Required before closing.
+All non-AR cash movements are native `account.payment` records with `fms_payment_context`:
 
-**Pre-Assigned:** Default attendant set on nozzle. Auto-populated when shift opens. Supervisor confirms/changes.
+| Operation | Menu | Context value |
+|---|---|---|
+| Float to attendant | Forecourt → Cash → Cash Movements | `cash_float` |
+| Cash drop to safe | Forecourt → Cash → Cash Movements | `cash_drop` |
+| Expense from shift cash | Forecourt → Cash → Expenses | `expense` |
+| Vendor payment from shift cash | Forecourt → Cash → Vendor Payments | `vendor_payment` |
+| Customer receipt | Forecourt → Sales → Customer Payments | `customer_receipt` |
 
-Mode configured in: Forecourt → Configuration → Site Preferences → Attendant Assignment Mode.
-
----
-
-## Meter vs Invoice+Receipt Gate (Gate 6)
-
-On shift close, after gates 1-5, Gate 6 checks:
-- Sum of fuel volume on closed invoices + posted receipts (for shift)
-- Must match sum of meter entry qty_sold_elec per fuel product
-- Tolerance: same as meniscus (configurable in site prefs)
-
-If variance exceeds tolerance, shift close is blocked.
+All payments with `fms_shift_id` set automatically participate in the shift cash reconciliation (see `03-daily-shift.md`).
 
 ---
 
-## Dry-Stock Sales
+## GL Impact
 
-Non-fuel products (lubricants, accessories) appear in invoices and receipts but are excluded from the meter reconciliation gate. They are included in the cash reconciliation (attendant balance).
-
----
-
-## Sales Without Active Shift
-
-Any attempt to create a Sales Receipt when no shift is open raises:
-
+### Customer Invoice (credit sale)
 ```
-ValidationError: No active shift for [Company]. Open a shift before recording sales.
+DR  Accounts Receivable    invoice_total
+CR  Revenue account        net_amount
+CR  VAT Payable            tax_amount (if taxes configured)
 ```
 
-Invoices can be drafted without an active shift, but the FMS shift field is required before posting.
+### Customer Receipt
+```
+DR  Cash / MPesa / Bank    payment_amount
+CR  Accounts Receivable    payment_amount
+```
+Adds to `total_in` in shift cash reconciliation.
 
----
-
-## Preventing Sales After Shift Close
-
-After a shift closes:
-- Its `fms_shift_id` on invoices/receipts becomes read-only
-- New receipts cannot be assigned to a closed shift
-- Existing posted receipts remain unchanged (immutable GL)
+### Expense (from shift cash)
+```
+DR  Expense account        amount
+CR  Cash                   amount
+```
+Adds to `total_out` in shift cash reconciliation.

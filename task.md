@@ -1,294 +1,128 @@
-# FMS Implementation Task Tracker
+# FMS Native Odoo Integration & Shift UX
 
-**Started:** 2026-08-18  
-**Repository:** /home/niini/fms (+ /home/niini/fms_accounting)  
-**Odoo version:** 18.0  
-
----
+**Baseline:** 266 tests, 0 failures (as of 2026-08-18 FIN series)
+**Goal:** Finalize native Odoo integration, clean up UX, separate reporting from operations.
 
 ## Status Legend
-
 - [ ] Not started
 - [~] In progress
-- [x] Implemented and verified
+- [x] Complete
 - [!] Blocked
-- [-] Not applicable / intentionally rejected
 
 ---
 
-## Phase A — Audit [x]
+## Phase A — Documentation
+- [x] Read all docs/runbook/*.md
+- [x] Identify current workflow gaps vs target architecture
+- [x] Update task.md (this file)
+- [ ] Update docs/runbook/10-sales-workflow.md — native invoice auto-populate, block-if-no-shift, vehicle/driver onchange
+- [ ] Update docs/runbook/03-daily-shift.md — Shift Sheet as primary UX, reporting separation
 
-Audit report generated from all models, security, reports, SQL views, docs, tests.
+## Phase B — Native Invoice (account.move extension cleanup)
 
-Key findings (18 gaps):
-1. COGS missing = WARNING not ERROR
-2. Silent fallback in _get_fms_journal / _get_clearing_account
-3. No Electronic vs Manual ±1L gate
-4. No Electronic vs Cash configurable threshold gate
-5. Meter entry amount uses list_price not price period
-6. No disputed shift concurrency control
-7. No failed-close audit logging
-8. No emergency override mechanism
-9. No dip capacity validation
-10. ACL: supervisor create on meter_log was wrong
-11. No concurrent shift edit protection
-12. No Sales workflow runbook
-13. account.move missing FMS fields
-14. No Vehicle or Driver model
-15. No two-mode attendant assignment
-16. No meter vs invoice+receipt reconciliation gate
-17. Tank loss source analysis missing
-18. Wetstock/cash reconciliation not proper read-only reports
+### B1 — Remove duplicate/broken fields on account.move
+- [ ] `fms_vehicle` (Char) in fms_credit_customer.py conflicts with `fms_vehicle_id` (M2o) in fms_shift_accounting.py — remove `fms_vehicle` (Char), keep Many2one
+- [ ] Fix broken `_onchange_fms_vehicle_id` — references `fms_vehicle_reg` which doesn't exist on account.move
+- [ ] Add `fms_odometer` Float field to account.move
+- [ ] Update view: fms_credit_customer_views.xml — remove old `fms_vehicle`/`fms_driver` Char fields, add `fms_vehicle_id`, `fms_driver_id`, `fms_odometer`
 
----
+### B2 — Auto-populate shift on invoice creation
+- [ ] Override `default_get` on account.move: when `fms_invoice_context=True` in context, auto-find active shift for company, set `fms_shift_id` + `invoice_date`
+- [ ] Block invoice creation if no active shift (when `fms_invoice_context=True`)
+- [ ] Update `action_fms_customer_invoices` to pass `fms_invoice_context=True` in context
 
-## Phase B — Gap Matrix [x]
+### B3 — Vehicle ↔ Customer ↔ Driver auto-resolution
+- [ ] `@api.onchange('fms_vehicle_id')`: auto-set `partner_id` from vehicle.partner_id if not set; auto-set `fms_driver_id` if vehicle has exactly one driver
+- [ ] `@api.onchange('fms_driver_id')`: auto-set `partner_id` from driver.partner_id if not set; auto-set `fms_vehicle_id` if driver has exactly one vehicle
+- [ ] `@api.constrains('fms_vehicle_id', 'partner_id')`: vehicle.partner_id must match invoice partner
+- [ ] `@api.constrains('fms_driver_id', 'partner_id')`: driver.partner_id must match invoice partner
 
-Gaps prioritized in Phases C-I below.
-
----
-
-## Phase C-1 — Critical Business Logic [x]
-
-### C1.1 — Elevate COGS missing from warning to error [x]
-- **Files:** models/fms_setup_check.py (line 258-265)
-
-### C1.2 — Remove silent fallback in _get_fms_journal / _get_clearing_account [x]
-- **Files:** models/fms_shift.py
-
-### C1.3 — Three-meter reconciliation: Electronic vs Manual ±1L gate [x]
-- **Files:** models/fms_shift.py (_gate_check_meter_elec_vs_manual)
-
-### C1.4 — Electronic vs Cash configurable threshold gate [x]
-- **Files:** models/fms_site_preferences.py (elec_vs_cash_threshold_l), models/fms_shift.py
-
-### C1.5 — Price period usage in meter entry amount calculation [x]
-- **Files:** models/fms_shift_entry.py (_get_shift_price, _compute_amount)
-
-### C1.6 — Disputed shift concurrency control [x]
-- **Files:** models/fms_shift.py (disputed state), models/fms_site_preferences.py (allow_multiple_disputed)
-
-### C1.7 — Failed close audit logging to chatter [x]
-- **Files:** models/fms_shift.py (gate loop logs to chatter)
-
-### C1.8 — Emergency override with audit trail [x]
-- **Files:** wizards/fms_emergency_override_wizard.py, models/fms_shift.py
-
-### C1.9 — Dip capacity validation [x]
-- **Files:** models/fms_shift_entry.py (_check_closing_volume_capacity)
-
-### C1.10 — Security ACL corrections [x]
-- **Files:** security/ir_model_access.xml
-
-### C1.11 — Concurrent shift edit protection [x]
-- **Files:** models/fms_shift.py (write_date optimistic locking)
+### B4 — Test results
+- Tests run: N/A (run after implementation)
+- Result: pending
 
 ---
 
-## Phase C-2 — Sales Integration [x]
+## Phase C — hr.expense Extension (optional)
 
-### C2.1 — Sales workflow runbook [x]
-- **Files:** docs/runbook/10-sales-workflow.md
+**Decision:** The existing `account.payment` with `fms_payment_context='expense'` already handles shift cash expenses and participates in reconciliation. Extending `hr.expense` would require adding `hr_expense` as a module dependency. Defer unless explicitly required. Mark as design decision.
 
-### C2.2 — Extend account.move with FMS fields [x]
-- **Files:** fms_accounting/models/fms_shift_accounting.py (FMSAccountMoveExtension)
-
-### C2.3 — Vehicle model [x]
-- **Files:** fms_accounting/models/fms_vehicle.py
-
-### C2.4 — Driver model [x]
-- **Files:** fms_accounting/models/fms_driver.py
-
-### C2.5 — Extend res.partner with FMS fields [x]
-- **Files:** fms_accounting/models/fms_credit_customer.py (fms_is_fleet_customer)
-
-### C2.6 — Sales Receipt model [~]
-- **Files:** fms_accounting/models/fms_sales_receipt.py (stub exists, incomplete)
-- **Note:** Auto-post to account.move on confirm not yet wired
-
-### C2.7-C2.9 — Sales linked to shift/attendant/vehicle/driver [x]
-- **Files:** fms_accounting/models/fms_shift_accounting.py
-
-### C2.10 — Meter vs Invoice+Receipt reconciliation gate (Gate 6) [x]
-- **Files:** models/fms_shift.py (_gate_check_meter_vs_sales)
-
-### C2.11 — Dry-stock sales in reconciliation [~]
-- **Note:** Gate applies to fuel products only — dry-stock aggregation not yet separated (FIN-007)
-
-### C2.12 — Prevent sales outside active shift [x]
-- **Files:** fms_accounting/models/fms_shift_accounting.py
+- [-] Extend hr.expense — deferred; using account.payment/fms_payment_context='expense' instead
+- [x] account.payment already extended with fms_shift_id, fms_attendant_id, fms_station_id, fms_payment_context
+- [x] Expense payments link to shift and participate in cash reconciliation formula
 
 ---
 
-## Phase C-3 — Attendant Assignment [x]
+## Phase D — Menu Restructuring
 
-### C3.1 — Document both assignment modes [x]
-- **Files:** docs/runbook/ (updated shift docs)
+Target structure (from task spec):
+```
+Forecourt
+├── Overview
+├── Shifts (Operations → Shifts, Shift History)
+├── Sales (Customer Invoices, Sales Receipts, Customer Payments)
+├── Cash (Cash Movements, Expenses, Vendor Payments)
+├── Inventory (Fuel Deliveries, Stock, Adjustments)
+├── Customers & Fleet (Customers, Vehicles, Drivers)
+└── Reports (Shift Reconciliation, Wetstock, Meter, Cash, Tank Loss, Sales, Customer Statements)
+```
 
-### C3.2 — Add assignment-mode config to site preferences [x]
-- **Files:** models/fms_site_preferences.py (attendant_assignment_mode)
-
-### C3.3 — Pre-assigned mode [x]
-- **Files:** models/fms_pump.py (default_attendant_id), models/fms_shift.py (_populate_opening_entries)
-
-### C3.4 — Per-nozzle attendant mode [x]
-- **Files:** models/fms_shift.py (gate checks attendant assigned before close)
-
----
-
-## Phase D — Operational UX
-
-### D4.1 — Hide opening readings in meter view [x]
-- **Note:** Opening fields are read-only, not editable in meter entry form
-
-### D4.2-D4.3 — Auto-load running meter/dip balances [x]
-- **Note:** Already implemented in _populate_opening_entries
-
-### D4.4-D4.10 — UX cleanup [ ]
-- **Fix:** Shift close blocker panel listing all gate failures with direct links
+- [ ] Add `menu_fms_cash` structural menu (Cash section)
+- [ ] Add `menu_fms_customers_fleet` structural menu (Customers & Fleet section)
+- [ ] Move Credit Customers from Sales to Customers & Fleet
+- [ ] Move Fleet Vehicles from Sales to Customers & Fleet
+- [ ] Move Drivers from Sales to Customers & Fleet
+- [ ] Move Shift Expenses, Vendor Payments, Cash Movements into Cash section
+- [ ] Add Customers shortcut (res.partner filtered to fleet customers) under Customers & Fleet
+- [ ] Remove `menu_fms_operations` cash-related items (moved to Cash section)
+- [ ] Ensure Operations only contains: Shifts, Active Shift, Meter Readings, Dip Readings, Fuel Deliveries
 
 ---
 
-## Phase E — Reporting
+## Phase E — Shift Sheet UX
 
-### E5.1 — Wetstock read-only report (SQL view) [ ]
-
-### E5.2 — Cash reconciliation read-only report (SQL view) [ ]
-
-### E5.3 — Meter reconciliation report [ ]
-
-### E5.4 — Tank loss source report [ ]
-
-### E5.5-E5.9 — Remaining reports + company scoping [ ]
+- [ ] Audit existing view tabs for "orphan" operational forms
+- [ ] Wetstock Summary tab: move to Reports, show only KPI summary on shift form
+- [ ] Meter Reconciliation tab: move to Reports
+- [ ] Keep meter_entry_ids and dip_entry_ids directly inside shift form (tab)
+- [ ] Attendant Cash tab: stays (operational input)
 
 ---
 
-## Phase F — Native Odoo Integration
+## Phase F — Reporting Separation
 
-### F6.1-F6.10 — Model extensions [~]
-- account.move, account.payment extended (FIN-001/002)
-- hr.employee extended (fms_is_attendant)
-- res.partner extended (fms_is_fleet_customer)
-- Remaining: product, stock.location, stock.move extensions
-
----
-
-## Phase G — Performance
-
-### G7.1 — Index audit and addition [~]
-- shift company_id, state indexed
-- FK indexes added on all child model shift_id fields
-- Remaining: composite indexes on heavy query patterns
+Existing reports (read-only SQL views) already in fms_report_views.py:
+- [x] R1 Shift Overview, R2 Tank Loss, R3 Wetstock, R4 Meter Reconciliation (SQL views)
+- [x] R27 Attendant Cash Breakdown (SQL view, FIN-008)
+- [ ] Confirm all reports are in Reports menu, not mixed with operational forms
+- [ ] Add Customers & Fleet → Customer Statements menu (already has action_fms_ar_statement_report or similar)
 
 ---
 
-## Phase H — Security & Compliance
-
-### H8.1-H8.10 — Full security audit and hardening [ ]
-
----
-
-## Phase I — Testing
-
-### I9.1-I9.13 — Full test suite [ ]
+## Phase G — Security & Performance
+- [x] Company isolation on account.payment (IR rules — FIN-012)
+- [x] Company isolation on fms.shift (record rules)
+- [x] Composite index on account_payment (FIN-010)
+- [ ] Confirm account.move FMS fields have company isolation (record rule or domain)
+- [ ] Confirm fms.vehicle and fms.driver have company_id record rules
 
 ---
 
-## FIN Series — Native Odoo Accounting Integration
-
-Spec: 23-section "Native Odoo Accounting Integration" (received 2026-08-18).  
-Constraint: extend Odoo native models, no parallel FMS accounting models.
-
-### FIN-001 — Native Invoice Integration [x]
-- account.move extended: fms_shift_id, fms_attendant_id, fms_vehicle_id, fms_driver_id, fms_station_id
-- **Files:** fms_accounting/models/fms_shift_accounting.py, fms_accounting/models/fms_credit_customer.py
-- **Date:** 2026-08-18
-
-### FIN-002 — Customer Payment / Receipt Integration [x]
-- account.payment extended: fms_shift_id, fms_attendant_id, fms_station_id, fms_payment_context
-- Constraints: company match, shift not closed
-- **Files:** fms_accounting/models/fms_payment_extension.py
-- **Date:** 2026-08-18
-
-### FIN-003 — Expense Integration [x]
-- Covered by fms_payment_context='expense' on account.payment
-- Replaces fragile in_invoice date+ref matching
-- **Files:** models/fms_shift_entry.py (_compute_from_payments)
-- **Date:** 2026-08-18
-
-### FIN-004 — Vendor Payment Integration [x]
-- Covered by fms_payment_context='vendor_payment' on account.payment
-- **Files:** fms_accounting/models/fms_payment_extension.py
-- **Date:** 2026-08-18
-
-### FIN-005 — Cash Float Integration [x]
-- Covered by fms_payment_context='cash_float' on account.payment
-- **Files:** models/fms_shift_entry.py (float_amount computed field)
-- **Date:** 2026-08-18
-
-### FIN-006 — Cash Reconciliation Formula Expansion [x]
-- total_in = reported_sales + customer_receipts + float - cash_drops
-- total_out = cash_collected + mpesa + card + ar + vendor_payments + expenses
-- SQL-aggregated via _compute_from_payments (no N+1)
-- **Files:** models/fms_shift_entry.py
-- **Date:** 2026-08-18
-
-### FIN-007 — Meter + Dry-Stock + Sales Reconciliation [x]
-- `_refresh_product_sales` includes dry-stock invoice lines (non-fuel products)
-- `is_fuel` field (related, stored) on fms.shift.product.sales for grouping
-- UNIQUE(shift_id, product_id) constraint prevents duplicate rows
-- **Date:** 2026-08-18
-
-### FIN-008 — Attendant Cash Reconciliation per Transaction Type [x]
-- SQL view `fms.report.attendant.cash.breakdown` (R27) — per-attendant per-shift
-- Gracefully degrades when fms_accounting not installed
-- Menu: Reporting → Attendant Cash Breakdown
-- **Date:** 2026-08-18
-
-### FIN-009 — Shift Close Gates (full 14-gate pipeline) [x]
-- G9-G14 added: receipts, float reconciliation, expense/vendor posting, digital, disputed check
-- Both action_close_shift and _apply_emergency_override include all 14 gates
-- **Date:** 2026-08-18
-
-### FIN-010 — SQL Optimization [x]
-- Composite index on account_payment (fms_shift_id, fms_attendant_id, fms_payment_context, state)
-- mpesa_amount, card_amount, ar_amount, total_in, total_out, balance all store=True
-- UNIQUE(shift_id, product_id) on fms.shift.product.sales + shift_id index
-- **Date:** 2026-08-18
-
-### FIN-011 — Menu Shortcuts [x]
-- Customer Receipts, Vendor Payments, Cash Floats, Cash Drops, Shift Expenses menus added
-- **Files:** fms_accounting/views/fms_payment_views.xml, fms_accounting/views/fms_accounting_menus.xml
-- **Date:** 2026-08-18
-
-### FIN-012 — Security (account.payment company isolation) [x]
-- Record rules: supervisor own-company, attendant own-payments-only
-- **Files:** fms_accounting/security/ir_rule.xml
-- **Date:** 2026-08-18
-
-### FIN-013 — Full Test Suite [ ]
-
-### FIN-014 — Documentation Verification [ ]
+## Phase H — Tests
+- [x] 266 baseline tests passing
+- [x] 25 FIN series tests (test_fin_series.py)
+- [ ] B2: test_invoice_auto_populate_from_shift
+- [ ] B2: test_invoice_blocked_no_active_shift
+- [ ] B3: test_vehicle_auto_populates_customer
+- [ ] B3: test_driver_auto_populates_customer
+- [ ] B3: test_vehicle_customer_mismatch_blocked
+- [ ] Run full suite after each phase
 
 ---
 
 ## Implementation Log
 
-| Date | Task | Result | Notes |
-|------|------|--------|-------|
-| 2026-08-18 | Phase A audit | Complete | 18 gaps identified |
-| 2026-08-18 | Phase C1 (11 tasks) | Complete | COGS gate, three-meter, emergency override, chatter, disputed shifts, etc. |
-| 2026-08-18 | Phase C2 (8 tasks) | Mostly complete | Vehicle/Driver/Gate 6/account.move fields. C2.6 stub incomplete. |
-| 2026-08-18 | Phase C3 (4 tasks) | Complete | Attendant assignment modes |
-| 2026-08-18 | Phase G7 (indexes) | Partial | FK + state indexes added |
-| 2026-08-18 | FIN-001 | Complete | account.move FMS fields |
-| 2026-08-18 | FIN-002/003/004/005 | Complete | account.payment extension + all contexts |
-| 2026-08-18 | FIN-006 | Complete | Expanded cash reconciliation formula, SQL aggregation |
-| 2026-08-18 | FIN-011 | Complete | 5 menu shortcuts added |
-| 2026-08-18 | FIN-012 | Complete | Record rules for account.payment |
-| 2026-08-18 | FIN-007 | Complete | Dry-stock aggregation in _refresh_product_sales |
-| 2026-08-18 | FIN-008 | Complete | R27 attendant cash breakdown SQL view + menu |
-| 2026-08-18 | FIN-009 | Complete | 14-gate pipeline (G9-G14 added) |
-| 2026-08-18 | FIN-010 | Complete | Composite indexes + stored fields |
-| 2026-08-18 | FIN-013 | Complete | test_fin_series.py — 25 tests covering FIN-002/006/007/008/009/012 |
-| 2026-08-18 | FIN-014 | Complete | task.md updated, gate table updated, runbook accurate |
+| Date | Phase | Task | Result |
+|------|-------|------|--------|
+| 2026-08-18 | FIN series | 266 tests, 0 failures | ✓ |
+| 2026-08-18 | Phase A | Documentation read, task.md updated | ✓ |
