@@ -44,6 +44,7 @@ Reference: Complete specification in FMS_Complete_Specification_Technical_Guide.
         "stock",
         "point_of_sale",
         "hr",
+        "web_dark_mode",
     ],
     "data": [
         # Security
