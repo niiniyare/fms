@@ -628,7 +628,34 @@ else:
 env.cr.commit()
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 8. SUMMARY
+# 8. ATTENDANTS
+# ─────────────────────────────────────────────────────────────────────────────
+print("\n[8] Attendants ...")
+Employee = env['hr.employee']
+ATTENDANTS = [
+    ('Ali Hassan',    'ali.hassan'),
+    ('Fatuma Omar',   'fatuma.omar'),
+    ('Kibe Mwangi',   'kibe.mwangi'),
+    ('Grace Njeri',   'grace.njeri'),
+]
+for full_name, _ in ATTENDANTS:
+    existing = Employee.search([('name', '=', full_name)], limit=1)
+    if not existing:
+        Employee.create({
+            'name': full_name,
+            'fms_is_attendant': True,
+            'company_id': company.id,
+        })
+        print(f"  ✓ Created attendant: {full_name}")
+    else:
+        if not existing.fms_is_attendant:
+            existing.fms_is_attendant = True
+        print(f"  · Attendant exists: {full_name}")
+
+env.cr.commit()
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 9. SUMMARY
 # ─────────────────────────────────────────────────────────────────────────────
 total_products = env['product.template'].search_count([('company_id', '=', company.id)])
 total_accounts = AccountAccount.search_count([('company_ids', 'in', [company.id])])
