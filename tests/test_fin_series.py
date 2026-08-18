@@ -282,6 +282,8 @@ class TestFINGatesG9G14(TestFINBase):
 
     def test_g11_blocks_on_draft_expense(self):
         """G11 blocks when draft expense payment exists."""
+        if 'fms_shift_id' not in self.env['account.payment']._fields:
+            self.skipTest("fms_accounting not installed — payment FMS fields absent")
         journal = self.env['account.journal'].search(
             [('type', '=', 'cash'), ('company_id', '=', self.env.company.id)], limit=1
         )
