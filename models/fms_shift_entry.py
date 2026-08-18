@@ -536,8 +536,22 @@ class FMSShiftAttendantCash(models.Model):
         if not records_with_shift:
             return
 
+        # Graceful degradation: fms_shift_id on account_payment added by fms_accounting.
+        # If fms_accounting not installed, skip payment aggregation — zero all fields.
+        self.env.cr.execute("""
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'account_payment' AND column_name = 'fms_shift_id' LIMIT 1
+        """)
+        if not self.env.cr.fetchone():
+            for rec in records_with_shift:
+                rec.customer_receipt_amount = 0.0
+                rec.float_amount = 0.0
+                rec.cash_drop_amount = 0.0
+                rec.vendor_payment_amount = 0.0
+                rec.expense_amount = 0.0
+            return
+
         shift_ids = records_with_shift.mapped('shift_id').ids
-        attendant_ids = records_with_shift.mapped('attendant_id').ids
 
         # Single SQL query — aggregate by shift, attendant, context
         # Only 'posted' payments count (state='posted' in account.payment)
