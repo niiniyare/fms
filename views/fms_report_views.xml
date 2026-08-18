@@ -70,18 +70,20 @@
         <field name="model">fms.report.wetstock</field>
         <field name="arch" type="xml">
             <list string="Wetstock Reconciliation" create="false" edit="false" delete="false"
-                  decoration-danger="variance_pct &gt; 0.5"
-                  decoration-warning="variance_pct &gt; 0.2 and variance_pct &lt;= 0.5">
+                  decoration-danger="not within_tolerance"
+                  decoration-success="within_tolerance">
                 <field name="shift_date"/>
                 <field name="shift_label"/>
-                <field name="tank_id"      string="Tank"/>
+                <field name="tank_id"       string="Tank"/>
                 <field name="product_id"/>
-                <field name="opening_vol"  string="Opening (L)"      sum="Opening (L)"/>
-                <field name="metered_sale" string="Metered Sale (L)" sum="Metered (L)"/>
-                <field name="book_stock"   string="Book Stock (L)"/>
-                <field name="closing_vol"  string="Closing Dip (L)"  sum="Closing (L)"/>
-                <field name="variance_l"   string="Variance (L)"     sum="Variance (L)"/>
-                <field name="variance_pct" string="Variance %"       widget="float" digits="[16,4]"/>
+                <field name="opening_vol"   string="Opening (L)"      sum="Opening (L)"/>
+                <field name="deliveries_l"  string="Deliveries (L)"   sum="Deliveries (L)"  optional="show"/>
+                <field name="metered_sale"  string="Meter Sales (L)"  sum="Metered (L)"/>
+                <field name="theoretical"   string="Theoretical (L)"  sum="Theoretical (L)" optional="show"/>
+                <field name="closing_vol"   string="Actual Dip (L)"   sum="Actual (L)"/>
+                <field name="variance_l"    string="Variance (L)"     sum="Variance (L)"/>
+                <field name="variance_pct"  string="Variance %"       widget="float" digits="[16,4]"/>
+                <field name="within_tolerance" string="OK" widget="boolean" optional="show"/>
             </list>
         </field>
     </record>

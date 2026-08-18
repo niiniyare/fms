@@ -156,9 +156,9 @@ class FMSReportWetstock(models.Model):
     shift_id      = fields.Many2one('fms.shift',          'Shift',    readonly=True)
     shift_date    = fields.Date(                           'Date',     readonly=True)
     shift_label   = fields.Selection([
-        ('day',     'Day'),
-        ('evening', 'Evening'),
-        ('night',   'Night'),
+        ('1_day',     '1. Day'),
+        ('2_evening', '2. Evening'),
+        ('3_night',   '3. Night'),
     ], string='Period', readonly=True)
     tank_id       = fields.Many2one('stock.location',     'Tank',     readonly=True)
     tank_name     = fields.Char(                           'Tank (SQL)',    readonly=True)
@@ -167,53 +167,79 @@ class FMSReportWetstock(models.Model):
 
     # ── Measures ──────────────────────────────────────────────────────
     opening_vol   = fields.Float('Opening (L)',            readonly=True, digits=(16, 2))
-    closing_vol   = fields.Float('Closing (L)',            readonly=True, digits=(16, 2))
+    deliveries_l  = fields.Float('Deliveries (L)',         readonly=True, digits=(16, 2))
     metered_sale  = fields.Float('Metered Sale (L)',       readonly=True, digits=(16, 2))
-    book_stock    = fields.Float('Book Stock (L)',         readonly=True, digits=(16, 2))
+    theoretical   = fields.Float('Theoretical Closing (L)',readonly=True, digits=(16, 2))
+    closing_vol   = fields.Float('Actual Closing Dip (L)', readonly=True, digits=(16, 2))
     variance_l    = fields.Float('Variance (L)',           readonly=True, digits=(16, 2))
     variance_pct  = fields.Float('Variance %',             readonly=True, digits=(16, 4))
+    within_tolerance = fields.Boolean('Within Tolerance',  readonly=True)
 
     def init(self):
+        tools.drop_view_if_exists(self.env.cr, 'fms_report_wetstock')
         self.env.cr.execute("""
-            CREATE OR REPLACE VIEW fms_report_wetstock AS (
+            CREATE VIEW fms_report_wetstock AS (
+                WITH
+                meters AS (
+                    SELECT me.shift_id, me.product_id,
+                           SUM(me.qty_sold_elec) AS metered_sale
+                    FROM fms_shift_meter_entry me
+                    GROUP BY me.shift_id, me.product_id
+                ),
+                deliveries AS (
+                    -- Stock moves received into fuel tank locations during the shift window
+                    SELECT
+                        s.id        AS shift_id,
+                        sm.product_id,
+                        SUM(sm.quantity) AS delivered_l
+                    FROM stock_move sm
+                    JOIN stock_location dest ON dest.id = sm.location_dest_id
+                    JOIN fms_shift s ON (
+                        sm.date >= s.planned_open
+                        AND sm.date <  COALESCE(s.planned_close, s.planned_open + interval '24 hours')
+                        AND sm.company_id = s.company_id
+                    )
+                    WHERE sm.state = 'done'
+                      AND dest.fms_is_fuel_tank = TRUE
+                    GROUP BY s.id, sm.product_id
+                ),
+                prefs AS (
+                    SELECT company_id, meniscus_pct FROM fms_site_preferences LIMIT 1
+                )
                 SELECT
-                    de.id                                               AS id,
-                    de.shift_id                                         AS shift_id,
-                    s.date                                              AS shift_date,
-                    s.label                                             AS shift_label,
-                    de.location_id                                      AS tank_id,
-                    sl.complete_name                                    AS tank_name,
-                    de.product_id                                       AS product_id,
-                    s.company_id                                        AS company_id,
-                    COALESCE(de.opening_volume, 0)                      AS opening_vol,
-                    COALESCE(de.closing_volume, 0)                      AS closing_vol,
-                    -- metered sale: sum of elec qty sold for this product on this shift
-                    COALESCE((
-                        SELECT SUM(me.qty_sold_elec)
-                        FROM fms_shift_meter_entry me
-                        WHERE me.shift_id = de.shift_id
-                          AND me.product_id = de.product_id
-                    ), 0)                                               AS metered_sale,
-                    -- book stock: opening + receipts - metered sales (receipts = 0 for now)
-                    COALESCE(de.opening_volume, 0) - COALESCE((
-                        SELECT SUM(me.qty_sold_elec)
-                        FROM fms_shift_meter_entry me
-                        WHERE me.shift_id = de.shift_id
-                          AND me.product_id = de.product_id
-                    ), 0)                                               AS book_stock,
-                    -- variance: closing dip minus book stock
+                    de.id                                                   AS id,
+                    de.shift_id                                             AS shift_id,
+                    s.date                                                  AS shift_date,
+                    s.label                                                 AS shift_label,
+                    de.location_id                                          AS tank_id,
+                    sl.complete_name                                        AS tank_name,
+                    de.product_id                                           AS product_id,
+                    s.company_id                                            AS company_id,
+                    COALESCE(de.opening_volume, 0)                          AS opening_vol,
+                    COALESCE(d.delivered_l, 0)                              AS deliveries_l,
+                    COALESCE(m.metered_sale, 0)                             AS metered_sale,
+                    -- Theoretical: opening + deliveries - meter sales
+                    COALESCE(de.opening_volume, 0)
+                        + COALESCE(d.delivered_l, 0)
+                        - COALESCE(m.metered_sale, 0)                       AS theoretical,
+                    COALESCE(de.closing_volume, 0)                          AS closing_vol,
+                    -- Variance: actual dip − theoretical
                     COALESCE(de.closing_volume, 0) - (
-                        COALESCE(de.opening_volume, 0) - COALESCE((
-                            SELECT SUM(me.qty_sold_elec)
-                            FROM fms_shift_meter_entry me
-                            WHERE me.shift_id = de.shift_id
-                              AND me.product_id = de.product_id
-                        ), 0)
-                    )                                                   AS variance_l,
-                    COALESCE(de.variance_pct, 0)                        AS variance_pct
+                        COALESCE(de.opening_volume, 0)
+                        + COALESCE(d.delivered_l, 0)
+                        - COALESCE(m.metered_sale, 0)
+                    )                                                       AS variance_l,
+                    COALESCE(de.variance_pct, 0)                            AS variance_pct,
+                    ABS(COALESCE(de.variance_pct, 0)) <= COALESCE(p.meniscus_pct, 0.5)
+                                                                            AS within_tolerance
                 FROM fms_shift_dip_entry de
                 JOIN fms_shift s           ON s.id = de.shift_id
                 JOIN stock_location sl     ON sl.id = de.location_id
+                LEFT JOIN meters m         ON m.shift_id = de.shift_id
+                                          AND m.product_id = de.product_id
+                LEFT JOIN deliveries d     ON d.shift_id = de.shift_id
+                                          AND d.product_id = de.product_id
+                LEFT JOIN prefs p          ON p.company_id = s.company_id
                 WHERE s.state = 'closed'
             )
         """)
@@ -1577,7 +1603,7 @@ class FMSReportTankLoss(models.Model):
 
     # Loss classification (advisory — not enforced)
     loss_category   = fields.Char('Loss Category', readonly=True,
-                                  help="Evaporation/Seepage, Meter Drift, Over-Dip, or OK")
+                                  help="OK | Meter Drift | Missing Sales | Evaporation/Seepage | Over-Dip")
 
     def init(self):
         tools.drop_view_if_exists(self.env.cr, 'fms_report_tank_loss')
@@ -1654,19 +1680,31 @@ class FMSReportTankLoss(models.Model):
                     ) <= d.dip_closing
                         * COALESCE(p.meniscus_pct, 0.5) / 100.0             AS within_meniscus,
 
-                    -- Advisory category
+                    -- Loss source (priority order: most specific first)
                     CASE
+                        -- Within meniscus tolerance → no action needed
                         WHEN ABS(
                             d.dip_consumed - COALESCE(m.meter_sold_elec, 0)
                         ) <= d.dip_closing
                             * COALESCE(p.meniscus_pct, 0.5) / 100.0
                             THEN 'OK'
-                        WHEN d.dip_consumed > COALESCE(m.meter_sold_elec, 0)
-                            THEN 'Evaporation / Seepage'
-                        WHEN COALESCE(m.meter_sold_elec, 0)
-                            > COALESCE(m.meter_sold_man, 0) + 1.0
+                        -- Meter drift: elec vs manual > 1 L
+                        WHEN ABS(
+                            COALESCE(m.meter_sold_elec, 0)
+                            - COALESCE(m.meter_sold_man, 0)
+                        ) > 1.0
                             THEN 'Meter Drift'
-                        ELSE 'Over-Dip / Measurement Error'
+                        -- Missing sales: meter sold significantly exceeds dip consumed
+                        -- (stock went down less than meter says → sales may be unrecorded)
+                        WHEN COALESCE(m.meter_sold_elec, 0)
+                            > d.dip_consumed + d.dip_closing * COALESCE(p.meniscus_pct, 0.5) / 100.0
+                            THEN 'Missing Sales / Meter Over-Reading'
+                        -- Physical loss: dip consumed > meter (stock dropped more than meter shows)
+                        WHEN d.dip_consumed
+                            > COALESCE(m.meter_sold_elec, 0)
+                                + d.dip_closing * COALESCE(p.meniscus_pct, 0.5) / 100.0
+                            THEN 'Evaporation / Seepage / Theft'
+                        ELSE 'Measurement Error'
                     END                                                      AS loss_category
 
                 FROM dip d

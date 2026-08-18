@@ -1029,8 +1029,10 @@
                 <field name="product_id"/>
                 <filter string="Outside Meniscus" name="f_over_meniscus"
                         domain="[('within_meniscus', '=', False)]"/>
-                <filter string="Evaporation / Seepage" name="f_evap"
-                        domain="[('loss_category', '=', 'Evaporation / Seepage')]"/>
+                <filter string="Evaporation / Seepage / Theft" name="f_evap"
+                        domain="[('loss_category', '=', 'Evaporation / Seepage / Theft')]"/>
+                <filter string="Missing Sales" name="f_missing"
+                        domain="[('loss_category', '=', 'Missing Sales / Meter Over-Reading')]"/>
                 <filter string="Meter Drift" name="f_drift"
                         domain="[('loss_category', '=', 'Meter Drift')]"/>
                 <filter string="Closed Shifts Only" name="f_closed"
