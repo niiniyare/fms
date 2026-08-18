@@ -65,6 +65,14 @@ class FMSPumpNozzle(models.Model):
     )
     active = fields.Boolean(default=True)
 
+    # ── Pre-assigned attendant ────────────────────────────────────────
+    default_attendant_id = fields.Many2one(
+        'hr.employee', 'Default Attendant',
+        domain=[('fms_is_attendant', '=', True)],
+        help="Pre-assigned attendant for this nozzle. "
+             "Auto-populated on meter entries when 'Pre-Assigned' mode is active in Site Preferences.",
+    )
+
     # ── Lifecycle state ───────────────────────────────────────────────
     state = fields.Selection([
         ('draft',        'Draft'),

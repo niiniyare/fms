@@ -33,6 +33,10 @@
                                widget="boolean_toggle"/>
                     </group>
 
+                    <group string="Attendant Assignment">
+                        <field name="attendant_assignment_mode" widget="radio"/>
+                    </group>
+
                     <group string="Shift Labels">
                         <group>
                             <field name="shift_label_1" string="Shift 1"/>

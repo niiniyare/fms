@@ -457,6 +457,15 @@ class FMSShift(models.Model):
                         'opening_man_mech':    opening_man_mech,
                         'closing_man_mech':    opening_man_mech,     # supervisor overwrites at close
                     })
+            # Pre-assigned mode: populate attendant_id from nozzle default
+            prefs = self.env['fms.site.preferences'].get_for_company(self.company_id)
+            use_pre_assigned = prefs and prefs.attendant_assignment_mode == 'pre_assigned'
+            if use_pre_assigned:
+                for entry in meter_entries:
+                    nozzle = self.env['fms.pump.nozzle'].browse(entry['nozzle_id'])
+                    if nozzle.default_attendant_id:
+                        entry['attendant_id'] = nozzle.default_attendant_id.id
+
             if meter_entries:
                 self.env['fms.shift.meter.entry'].create(meter_entries)
 
@@ -798,6 +807,19 @@ class FMSShift(models.Model):
                     "A supervisor must be assigned before closing a shift with sales. "
                     "Set the Supervisor field and try again."
                 )
+
+            # Attendant assignment check (per-nozzle mode)
+            prefs = self.env['fms.site.preferences'].get_for_company(self.company_id)
+            if prefs and prefs.attendant_assignment_mode == 'per_nozzle':
+                missing = self.meter_entry_ids.filtered(lambda e: not e.attendant_id)
+                if missing:
+                    nozzles = ', '.join(
+                        e.nozzle_id.name or e.nozzle_id.display_name for e in missing
+                    )
+                    raise ValidationError(
+                        f"Attendant not set on {len(missing)} nozzle(s): {nozzles}. "
+                        "Set an attendant on each meter entry row before closing."
+                    )
             # Full gate sequence — log each gate failure to chatter before re-raising
             for gate_fn in (
                 self._gate_check_meter_elec_vs_manual,

@@ -24,6 +24,16 @@ class FMSSitePreferences(models.Model):
              "Default: 0.5%. Shifts cannot close if any tank exceeds this.",
     )
 
+    # ── Attendant assignment mode ─────────────────────────────────────────────
+    attendant_assignment_mode = fields.Selection([
+        ('per_nozzle',    'Per Nozzle — attendant set on each meter entry row'),
+        ('pre_assigned',  'Pre-Assigned — default attendant from nozzle definition'),
+    ], string='Attendant Assignment Mode', default='per_nozzle',
+        help="Controls how attendants are assigned to nozzles during a shift.\n"
+             "Per Nozzle: supervisor fills attendant on each meter entry before closing.\n"
+             "Pre-Assigned: nozzle's default attendant is auto-populated when shift opens.",
+    )
+
     # ── Disputed shift control ────────────────────────────────────────────────
     allow_multiple_disputed = fields.Boolean(
         'Allow Multiple Disputed Shifts', default=False,
