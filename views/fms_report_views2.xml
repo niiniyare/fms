@@ -866,5 +866,125 @@
         <field name="view_mode">list</field>
     </record>
 
+    <!-- ═══════════════════════════════════════════════════════════════
+         E5.2: Cash Reconciliation Report (R28)
+    ═══════════════════════════════════════════════════════════════ -->
+
+    <record id="view_fms_cash_reconciliation_list" model="ir.ui.view">
+        <field name="name">fms.report.cash.reconciliation.list</field>
+        <field name="model">fms.report.cash.reconciliation</field>
+        <field name="arch" type="xml">
+            <list string="Cash Reconciliation" create="false" edit="false" delete="false">
+                <field name="shift_date" string="Date"/>
+                <field name="shift_label" string="Shift"/>
+                <field name="company_id" groups="base.group_multi_company"/>
+                <field name="attendant_name" string="Attendant"/>
+                <field name="meter_cash_sales" sum="Meter Cash" string="Meter Cash Sales"/>
+                <field name="direct_cash_sales" sum="Direct Cash" optional="show"/>
+                <field name="customer_receipts" sum="Receipts" optional="show"/>
+                <field name="float_in" sum="Floats" optional="hide"/>
+                <field name="digital_payments" sum="Digital" optional="show"/>
+                <field name="credit_sales" sum="Credit" optional="show"/>
+                <field name="cash_drops" sum="Drops" optional="show"/>
+                <field name="expenses_paid" sum="Expenses" optional="show"/>
+                <field name="vendor_payments" sum="Vendor" optional="show"/>
+                <field name="expected_cash" sum="Expected"/>
+                <field name="declared_cash" sum="Declared"/>
+                <field name="variance" sum="Variance"
+                       decoration-danger="not is_balanced"
+                       decoration-success="is_balanced"/>
+                <field name="is_balanced" widget="boolean" string="OK"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_fms_cash_reconciliation_search" model="ir.ui.view">
+        <field name="name">fms.report.cash.reconciliation.search</field>
+        <field name="model">fms.report.cash.reconciliation</field>
+        <field name="arch" type="xml">
+            <search string="Cash Reconciliation">
+                <field name="attendant_id"/>
+                <field name="shift_id"/>
+                <filter string="Unbalanced" name="unbalanced" domain="[('is_balanced', '=', False)]"/>
+                <filter string="This Month" name="this_month"
+                        domain="[('shift_date', '&gt;=', (context_today() + relativedelta(day=1)).strftime('%Y-%m-%d'))]"/>
+                <group expand="1" string="Group By">
+                    <filter string="Date" name="group_date" context="{'group_by': 'shift_date:day'}"/>
+                    <filter string="Attendant" name="group_att" context="{'group_by': 'attendant_id'}"/>
+                    <filter string="Shift" name="group_shift" context="{'group_by': 'shift_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_fms_cash_reconciliation" model="ir.actions.act_window">
+        <field name="name">Cash Reconciliation</field>
+        <field name="res_model">fms.report.cash.reconciliation</field>
+        <field name="view_mode">list</field>
+    </record>
+
+    <!-- ═══════════════════════════════════════════════════════════════
+         E5.3: Meter Reconciliation Report (R29)
+    ═══════════════════════════════════════════════════════════════ -->
+
+    <record id="view_fms_meter_reconciliation_list" model="ir.ui.view">
+        <field name="name">fms.report.meter.reconciliation.list</field>
+        <field name="model">fms.report.meter.reconciliation</field>
+        <field name="arch" type="xml">
+            <list string="Meter Reconciliation" create="false" edit="false" delete="false">
+                <field name="shift_date" string="Date"/>
+                <field name="shift_label" string="Shift"/>
+                <field name="company_id" groups="base.group_multi_company"/>
+                <field name="pump_name" string="Pump"/>
+                <field name="nozzle_name" string="Nozzle"/>
+                <field name="product_id" string="Product"/>
+                <field name="attendant_id" string="Attendant"/>
+                <field name="elec_open" string="Elec Open" optional="hide"/>
+                <field name="elec_close" string="Elec Close" optional="hide"/>
+                <field name="elec_sold" string="Elec Sold (L)" sum="Elec Total"/>
+                <field name="man_open" string="Manual Open" optional="hide"/>
+                <field name="man_close" string="Manual Close" optional="hide"/>
+                <field name="man_sold" string="Manual Sold (L)" sum="Manual Total"/>
+                <field name="elec_vs_man_var" string="Elec-Manual Var (L)"
+                       decoration-danger="not man_gate_ok"
+                       decoration-success="man_gate_ok"/>
+                <field name="elec_vs_man_abs" string="|Var| (L)" optional="hide"/>
+                <field name="man_gate_ok" widget="boolean" string="±1L OK"
+                       decoration-danger="not man_gate_ok"/>
+                <field name="elec_cash_sold" string="Elec Cash (KES)" sum="Cash Total" optional="show"/>
+                <field name="shift_state" string="Shift State" optional="show"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_fms_meter_reconciliation_search" model="ir.ui.view">
+        <field name="name">fms.report.meter.reconciliation.search</field>
+        <field name="model">fms.report.meter.reconciliation</field>
+        <field name="arch" type="xml">
+            <search string="Meter Reconciliation">
+                <field name="shift_id"/>
+                <field name="product_id"/>
+                <field name="attendant_id"/>
+                <filter string="Gate Failure (Elec/Manual &gt;1L)" name="gate_fail"
+                        domain="[('man_gate_ok', '=', False)]"/>
+                <filter string="Closed Shifts Only" name="closed"
+                        domain="[('shift_state', '=', 'closed')]"/>
+                <group expand="1" string="Group By">
+                    <filter string="Date" name="group_date" context="{'group_by': 'shift_date:day'}"/>
+                    <filter string="Pump" name="group_pump" context="{'group_by': 'pump_id'}"/>
+                    <filter string="Product" name="group_product" context="{'group_by': 'product_id'}"/>
+                    <filter string="Attendant" name="group_att" context="{'group_by': 'attendant_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_fms_meter_reconciliation" model="ir.actions.act_window">
+        <field name="name">Meter Reconciliation</field>
+        <field name="res_model">fms.report.meter.reconciliation</field>
+        <field name="view_mode">list</field>
+    </record>
+
 </odoo>
+
 

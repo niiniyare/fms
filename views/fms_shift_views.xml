@@ -142,7 +142,7 @@
 
                                     <!-- Computed net sold (after RTT) -->
                                     <field name="elec_cash_sold" readonly="1"
-                                           string="Cash Sold" sum="Total Cash KES"/>
+                                           string="Cash Sold" sum="Total Cash"/>
                                     <field name="qty_sold_elec" readonly="1"
                                            string="Vol Sold (L)" sum="Total L"
                                            optional="show"/>
@@ -257,6 +257,14 @@
                                            string="AR/Credit" sum="AR Total"
                                            optional="show"/>
 
+                                    <!-- DIRECT SALES RECEIPTS — dry-stock -->
+                                    <field name="direct_sales_cash" readonly="1"
+                                           string="Dry-Stock Cash" sum="Dry-Stock Cash Total"
+                                           optional="show"/>
+                                    <field name="direct_sales_digital" readonly="1"
+                                           string="Dry-Stock Digital" sum="Dry-Stock Digital Total"
+                                           optional="hide"/>
+
                                     <!-- OUTGOING — expense from GL, cash is MANUAL -->
                                     <field name="expense_amount" readonly="1"
                                            string="Expenses" sum="Expenses Total"
@@ -319,9 +327,9 @@
                                            optional="show"/>
                                     <!-- Cash side -->
                                     <field name="elec_cash_sold"
-                                           string="Cash Meter" sum="Total Cash KES"/>
+                                           string="Cash Meter" sum="Total Cash"/>
                                     <field name="pos_cash_collected"
-                                           string="POS Total" sum="Total POS KES"
+                                           string="POS Total" sum="Total POS"
                                            optional="show"/>
                                     <field name="cash_residual"
                                            string="Cash Residual"

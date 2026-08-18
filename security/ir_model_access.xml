@@ -599,6 +599,28 @@
         <field name="perm_unlink" eval="0"/>
     </record>
 
+    <!-- E5.2: fms.report.cash.reconciliation -->
+    <record id="access_fms_report_cash_recon_supervisor" model="ir.model.access">
+        <field name="name">fms.report.cash.reconciliation supervisor read</field>
+        <field name="model_id" ref="model_fms_report_cash_reconciliation"/>
+        <field name="group_id" ref="fms.group_fms_supervisor"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <!-- E5.3: fms.report.meter.reconciliation -->
+    <record id="access_fms_report_meter_recon_supervisor" model="ir.model.access">
+        <field name="name">fms.report.meter.reconciliation supervisor read</field>
+        <field name="model_id" ref="model_fms_report_meter_reconciliation"/>
+        <field name="group_id" ref="fms.group_fms_supervisor"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
     <!-- fms.report.attendant.cash.breakdown: FIN-008 read-only report -->
     <record id="access_fms_report_attendant_cash_breakdown_supervisor" model="ir.model.access">
         <field name="name">fms.report.attendant.cash.breakdown supervisor read</field>

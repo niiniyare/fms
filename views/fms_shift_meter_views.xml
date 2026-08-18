@@ -20,7 +20,7 @@
                 <field name="closing_elec_volume" string="Elec Vol (L)"/>
                 <field name="closing_man_mech" string="Manual (L)"/>
                 <field name="rtt_volume" string="RTT (L)" optional="show"/>
-                <field name="elec_cash_sold" string="Cash Sold" sum="Total Cash KES"/>
+                <field name="elec_cash_sold" string="Cash Sold" sum="Total Cash"/>
                 <field name="qty_sold_elec" string="Vol Sold (L)" sum="Total L"/>
             </list>
         </field>

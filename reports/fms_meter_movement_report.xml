@@ -50,9 +50,9 @@
                                     <th>Nozzle</th>
                                     <th>Product</th>
                                     <th>Attendant</th>
-                                    <th class="text-end">Opening<br/>Elec Cash (KES)</th>
-                                    <th class="text-end">Closing<br/>Elec Cash (KES)</th>
-                                    <th class="text-end">Cash Sold (KES)</th>
+                                    <th class="text-end">Opening<br/>Elec Cash </th>
+                                    <th class="text-end">Closing<br/>Elec Cash </th>
+                                    <th class="text-end">Cash Sold </th>
                                     <th class="text-end">Opening<br/>Elec Vol (L)</th>
                                     <th class="text-end">Closing<br/>Elec Vol (L)</th>
                                     <th class="text-end">RTT (L)</th>
@@ -133,7 +133,7 @@
                                 <tr>
                                     <th>Attendant</th>
                                     <th>Nozzles</th>
-                                    <th class="text-end">Total Cash Sold (KES)</th>
+                                    <th class="text-end">Total Cash Sold </th>
                                     <th class="text-end">Total Vol Sold (L)</th>
                                 </tr>
                             </thead>

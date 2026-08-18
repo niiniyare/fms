@@ -379,6 +379,16 @@ class FMSShift(models.Model):
         planned_close = planned_open + timedelta(hours=duration)
         return planned_open, planned_close
 
+    def write(self, vals):
+        if 'state' in vals and vals['state'] != 'closed':
+            for shift in self:
+                if shift.state == 'closed':
+                    raise ValidationError(
+                        "Closed shift %s cannot be re-opened or modified directly. "
+                        "Use the emergency override workflow." % shift.name
+                    )
+        return super().write(vals)
+
     def unlink(self):
         if any(s.state == 'closed' for s in self):
             raise ValidationError(

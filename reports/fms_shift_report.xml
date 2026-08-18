@@ -74,13 +74,13 @@
                                     <tr>
                                         <td class="fw-bold" style="width:50%">Total Meter Sales</td>
                                         <td class="text-end">
-                                            KES <t t-esc="'{:,.2f}'.format(shift.total_meter_sales)"/>
+                                            <t t-esc="shift.company_id.currency_id.name"/> <t t-esc="'{:,.2f}'.format(shift.total_meter_sales)"/>
                                         </td>
                                     </tr>
                                     <tr>
                                         <td class="fw-bold">Total Reported Sales</td>
                                         <td class="text-end">
-                                            KES <t t-esc="'{:,.2f}'.format(shift.total_reported_sales)"/>
+                                            <t t-esc="shift.company_id.currency_id.name"/> <t t-esc="'{:,.2f}'.format(shift.total_reported_sales)"/>
                                         </td>
                                     </tr>
                                     <tr>
@@ -88,7 +88,7 @@
                                         <td t-attf-class="text-end fw-bold #{
                                             'text-success' if abs(shift.fc_cash_balance) &lt; 0.01 else 'text-danger'
                                         }">
-                                            KES <t t-esc="'{:,.2f}'.format(shift.fc_cash_balance)"/>
+                                            <t t-esc="shift.company_id.currency_id.name"/> <t t-esc="'{:,.2f}'.format(shift.fc_cash_balance)"/>
                                         </td>
                                     </tr>
                                     <t t-if="shift.sales_journal_entry_id">
@@ -115,7 +115,7 @@
                                         <th class="text-end">Opening (L)</th>
                                         <th class="text-end">Closing (L)</th>
                                         <th class="text-end">Qty Sold (L)</th>
-                                        <th class="text-end">Amount (KES)</th>
+                                        <th class="text-end">Amount </th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -138,7 +138,7 @@
                                             <t t-esc="'{:,.2f}'.format(sum(shift.meter_entry_ids.mapped('qty_sold_elec')))"/>
                                         </td>
                                         <td class="text-end">
-                                            KES <t t-esc="'{:,.2f}'.format(shift.total_meter_sales)"/>
+                                            <t t-esc="shift.company_id.currency_id.name"/> <t t-esc="'{:,.2f}'.format(shift.total_meter_sales)"/>
                                         </td>
                                     </tr>
                                 </tfoot>
@@ -192,13 +192,13 @@
                                 <thead class="table-light">
                                     <tr>
                                         <th>Attendant</th>
-                                        <th class="text-end">POS Sales (KES)</th>
-                                        <th class="text-end">MPesa (KES)</th>
-                                        <th class="text-end">Card (KES)</th>
-                                        <th class="text-end">AR (KES)</th>
-                                        <th class="text-end">Expenses (KES)</th>
-                                        <th class="text-end">Cash Dropped (KES)</th>
-                                        <th class="text-end">Balance (KES)</th>
+                                        <th class="text-end">POS Sales </th>
+                                        <th class="text-end">MPesa </th>
+                                        <th class="text-end">Card </th>
+                                        <th class="text-end">AR </th>
+                                        <th class="text-end">Expenses </th>
+                                        <th class="text-end">Cash Dropped </th>
+                                        <th class="text-end">Balance </th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -230,9 +230,9 @@
                                     <tr>
                                         <th>Product</th>
                                         <th class="text-end">Meter Qty (L)</th>
-                                        <th class="text-end">Meter Amount (KES)</th>
+                                        <th class="text-end">Meter Amount </th>
                                         <th class="text-end">Residual Qty (L)</th>
-                                        <th class="text-end">Residual Amt (KES)</th>
+                                        <th class="text-end">Residual Amt </th>
                                         <th>Status</th>
                                     </tr>
                                 </thead>
@@ -269,7 +269,7 @@
                                             <t t-esc="'{:,.2f}'.format(sum(shift.product_sales_ids.mapped('qty_sold_elec')))"/>
                                         </td>
                                         <td class="text-end">
-                                            KES <t t-esc="'{:,.2f}'.format(shift.total_meter_sales)"/>
+                                            <t t-esc="shift.company_id.currency_id.name"/> <t t-esc="'{:,.2f}'.format(shift.total_meter_sales)"/>
                                         </td>
                                         <td colspan="3"></td>
                                     </tr>
@@ -286,7 +286,7 @@
                                         <th>From (Over-reported)</th>
                                         <th>To (Under-reported)</th>
                                         <th class="text-end">Qty (L)</th>
-                                        <th class="text-end">Amount (KES)</th>
+                                        <th class="text-end">Amount </th>
                                         <th>GL Entry</th>
                                     </tr>
                                 </thead>
@@ -317,7 +317,7 @@
                                     <td t-attf-class="text-end #{
                                         'text-success' if abs(shift.fc_cash_balance) &lt; 0.01 else 'text-danger'
                                     }">
-                                        KES <t t-esc="'{:,.2f}'.format(shift.fc_cash_balance)"/>
+                                        <t t-esc="shift.company_id.currency_id.name"/> <t t-esc="'{:,.2f}'.format(shift.fc_cash_balance)"/>
                                     </td>
                                 </tr>
                                 <tr>

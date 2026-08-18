@@ -51,7 +51,7 @@
                                     <tr>
                                         <th>Product</th>
                                         <th class="text-end">Volume (L)</th>
-                                        <th class="text-end">Amount (KES)</th>
+                                        <th class="text-end">Amount </th>
                                         <th class="text-end">RTT (L)</th>
                                     </tr>
                                 </thead>
@@ -72,7 +72,7 @@
                                             <t t-esc="'{:,.2f}'.format(sum(shift.meter_entry_ids.mapped('qty_sold_elec')))"/>
                                         </td>
                                         <td class="text-end">
-                                            KES <t t-esc="'{:,.2f}'.format(shift.total_meter_sales)"/>
+                                            <t t-esc="shift.company_id.currency_id.name"/> <t t-esc="'{:,.2f}'.format(shift.total_meter_sales)"/>
                                         </td>
                                         <td></td>
                                     </tr>
@@ -89,7 +89,7 @@
                                     <tr>
                                         <th>Product</th>
                                         <th class="text-end">Volume (L)</th>
-                                        <th class="text-end">Amount (KES)</th>
+                                        <th class="text-end">Amount </th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -101,7 +101,7 @@
                                                 <t t-esc="'{:,.2f}'.format(sum(me.qty_sold_elec for me in prod_entries))"/>
                                             </td>
                                             <td class="text-end">
-                                                KES <t t-esc="'{:,.2f}'.format(sum(me.amount_elec for me in prod_entries))"/>
+                                                <t t-esc="shift.company_id.currency_id.name"/> <t t-esc="'{:,.2f}'.format(sum(me.amount_elec for me in prod_entries))"/>
                                             </td>
                                         </tr>
                                     </t>
@@ -113,7 +113,7 @@
                                             <t t-esc="'{:,.2f}'.format(sum(me.qty_sold_elec for s in day_shifts for me in s.meter_entry_ids))"/>
                                         </td>
                                         <td class="text-end">
-                                            KES <t t-esc="'{:,.2f}'.format(sum(s.total_meter_sales for s in day_shifts))"/>
+                                            <t t-esc="shift.company_id.currency_id.name"/> <t t-esc="'{:,.2f}'.format(sum(s.total_meter_sales for s in day_shifts))"/>
                                         </td>
                                     </tr>
                                 </tfoot>
@@ -126,11 +126,11 @@
                             <thead class="table-light">
                                 <tr>
                                     <th>Shift</th>
-                                    <th class="text-end">Reported (KES)</th>
-                                    <th class="text-end">MPesa (KES)</th>
-                                    <th class="text-end">Card (KES)</th>
-                                    <th class="text-end">AR (KES)</th>
-                                    <th class="text-end">Cash Drop (KES)</th>
+                                    <th class="text-end">Reported </th>
+                                    <th class="text-end">MPesa </th>
+                                    <th class="text-end">Card </th>
+                                    <th class="text-end">AR </th>
+                                    <th class="text-end">Cash Drop </th>
                                     <th class="text-end">FC Balance</th>
                                 </tr>
                             </thead>

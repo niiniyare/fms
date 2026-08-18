@@ -69,7 +69,7 @@
                                             <th class="text-end">Close Mech (L)</th>
                                             <th class="text-end">RTT (L)</th>
                                             <th class="text-end">Sold (L)</th>
-                                            <th class="text-end">Amount (KES)</th>
+                                            <th class="text-end">Amount </th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -95,7 +95,7 @@
                                                 <t t-esc="'{:,.2f}'.format(sum(my_entries.mapped('qty_sold_elec')))"/>
                                             </td>
                                             <td class="text-end">
-                                                KES <t t-esc="'{:,.2f}'.format(sum(my_entries.mapped('amount_elec')))"/>
+                                                <t t-esc="shift.company_id.currency_id.name"/> <t t-esc="'{:,.2f}'.format(sum(my_entries.mapped('amount_elec')))"/>
                                             </td>
                                         </tr>
                                     </tfoot>
@@ -107,7 +107,7 @@
                             <table class="table table-sm table-bordered mb-3" style="max-width:500px">
                                 <tbody>
                                     <tr>
-                                        <td>Reported Sales (KES)</td>
+                                        <td>Reported Sales </td>
                                         <td class="text-end fw-bold">
                                             <t t-esc="'{:,.2f}'.format(cash.reported_sales)"/>
                                         </td>

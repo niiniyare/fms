@@ -361,6 +361,23 @@ class FMSShiftAttendantCash(models.Model):
         help="Small expenses paid directly from shift cash.",
     )
 
+    # ── DIRECT SALES RECEIPTS (account.move out_receipt, cash journals) ─────────
+    direct_sales_cash = fields.Float(
+        'Direct Cash Sales', compute='_compute_from_receipts', store=True, digits=(16, 2),
+        help="Posted Sales Receipts (non-fuel, cash journal) for this attendant/shift. "
+             "Dry-stock cash sales (carwash, LPG, misc) not captured by POS or pump meter.",
+    )
+    direct_sales_digital = fields.Float(
+        'Direct Digital Sales', compute='_compute_from_receipts', store=True, digits=(16, 2),
+        help="Posted Sales Receipts via digital/bank journal (MPesa, card). "
+             "Not physical cash — informational only.",
+    )
+    direct_sales_credit = fields.Float(
+        'Direct Credit Sales', compute='_compute_from_receipts', store=True, digits=(16, 2),
+        help="Posted Sales Receipts on credit (AR). "
+             "Creates receivable, does not affect physical cash.",
+    )
+
     # ── TOTALS ────────────────────────────────────────────────────────────────
     total_in = fields.Float(
         'Expected Cash', compute='_compute_balance', store=True, digits=(16, 2),
@@ -455,6 +472,51 @@ class FMSShiftAttendantCash(models.Model):
                 rec.card_amount  = 0.0
                 rec.ar_amount    = 0.0
 
+    # ── Compute: Direct Sales Receipts (C2.6) ────────────────────────────────────
+    # account.move out_receipt linked to this shift+attendant, posted.
+    # Cash classification derived from journal type (cash / bank / other).
+    # Fuel products excluded — already captured in reported_sales from pump meters.
+
+    @api.depends('shift_id', 'attendant_id')
+    def _compute_from_receipts(self):
+        AccountMove = self.env['account.move']
+        # Skip computation if fms_accounting not installed
+        has_fms = 'fms_shift_id' in AccountMove._fields and 'fms_payment_classification' in AccountMove._fields
+        for rec in self:
+            if not rec.shift_id or not rec.attendant_id or not has_fms:
+                rec.direct_sales_cash = 0.0
+                rec.direct_sales_digital = 0.0
+                rec.direct_sales_credit = 0.0
+                continue
+
+            receipts = AccountMove.search([
+                ('move_type', '=', 'out_receipt'),
+                ('fms_shift_id', '=', rec.shift_id.id),
+                ('fms_attendant_id', '=', rec.attendant_id.id),
+                ('state', '=', 'posted'),
+            ])
+
+            cash_total = digital_total = credit_total = 0.0
+            for r in receipts:
+                # Exclude fuel lines from this attendant cash sum
+                # (fuel revenue is already in reported_sales from pump meters)
+                non_fuel_total = sum(
+                    line.price_subtotal
+                    for line in r.invoice_line_ids
+                    if not line.product_id.fms_is_fuel
+                )
+                cls = r.fms_payment_classification
+                if cls == 'cash':
+                    cash_total += non_fuel_total
+                elif cls == 'digital':
+                    digital_total += non_fuel_total
+                else:
+                    credit_total += non_fuel_total
+
+            rec.direct_sales_cash = cash_total
+            rec.direct_sales_digital = digital_total
+            rec.direct_sales_credit = credit_total
+
     # ── Compute: Cash movements from account.payment (FIN-002/FIN-006) ──────────
     # Uses SQL aggregation to avoid N+1 ORM queries across potentially large
     # payment tables. Groups by (shift_id, attendant_id, fms_payment_context).
@@ -529,19 +591,23 @@ class FMSShiftAttendantCash(models.Model):
         'mpesa_amount', 'card_amount', 'ar_amount',
         'customer_receipt_amount', 'float_amount', 'cash_drop_amount',
         'vendor_payment_amount', 'expense_amount',
+        'direct_sales_cash', 'direct_sales_digital',
         'shift_id.meter_entry_ids.elec_cash_sold',
         'shift_id.meter_entry_ids.attendant_id',
     )
     def _compute_balance(self):
         for rec in self:
             # total_in: all cash this attendant should physically have
+            # direct_sales_cash: dry-stock cash receipts (not captured by pump meters)
             rec.total_in = (
                 rec.reported_sales
                 + rec.customer_receipt_amount
                 + rec.float_amount
+                + rec.direct_sales_cash
                 - rec.cash_drop_amount
             )
-            # total_out: all ways the cash left the attendant's hands
+            # total_out: all ways cash left the attendant's hands
+            # direct_sales_digital counted like mpesa — not physical cash
             rec.total_out = (
                 rec.cash_collected
                 + rec.mpesa_amount
@@ -549,6 +615,7 @@ class FMSShiftAttendantCash(models.Model):
                 + rec.ar_amount
                 + rec.vendor_payment_amount
                 + rec.expense_amount
+                + rec.direct_sales_digital
             )
             rec.balance = rec.total_in - rec.total_out
 

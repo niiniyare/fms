@@ -175,6 +175,20 @@
               groups="fms.group_fms_supervisor"
               sequence="205"/>
 
+    <menuitem id="menu_fms_report_cash_reconciliation"
+              name="Cash Reconciliation"
+              parent="menu_fms_reporting"
+              action="action_fms_cash_reconciliation"
+              groups="fms.group_fms_supervisor"
+              sequence="210"/>
+
+    <menuitem id="menu_fms_report_meter_reconciliation"
+              name="Meter Reconciliation"
+              parent="menu_fms_reporting"
+              action="action_fms_meter_reconciliation"
+              groups="fms.group_fms_supervisor"
+              sequence="215"/>
+
     <!-- ══════════════════════════════════════════════════
          CONFIGURATION
          Station Setup | Nozzles | Shift Definitions & Prices

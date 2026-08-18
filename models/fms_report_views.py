@@ -1246,3 +1246,267 @@ class FMSReportAttendantCashBreakdown(models.Model):
                     JOIN hr_employee e ON e.id  = ac.attendant_id
                 )
             """)
+
+
+# =============================================================================
+# E5.2: Cash Reconciliation Report — shift-level physical cash accountability
+# =============================================================================
+
+class FMSReportCashReconciliation(models.Model):
+    """
+    R28: Shift-level cash reconciliation report.
+    Aggregates across all attendants for a shift.
+    Every amount is traceable to its source transaction type.
+    Read-only SQL view.
+    """
+    _name        = 'fms.report.cash.reconciliation'
+    _description = 'Cash Reconciliation Report (E5.2)'
+    _auto        = False
+    _order       = 'shift_date DESC, attendant_name'
+
+    id             = fields.Integer('ID',            readonly=True)
+    shift_id       = fields.Many2one('fms.shift',    'Shift',         readonly=True)
+    shift_date     = fields.Date('Shift Date',                        readonly=True)
+    shift_label    = fields.Char('Shift (SQL)',                        readonly=True)
+    company_id     = fields.Many2one('res.company',  'Station',       readonly=True)
+    attendant_id   = fields.Many2one('hr.employee',  'Attendant',     readonly=True)
+    attendant_name = fields.Char('Attendant (SQL)',                    readonly=True)
+
+    # ── Inflows ───────────────────────────────────────────────────────────────
+    meter_cash_sales   = fields.Float('Meter Cash Sales (KES)',   readonly=True, digits=(16, 2),
+        help="elec_cash_sold from pump meters — expected cash from fuel dispensed.")
+    direct_cash_sales  = fields.Float('Direct Cash Sales (KES)',  readonly=True, digits=(16, 2),
+        help="Posted out_receipt (cash journal) for non-fuel products (carwash, LPG, misc).")
+    customer_receipts  = fields.Float('Customer Receipts (KES)', readonly=True, digits=(16, 2),
+        help="account.payment inbound, fms_payment_context=customer_receipt, posted.")
+    float_in           = fields.Float('Float Received (KES)',     readonly=True, digits=(16, 2),
+        help="Cash floats issued to this attendant.")
+
+    # ── Outflows (reduce physical cash holding) ───────────────────────────────
+    digital_payments   = fields.Float('Digital Payments (KES)',  readonly=True, digits=(16, 2),
+        help="MPesa + Card + digital receipts — no physical cash exchange.")
+    credit_sales       = fields.Float('Credit Sales (KES)',      readonly=True, digits=(16, 2),
+        help="AR sales (out_invoice or out_receipt on credit) — no physical cash.")
+    cash_drops         = fields.Float('Cash Drops (KES)',        readonly=True, digits=(16, 2),
+        help="Mid-shift drops to safe — reduces expected holding.")
+    expenses_paid      = fields.Float('Expenses Paid (KES)',     readonly=True, digits=(16, 2),
+        help="Expenses paid from shift cash.")
+    vendor_payments    = fields.Float('Vendor Payments (KES)',   readonly=True, digits=(16, 2),
+        help="Vendor payments made from shift cash.")
+
+    # ── Expected vs declared ──────────────────────────────────────────────────
+    expected_cash  = fields.Float('Expected Cash (KES)',  readonly=True, digits=(16, 2),
+        help="Inflows minus non-cash outflows = physical cash the attendant should hold.")
+    declared_cash  = fields.Float('Declared Cash (KES)', readonly=True, digits=(16, 2),
+        help="cash_collected — what the attendant physically handed over.")
+    variance       = fields.Float('Variance (KES)',       readonly=True, digits=(16, 2),
+        help="expected_cash - declared_cash. Must be 0.")
+    is_balanced    = fields.Boolean('Balanced',           readonly=True)
+
+    def init(self):
+        # Graceful degradation: payment columns require fms_accounting
+        self.env.cr.execute("""
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'account_payment' AND column_name = 'fms_shift_id'
+            LIMIT 1
+        """)
+        has_fms_acc = bool(self.env.cr.fetchone())
+
+        self.env.cr.execute("""
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'account_move' AND column_name = 'fms_payment_classification'
+            LIMIT 1
+        """)
+        has_receipt_cls = bool(self.env.cr.fetchone())
+
+        if has_fms_acc and has_receipt_cls:
+            self.env.cr.execute("""
+                CREATE OR REPLACE VIEW fms_report_cash_reconciliation AS (
+                    SELECT
+                        ac.id                                                    AS id,
+                        ac.shift_id                                              AS shift_id,
+                        s.date                                                   AS shift_date,
+                        s.label                                                  AS shift_label,
+                        s.company_id                                             AS company_id,
+                        ac.attendant_id                                          AS attendant_id,
+                        e.name                                                   AS attendant_name,
+
+                        -- Fuel cash from pump meters
+                        COALESCE(ac.reported_sales, 0)                           AS meter_cash_sales,
+
+                        -- Dry-stock cash receipts (out_receipt, cash journal, non-fuel)
+                        COALESCE(ac.direct_sales_cash, 0)                        AS direct_cash_sales,
+
+                        -- Customer receipts (outstanding invoices paid)
+                        COALESCE(ac.customer_receipt_amount, 0)                  AS customer_receipts,
+
+                        -- Cash floats received
+                        COALESCE(ac.float_amount, 0)                             AS float_in,
+
+                        -- Digital payments (mpesa + card + digital receipts)
+                        COALESCE(ac.mpesa_amount, 0)
+                        + COALESCE(ac.card_amount, 0)
+                        + COALESCE(ac.direct_sales_digital, 0)                   AS digital_payments,
+
+                        -- Credit/AR sales (no physical cash)
+                        COALESCE(ac.ar_amount, 0)
+                        + COALESCE(ac.direct_sales_credit, 0)                    AS credit_sales,
+
+                        -- Cash drops to safe
+                        COALESCE(ac.cash_drop_amount, 0)                         AS cash_drops,
+
+                        -- Expenses from shift cash
+                        COALESCE(ac.expense_amount, 0)                           AS expenses_paid,
+
+                        -- Vendor payments from shift cash
+                        COALESCE(ac.vendor_payment_amount, 0)                    AS vendor_payments,
+
+                        -- Expected = total_in (pre-computed, stored)
+                        COALESCE(ac.total_in, 0)                                 AS expected_cash,
+
+                        -- Declared = cash handed over
+                        COALESCE(ac.cash_collected, 0)                           AS declared_cash,
+
+                        -- Variance
+                        COALESCE(ac.balance, 0)                                  AS variance,
+
+                        ABS(COALESCE(ac.balance, 0)) < 0.01                      AS is_balanced
+
+                    FROM fms_shift_attendant_cash ac
+                    JOIN fms_shift   s ON s.id  = ac.shift_id
+                    JOIN hr_employee e ON e.id  = ac.attendant_id
+                )
+            """)
+        else:
+            # Simplified view without fms_accounting payment columns
+            self.env.cr.execute("""
+                CREATE OR REPLACE VIEW fms_report_cash_reconciliation AS (
+                    SELECT
+                        ac.id                                    AS id,
+                        ac.shift_id                              AS shift_id,
+                        s.date                                   AS shift_date,
+                        s.label                                  AS shift_label,
+                        s.company_id                             AS company_id,
+                        ac.attendant_id                          AS attendant_id,
+                        e.name                                   AS attendant_name,
+                        COALESCE(ac.reported_sales, 0)           AS meter_cash_sales,
+                        0::numeric                               AS direct_cash_sales,
+                        0::numeric                               AS customer_receipts,
+                        0::numeric                               AS float_in,
+                        COALESCE(ac.mpesa_amount, 0)
+                        + COALESCE(ac.card_amount, 0)            AS digital_payments,
+                        COALESCE(ac.ar_amount, 0)                AS credit_sales,
+                        0::numeric                               AS cash_drops,
+                        0::numeric                               AS expenses_paid,
+                        0::numeric                               AS vendor_payments,
+                        COALESCE(ac.total_in, 0)                 AS expected_cash,
+                        COALESCE(ac.cash_collected, 0)           AS declared_cash,
+                        COALESCE(ac.balance, 0)                  AS variance,
+                        ABS(COALESCE(ac.balance, 0)) < 0.01      AS is_balanced
+                    FROM fms_shift_attendant_cash ac
+                    JOIN fms_shift   s ON s.id  = ac.shift_id
+                    JOIN hr_employee e ON e.id  = ac.attendant_id
+                )
+            """)
+
+
+# =============================================================================
+# E5.3: Meter Reconciliation Report — per-nozzle three-meter variance
+# =============================================================================
+
+class FMSReportMeterReconciliation(models.Model):
+    """
+    R29: Per-nozzle meter reconciliation for a closed shift.
+    Shows electronic vs manual vs cash-meter discrepancies.
+    Read-only SQL view — source of truth is fms_shift_meter_entry.
+
+    Gate thresholds:
+      elec vs manual: > 1L = blocking error
+      elec vs cash:   > site_preferences.elec_vs_cash_threshold_l = blocking error
+    """
+    _name        = 'fms.report.meter.reconciliation'
+    _description = 'Meter Reconciliation Report (E5.3)'
+    _auto        = False
+    _order       = 'shift_date DESC, pump_name, nozzle_name'
+
+    id              = fields.Integer('ID',               readonly=True)
+    shift_id        = fields.Many2one('fms.shift',       'Shift',           readonly=True)
+    shift_date      = fields.Date('Shift Date',                             readonly=True)
+    shift_label     = fields.Char('Shift (SQL)',                             readonly=True)
+    company_id      = fields.Many2one('res.company',     'Station',         readonly=True)
+    pump_id         = fields.Many2one('fms.pump',        'Pump',            readonly=True)
+    pump_name       = fields.Char('Pump (SQL)',                              readonly=True)
+    nozzle_id       = fields.Many2one('fms.pump.nozzle', 'Nozzle',         readonly=True)
+    nozzle_name     = fields.Char('Nozzle (SQL)',                           readonly=True)
+    product_id      = fields.Many2one('product.product', 'Product',        readonly=True)
+    attendant_id    = fields.Many2one('hr.employee',     'Attendant',       readonly=True)
+
+    # ── Electronic meter ─────────────────────────────────────────────────────
+    elec_open       = fields.Float('Elec Opening (L)',   readonly=True, digits=(16, 3))
+    elec_close      = fields.Float('Elec Closing (L)',   readonly=True, digits=(16, 3))
+    elec_sold       = fields.Float('Elec Sold (L)',      readonly=True, digits=(16, 3))
+    elec_cash_sold  = fields.Float('Elec Cash (KES)',    readonly=True, digits=(16, 2))
+
+    # ── Manual mechanical meter ───────────────────────────────────────────────
+    man_open        = fields.Float('Manual Opening (L)', readonly=True, digits=(16, 3))
+    man_close       = fields.Float('Manual Closing (L)', readonly=True, digits=(16, 3))
+    man_sold        = fields.Float('Manual Sold (L)',    readonly=True, digits=(16, 3))
+
+    # ── Variances ─────────────────────────────────────────────────────────────
+    elec_vs_man_var = fields.Float('Elec/Manual Variance (L)', readonly=True, digits=(16, 3),
+        help="Electronic − Manual dispensed. > ±1L triggers Gate G1 block.")
+    elec_vs_man_abs = fields.Float('|Elec/Manual| (L)',        readonly=True, digits=(16, 3))
+    man_gate_ok     = fields.Boolean('Manual Gate OK',         readonly=True,
+        help="True if |elec − manual| ≤ 1L.")
+
+    # ── Status ────────────────────────────────────────────────────────────────
+    shift_state     = fields.Char('Shift Status (SQL)',         readonly=True)
+
+    def init(self):
+        self.env.cr.execute("""
+            CREATE OR REPLACE VIEW fms_report_meter_reconciliation AS (
+                SELECT
+                    me.id                                                AS id,
+                    me.shift_id                                          AS shift_id,
+                    s.date                                               AS shift_date,
+                    s.label                                              AS shift_label,
+                    s.company_id                                         AS company_id,
+                    s.state                                              AS shift_state,
+                    n.pump_id                                            AS pump_id,
+                    p.name                                               AS pump_name,
+                    me.nozzle_id                                         AS nozzle_id,
+                    n.name                                               AS nozzle_name,
+                    me.product_id                                        AS product_id,
+                    me.attendant_id                                      AS attendant_id,
+
+                    -- Electronic meter
+                    COALESCE(me.opening_elec_volume, 0)                  AS elec_open,
+                    COALESCE(me.closing_elec_volume, 0)                  AS elec_close,
+                    COALESCE(me.qty_sold_elec, 0)                        AS elec_sold,
+                    COALESCE(me.elec_cash_sold, 0)                       AS elec_cash_sold,
+
+                    -- Manual meter
+                    COALESCE(me.opening_man_mech, 0)                     AS man_open,
+                    COALESCE(me.closing_man_mech, 0)                     AS man_close,
+                    COALESCE(me.qty_sold_man, 0)                         AS man_sold,
+
+                    -- Elec vs Manual variance
+                    COALESCE(me.qty_sold_elec, 0)
+                    - COALESCE(me.qty_sold_man, 0)                       AS elec_vs_man_var,
+
+                    ABS(
+                        COALESCE(me.qty_sold_elec, 0)
+                        - COALESCE(me.qty_sold_man, 0)
+                    )                                                    AS elec_vs_man_abs,
+
+                    ABS(
+                        COALESCE(me.qty_sold_elec, 0)
+                        - COALESCE(me.qty_sold_man, 0)
+                    ) <= 1.0                                             AS man_gate_ok
+
+                FROM fms_shift_meter_entry me
+                JOIN fms_shift         s  ON s.id  = me.shift_id
+                JOIN fms_pump_nozzle   n  ON n.id  = me.nozzle_id
+                JOIN fms_pump          p  ON p.id  = n.pump_id
+            )
+        """)

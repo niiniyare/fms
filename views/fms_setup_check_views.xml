@@ -70,7 +70,7 @@
                             <button name="action_create_opening_equity"
                                     string="Create Opening Equity"
                                     type="object" class="btn-secondary me-2"
-                                    confirm="This creates a KES 500,000 opening DR Bank / CR 301000-Capital entry dated 2026-01-01. Continue?"
+                                    confirm="This creates a 500,000 opening DR Bank / CR 301000-Capital entry dated 2026-01-01. Continue?"
                                     title="Creates an opening balance entry so Equity appears on the Balance Sheet"/>
                             <button name="action_open_site_prefs"
                                     string="Site Preferences"
