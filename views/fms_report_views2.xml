@@ -888,11 +888,13 @@
                 <field name="cash_drops" sum="Drops" optional="show"/>
                 <field name="expenses_paid" sum="Expenses" optional="show"/>
                 <field name="vendor_payments" sum="Vendor" optional="show"/>
+                <field name="refunds" sum="Refunds" optional="show"/>
                 <field name="expected_cash" sum="Expected"/>
                 <field name="declared_cash" sum="Declared"/>
                 <field name="variance" sum="Variance"
                        decoration-danger="not is_balanced"
                        decoration-success="is_balanced"/>
+                <field name="variance_pct" string="Var %" optional="show"/>
                 <field name="is_balanced" widget="boolean" string="OK"/>
             </list>
         </field>

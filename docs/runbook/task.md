@@ -127,7 +127,7 @@ Implementation order: SR-001 → SR-004 → REC-001 → REC-002 → MENU-001 →
 
 ---
 
-### SR-001 — `fms_nozzle_id` on `account.move.line` `[ ]`
+### SR-001 — `fms_nozzle_id` on `account.move.line` `[x]`
 
 - **Why:** Ties a receipt/invoice line to a pump nozzle → enables per-nozzle meter vs sales reconciliation (R10, REC-004).
 - **Files:** `fms_accounting/models/fms_sales_receipt.py`
@@ -139,7 +139,7 @@ Implementation order: SR-001 → SR-004 → REC-001 → REC-002 → MENU-001 →
 
 ---
 
-### SR-004 — `fms_vehicle_id` M2O on `account.move` `[ ]`
+### SR-004 — `fms_vehicle_id` M2O on `account.move` `[x]`
 
 - **Why:** Proper fleet attribution (not free-text `fms_vehicle_reg`). `fms.vehicle` model already exists.
 - **Files:** `fms_accounting/models/fms_sales_receipt.py` (already has `FMSAccountMoveExtension` in `fms_shift_accounting.py` — add there)
@@ -149,7 +149,7 @@ Implementation order: SR-001 → SR-004 → REC-001 → REC-002 → MENU-001 →
 
 ---
 
-### REC-001 — Service products in `_refresh_product_sales` `[ ]`
+### REC-001 — Service products in `_refresh_product_sales` `[x]`
 
 - **Why:** Spec §2.D — service sales (carwash, tyre, mechanical) must be in shift reconciliation. Currently only dry-stock (storable/consumable) invoice lines are aggregated.
 - **Files:** `fms/models/fms_shift.py` (`_refresh_product_sales`)
@@ -160,7 +160,7 @@ Implementation order: SR-001 → SR-004 → REC-001 → REC-002 → MENU-001 →
 
 ---
 
-### REC-002 — Shift summary computed fields (full reconciliation) `[ ]`
+### REC-002 — Shift summary computed fields (full reconciliation) `[x]`
 
 - **Why:** Spec §8 — supervisor must see complete position without manual calculation.
 - **Files:** `fms/models/fms_shift.py`
@@ -181,7 +181,7 @@ Implementation order: SR-001 → SR-004 → REC-001 → REC-002 → MENU-001 →
 
 ---
 
-### MENU-001 — Menu architecture per spec §14 `[ ]`
+### MENU-001 — Menu architecture per spec §14 `[x]`
 
 - **Why:** Current menu (Overview | Operations | Sales & Cash | Reporting | Configuration) doesn't match spec. Missing: Reconciliation section, Inventory section, Sales separate from Cash.
 - **Target structure:**
@@ -226,7 +226,7 @@ Implementation order: SR-001 → SR-004 → REC-001 → REC-002 → MENU-001 →
 
 ---
 
-### INV-002 — Customer Invoice action with FMS context `[ ]`
+### INV-002 — Customer Invoice action with FMS context `[x]`
 
 - **Files:** `fms_accounting/views/fms_accounting_menus.xml`, new action record
 - **Action:** Opens `account.move` list filtered `move_type=out_invoice`, with `default_fms_shift_id` from active shift context.
@@ -234,7 +234,7 @@ Implementation order: SR-001 → SR-004 → REC-001 → REC-002 → MENU-001 →
 
 ---
 
-### WET-001 — Complete Wetstock SQL report `[ ]`
+### WET-001 — Complete Wetstock SQL report `[x]`
 
 - **Requirement:** Per spec §2.J: Opening + Deliveries - Meter Sales ± Adjustments = Theoretical vs Actual Dip. Variance %. Loss category.
 - **Check current:** Does `fms.report.wetstock` exist? Does it have all components?
@@ -245,7 +245,7 @@ Implementation order: SR-001 → SR-004 → REC-001 → REC-002 → MENU-001 →
 
 ---
 
-### WET-002 — Tank Loss Source Correlation `[ ]`
+### WET-002 — Tank Loss Source Correlation `[x]`
 
 - **Requirement:** Per spec §16 — correlate variance with likely cause (meter drift, missing sale, delivery variance, evaporation, etc.)
 - **Current:** `fms.report.tank.loss` exists (E5.4) but may not have cause-correlation logic.
@@ -260,7 +260,7 @@ Implementation order: SR-001 → SR-004 → REC-001 → REC-002 → MENU-001 →
 
 ---
 
-### REC-003 — Cash Reconciliation SQL report (complete) `[ ]`
+### REC-003 — Cash Reconciliation SQL report (complete) `[x]`
 
 - **Requirement:** Per spec §11: Opening Float + Cash Sales + Customer Receipts + Cash Pickups - Cash Drops - Cash Expenses - Vendor Payments - Refunds = Expected Cash; compare vs Declared Cash.
 - **Check current:** `fms.report.receipt.reconciliation` exists — review SQL; is it complete?
@@ -270,7 +270,7 @@ Implementation order: SR-001 → SR-004 → REC-001 → REC-002 → MENU-001 →
 
 ---
 
-### REC-004 — Meter vs Receipt gate: per-nozzle check `[ ]`
+### REC-004 — Meter vs Receipt gate: per-nozzle check `[x]`
 
 - **Current:** `_gate_check_meter_vs_sales` compares total fuel volume sold (meter) vs total invoice/receipt lines — crude.
 - **Enhancement:** After SR-001 (nozzle on line), compare per nozzle: `meter_entry.qty_sold_elec` vs `sum(invoice_line.quantity where fms_nozzle_id = nozzle)`. Block if any nozzle exceeds tolerance.
@@ -279,7 +279,7 @@ Implementation order: SR-001 → SR-004 → REC-001 → REC-002 → MENU-001 →
 
 ---
 
-### GATE-002 — Gate: dry-stock/service reconciliation at close `[ ]`
+### GATE-002 — Gate: dry-stock/service reconciliation at close `[x]`
 
 - **Requirement:** Before shift close — total dry-stock + service sales declared must reconcile with posted invoices/receipts linked to shift.
 - **Files:** `fms/models/fms_shift.py` — new method `_gate_check_nonf uel_sales_posted`
@@ -288,7 +288,7 @@ Implementation order: SR-001 → SR-004 → REC-001 → REC-002 → MENU-001 →
 
 ---
 
-### SEC-001 — Company scope audit on all `search()` calls `[ ]`
+### SEC-001 — Company scope audit on all `search()` calls `[x]`
 
 - **Files:** `fms/models/fms_shift.py`, `fms_accounting/models/*.py`
 - **Check:** Every `search([...])` that returns shift-related records must include `('company_id', 'in', self.env.companies.ids)` or equivalent.

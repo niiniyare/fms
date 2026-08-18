@@ -1327,6 +1327,10 @@ class FMSReportCashReconciliation(models.Model):
         help="cash_collected — what the attendant physically handed over.")
     variance       = fields.Float('Variance (KES)',       readonly=True, digits=(16, 2),
         help="expected_cash - declared_cash. Must be 0.")
+    refunds        = fields.Float('Refunds (KES)',         readonly=True, digits=(16, 2),
+        help="Posted credit notes (out_refund) linked to this shift + attendant.")
+    variance_pct   = fields.Float('Variance %',           readonly=True, digits=(16, 2),
+        help="variance / expected_cash * 100. Null-safe.")
     is_balanced    = fields.Boolean('Balanced',           readonly=True)
 
     def init(self):
@@ -1348,6 +1352,17 @@ class FMSReportCashReconciliation(models.Model):
         if has_fms_acc and has_receipt_cls:
             self.env.cr.execute("""
                 CREATE OR REPLACE VIEW fms_report_cash_reconciliation AS (
+                    WITH refunds AS (
+                        SELECT
+                            am.fms_shift_id    AS shift_id,
+                            am.fms_attendant_id AS attendant_id,
+                            COALESCE(SUM(am.amount_total), 0) AS refund_total
+                        FROM account_move am
+                        WHERE am.move_type = 'out_refund'
+                          AND am.state = 'posted'
+                          AND am.fms_shift_id IS NOT NULL
+                        GROUP BY am.fms_shift_id, am.fms_attendant_id
+                    )
                     SELECT
                         ac.id                                                    AS id,
                         ac.shift_id                                              AS shift_id,
@@ -1360,7 +1375,7 @@ class FMSReportCashReconciliation(models.Model):
                         -- Fuel cash from pump meters
                         COALESCE(ac.reported_sales, 0)                           AS meter_cash_sales,
 
-                        -- Dry-stock cash receipts (out_receipt, cash journal, non-fuel)
+                        -- Dry-stock/service cash receipts (out_receipt, cash journal, non-fuel)
                         COALESCE(ac.direct_sales_cash, 0)                        AS direct_cash_sales,
 
                         -- Customer receipts (outstanding invoices paid)
@@ -1387,6 +1402,9 @@ class FMSReportCashReconciliation(models.Model):
                         -- Vendor payments from shift cash
                         COALESCE(ac.vendor_payment_amount, 0)                    AS vendor_payments,
 
+                        -- Refunds (credit notes) issued this shift
+                        COALESCE(r.refund_total, 0)                              AS refunds,
+
                         -- Expected = total_in (pre-computed, stored)
                         COALESCE(ac.total_in, 0)                                 AS expected_cash,
 
@@ -1396,11 +1414,23 @@ class FMSReportCashReconciliation(models.Model):
                         -- Variance
                         COALESCE(ac.balance, 0)                                  AS variance,
 
+                        -- Variance %
+                        CASE
+                            WHEN COALESCE(ac.total_in, 0) = 0 THEN 0
+                            ELSE ROUND(
+                                (COALESCE(ac.balance, 0) / COALESCE(ac.total_in, 0) * 100)::numeric,
+                                2
+                            )
+                        END                                                       AS variance_pct,
+
                         ABS(COALESCE(ac.balance, 0)) < 0.01                      AS is_balanced
 
                     FROM fms_shift_attendant_cash ac
                     JOIN fms_shift   s ON s.id  = ac.shift_id
                     JOIN hr_employee e ON e.id  = ac.attendant_id
+                    LEFT JOIN refunds r
+                        ON r.shift_id = ac.shift_id
+                       AND r.attendant_id = ac.attendant_id
                 )
             """)
         else:
@@ -1425,9 +1455,17 @@ class FMSReportCashReconciliation(models.Model):
                         0::numeric                               AS cash_drops,
                         0::numeric                               AS expenses_paid,
                         0::numeric                               AS vendor_payments,
+                        0::numeric                               AS refunds,
                         COALESCE(ac.total_in, 0)                 AS expected_cash,
                         COALESCE(ac.cash_collected, 0)           AS declared_cash,
                         COALESCE(ac.balance, 0)                  AS variance,
+                        CASE
+                            WHEN COALESCE(ac.total_in, 0) = 0 THEN 0
+                            ELSE ROUND(
+                                (COALESCE(ac.balance, 0) / COALESCE(ac.total_in, 0) * 100)::numeric,
+                                2
+                            )
+                        END                                      AS variance_pct,
                         ABS(COALESCE(ac.balance, 0)) < 0.01      AS is_balanced
                     FROM fms_shift_attendant_cash ac
                     JOIN fms_shift   s ON s.id  = ac.shift_id

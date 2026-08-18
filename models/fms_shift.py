@@ -1008,13 +1008,14 @@ class FMSShift(models.Model):
                 self._gate_check_stock_variance,
                 # G8: Meter vs invoice+receipt
                 self._gate_check_meter_vs_sales,
-                # G9-G14: FIN-009 additional gates
+                # G9-G15: FIN-009 + GATE-002 additional gates
                 self._gate_check_customer_receipts,
                 self._gate_check_float_reconciliation,
                 self._gate_check_expense_posting,
                 self._gate_check_vendor_payment_posting,
                 self._gate_check_digital_payment_reconciliation,
                 self._gate_check_no_unresolved_exceptions,
+                self._gate_check_nonfuel_sales_posted,
             ):
                 try:
                     gate_fn()
@@ -1090,6 +1091,7 @@ class FMSShift(models.Model):
             self._gate_check_vendor_payment_posting,
             self._gate_check_digital_payment_reconciliation,
             self._gate_check_no_unresolved_exceptions,
+            self._gate_check_nonfuel_sales_posted,
         ):
             try:
                 gate_fn()
@@ -1217,6 +1219,8 @@ class FMSShift(models.Model):
          "MPesa/Card totals must be non-negative. Check payment entry signs."),
         ("G14 No Blocking Exceptions",   "_gate_check_no_unresolved_exceptions",
          "Resolve any disputed shift state or pending override logs."),
+        ("G15 Non-Fuel Sales Posted",    "_gate_check_nonfuel_sales_posted",
+         "Confirm (post) all non-fuel invoices and receipts linked to this shift before closing."),
     ]
 
     @api.depends(
@@ -1435,6 +1439,54 @@ class FMSShift(models.Model):
                 + "\n".join(failures)
                 + "\n\nEnsure all fuel sales are posted (confirmed) as invoices or "
                 "receipts before closing the shift."
+            )
+
+        # Per-nozzle check (REC-004): only when invoice lines carry fms_nozzle_id
+        AccountMoveLine = self.env['account.move.line']
+        if 'fms_nozzle_id' not in AccountMoveLine._fields:
+            return
+
+        # Check if any line for this shift actually has nozzle attribution
+        self.env.cr.execute("""
+            SELECT aml.fms_nozzle_id, COALESCE(SUM(aml.quantity), 0)
+            FROM account_move_line aml
+            JOIN account_move am ON am.id = aml.move_id
+            WHERE am.fms_shift_id = %s
+              AND am.move_type IN ('out_invoice', 'out_receipt')
+              AND am.state = 'posted'
+              AND aml.display_type = 'product'
+              AND aml.fms_nozzle_id IS NOT NULL
+            GROUP BY aml.fms_nozzle_id
+        """, [self.id])
+        nozzle_sales = dict(self.env.cr.fetchall())
+
+        if not nozzle_sales:
+            return  # No nozzle attribution on lines — skip per-nozzle check
+
+        nozzle_failures = []
+        for entry in self.meter_entry_ids:
+            if not entry.product_id.fms_is_fuel or not entry.nozzle_id:
+                continue
+            nid = entry.nozzle_id.id
+            if nid not in nozzle_sales:
+                continue  # No sales attributed to this nozzle — skip (may be partial coverage)
+            meter_vol = entry.qty_sold_elec
+            sales_vol = nozzle_sales[nid]
+            threshold = meter_vol * meniscus_pct / 100.0 if meter_vol else 0.5
+            diff = abs(meter_vol - sales_vol)
+            if diff > threshold:
+                nozzle_failures.append(
+                    f"• Nozzle {entry.nozzle_id.name}: Meter={meter_vol:.2f}L, "
+                    f"Receipts={sales_vol:.2f}L, Diff={diff:.2f}L "
+                    f"(threshold={threshold:.2f}L)"
+                )
+
+        if nozzle_failures:
+            raise ValidationError(
+                "GATE 6 FAILED — Per-nozzle meter vs receipt volume mismatch:\n\n"
+                + "\n".join(nozzle_failures)
+                + "\n\nEnsure receipt lines are attributed to the correct nozzle "
+                "or check meter readings before closing the shift."
             )
 
     def _gate_check_gl_config(self):
@@ -1755,6 +1807,39 @@ class FMSShift(models.Model):
             raise ValidationError(
                 "G14 FAILED — Shift is in 'Disputed' state. "
                 "Resolve the dispute and return to 'Closing' state before closing."
+            )
+
+    def _gate_check_nonfuel_sales_posted(self):
+        """
+        G15 (Non-Fuel Sales Posted): All non-fuel invoices and receipts linked
+        to this shift must be in posted (confirmed) state before close.
+
+        Skipped if fms_accounting is not installed.
+        """
+        self.ensure_one()
+        AccountMove = self.env['account.move']
+        if 'fms_shift_id' not in AccountMove._fields:
+            return
+
+        draft_nonfuel = AccountMove.search([
+            ('fms_shift_id', '=', self.id),
+            ('move_type', 'in', ('out_invoice', 'out_receipt')),
+            ('state', '=', 'draft'),
+        ])
+        # Filter to those with at least one non-fuel product line
+        blocking = draft_nonfuel.filtered(
+            lambda m: any(
+                not (line.product_id and line.product_id.fms_is_fuel)
+                for line in m.invoice_line_ids
+                if line.display_type == 'product'
+            )
+        )
+        if blocking:
+            refs = ', '.join(blocking.mapped('name') or ['(no ref)'])
+            raise ValidationError(
+                f"G15 FAILED — {len(blocking)} unconfirmed non-fuel "
+                f"invoice(s)/receipt(s) linked to this shift:\n{refs}\n\n"
+                "Confirm (post) or delete them before closing the shift."
             )
 
     # ------------------------------------------------------------------
