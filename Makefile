@@ -225,7 +225,8 @@ odoo-test: ## Run FMS tests (drops and recreates test DB to avoid demo data conf
 	@dropdb --if-exists $(DB_NAME)
 	@$(ODOO_VENV) $(ODOO_BIN) -d $(DB_NAME) \
 		--addons-path=$(ODOO_ADDONS) \
-		--test-enable --stop-after-init -i fms,fms_accounting --without-demo=all -p 8070
+		--test-enable --stop-after-init -i fms,fms_accounting --without-demo=all -p 8070 \
+		--test-tags fms,fms_accounting
 	@echo "$(GREEN)✓ Tests complete$(NC)"
 
 odoo-demo: ## Start Odoo web server on the demo database (http://localhost:8070)
