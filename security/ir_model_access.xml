@@ -621,6 +621,17 @@
         <field name="perm_unlink" eval="0"/>
     </record>
 
+    <!-- E5.4: fms.report.tank.loss -->
+    <record id="access_fms_report_tank_loss_supervisor" model="ir.model.access">
+        <field name="name">fms.report.tank.loss supervisor read</field>
+        <field name="model_id" ref="model_fms_report_tank_loss"/>
+        <field name="group_id" ref="fms.group_fms_supervisor"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
     <!-- fms.report.attendant.cash.breakdown: FIN-008 read-only report -->
     <record id="access_fms_report_attendant_cash_breakdown_supervisor" model="ir.model.access">
         <field name="name">fms.report.attendant.cash.breakdown supervisor read</field>

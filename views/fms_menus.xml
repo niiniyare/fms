@@ -189,6 +189,13 @@
               groups="fms.group_fms_supervisor"
               sequence="215"/>
 
+    <menuitem id="menu_fms_report_tank_loss"
+              name="Tank Loss Analysis"
+              parent="menu_fms_reporting"
+              action="action_fms_tank_loss"
+              groups="fms.group_fms_supervisor"
+              sequence="220"/>
+
     <!-- ══════════════════════════════════════════════════
          CONFIGURATION
          Station Setup | Nozzles | Shift Definitions & Prices

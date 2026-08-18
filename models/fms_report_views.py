@@ -1510,3 +1510,172 @@ class FMSReportMeterReconciliation(models.Model):
                 JOIN fms_pump          p  ON p.id  = n.pump_id
             )
         """)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# R30 — E5.4: Tank Loss Source Analysis
+# ══════════════════════════════════════════════════════════════════════════════
+class FMSReportTankLoss(models.Model):
+    """Per-tank per-shift loss breakdown.
+
+    Traces dip variance to three sources:
+      • Meter drift  — electronic vs manual meter gap (qty_sold_elec - qty_sold_man)
+      • Dip variance — what dip says was consumed vs what meter says was sold
+        (positive = tank has less fuel than meter implies → likely evaporation/seepage)
+      • Residual gap — allocated residual volume for this tank's product
+
+    All quantities in litres. Negative dip_vs_meter means tank has MORE
+    fuel than meter implies (over-dip / measurement error).
+    """
+
+    _name = 'fms.report.tank.loss'
+    _description = 'Tank Loss Source Analysis'
+    _auto = False
+    _order = 'shift_date desc, company_id, location_id'
+
+    # Identity
+    shift_id        = fields.Many2one('fms.shift',        'Shift',       readonly=True)
+    shift_date      = fields.Date(                         'Date',        readonly=True)
+    shift_state     = fields.Char(                         'Shift State', readonly=True)
+    company_id      = fields.Many2one('res.company',      'Company',     readonly=True)
+    location_id     = fields.Many2one('stock.location',   'Tank',        readonly=True)
+    product_id      = fields.Many2one('product.product',  'Product',     readonly=True)
+
+    # Dip readings
+    dip_opening     = fields.Float('Dip Open (L)',  readonly=True, digits=(16, 2))
+    dip_closing     = fields.Float('Dip Close (L)', readonly=True, digits=(16, 2))
+    dip_consumed    = fields.Float('Dip Consumed (L)',
+                                   help="opening - closing (volume removed from tank)",
+                                   readonly=True, digits=(16, 2))
+
+    # Meter totals aggregated across all nozzles drawing from this tank's product
+    meter_sold_elec = fields.Float('Meter Elec Sold (L)', readonly=True, digits=(16, 2))
+    meter_sold_man  = fields.Float('Meter Man Sold (L)',  readonly=True, digits=(16, 2))
+
+    # Variance columns
+    dip_vs_meter    = fields.Float('Dip vs Meter (L)',
+                                   help="dip_consumed - meter_sold_elec. "
+                                        "Positive = tank emptied more than meter recorded "
+                                        "(evaporation, seepage, theft). "
+                                        "Negative = meter recorded more than tank lost "
+                                        "(over-dip or meter over-read).",
+                                   readonly=True, digits=(16, 2))
+    meter_drift     = fields.Float('Meter Drift (L)',
+                                   help="meter_sold_elec - meter_sold_man. "
+                                        "Non-zero indicates electronic/mechanical calibration gap.",
+                                   readonly=True, digits=(16, 2))
+    residual_vol    = fields.Float('Residual (L)',
+                                   help="Net residual allocation volume for this product in this shift.",
+                                   readonly=True, digits=(16, 2))
+
+    # Meniscus gate
+    meniscus_pct    = fields.Float('Meniscus %',    readonly=True, digits=(16, 2))
+    meniscus_limit  = fields.Float('Meniscus Limit (L)',
+                                   help="dip_closing * meniscus_pct / 100",
+                                   readonly=True, digits=(16, 2))
+    within_meniscus = fields.Boolean('Within Meniscus', readonly=True)
+
+    # Loss classification (advisory — not enforced)
+    loss_category   = fields.Char('Loss Category', readonly=True,
+                                  help="Evaporation/Seepage, Meter Drift, Over-Dip, or OK")
+
+    def init(self):
+        tools.drop_view_if_exists(self.env.cr, 'fms_report_tank_loss')
+        self.env.cr.execute("""
+            CREATE OR REPLACE VIEW fms_report_tank_loss AS (
+                WITH dip AS (
+                    -- One row per tank per shift from immutable dip logs
+                    SELECT
+                        dl.shift_id,
+                        dl.location_id,
+                        dl.product_id,
+                        dl.company_id,
+                        COALESCE(dl.opening_volume, 0)                       AS dip_opening,
+                        COALESCE(dl.closing_volume, 0)                       AS dip_closing,
+                        COALESCE(dl.opening_volume, 0)
+                            - COALESCE(dl.closing_volume, 0)                 AS dip_consumed
+                    FROM fms_dip_log dl
+                ),
+                meters AS (
+                    -- Aggregate all nozzle meter logs by shift + product
+                    -- (multiple nozzles can serve the same product/tank)
+                    SELECT
+                        ml.shift_id,
+                        ml.product_id,
+                        ml.company_id,
+                        SUM(COALESCE(ml.qty_sold_elec, 0))                   AS meter_sold_elec,
+                        SUM(COALESCE(ml.qty_sold_man,  0))                   AS meter_sold_man
+                    FROM fms_meter_log ml
+                    GROUP BY ml.shift_id, ml.product_id, ml.company_id
+                ),
+                residuals AS (
+                    -- Net residual volume per shift + product from residual allocation
+                    SELECT
+                        ra.shift_id,
+                        ra.product_id,
+                        SUM(COALESCE(ra.qty_litres, 0))                      AS residual_vol
+                    FROM fms_shift_residual_allocation ra
+                    GROUP BY ra.shift_id, ra.product_id
+                ),
+                prefs AS (
+                    SELECT company_id, meniscus_pct FROM fms_site_preferences
+                )
+                SELECT
+                    ROW_NUMBER() OVER ()                                     AS id,
+                    s.id                                                     AS shift_id,
+                    s.date                                                   AS shift_date,
+                    s.state                                                  AS shift_state,
+                    s.company_id,
+                    d.location_id,
+                    d.product_id,
+
+                    -- Dip
+                    d.dip_opening,
+                    d.dip_closing,
+                    d.dip_consumed,
+
+                    -- Meter (may be NULL if no meter logs yet)
+                    COALESCE(m.meter_sold_elec, 0)                           AS meter_sold_elec,
+                    COALESCE(m.meter_sold_man,  0)                           AS meter_sold_man,
+
+                    -- Variances
+                    d.dip_consumed
+                        - COALESCE(m.meter_sold_elec, 0)                     AS dip_vs_meter,
+                    COALESCE(m.meter_sold_elec, 0)
+                        - COALESCE(m.meter_sold_man, 0)                      AS meter_drift,
+                    COALESCE(r.residual_vol, 0)                              AS residual_vol,
+
+                    -- Meniscus
+                    COALESCE(p.meniscus_pct, 0.5)                            AS meniscus_pct,
+                    d.dip_closing
+                        * COALESCE(p.meniscus_pct, 0.5) / 100.0             AS meniscus_limit,
+                    ABS(
+                        d.dip_consumed - COALESCE(m.meter_sold_elec, 0)
+                    ) <= d.dip_closing
+                        * COALESCE(p.meniscus_pct, 0.5) / 100.0             AS within_meniscus,
+
+                    -- Advisory category
+                    CASE
+                        WHEN ABS(
+                            d.dip_consumed - COALESCE(m.meter_sold_elec, 0)
+                        ) <= d.dip_closing
+                            * COALESCE(p.meniscus_pct, 0.5) / 100.0
+                            THEN 'OK'
+                        WHEN d.dip_consumed > COALESCE(m.meter_sold_elec, 0)
+                            THEN 'Evaporation / Seepage'
+                        WHEN COALESCE(m.meter_sold_elec, 0)
+                            > COALESCE(m.meter_sold_man, 0) + 1.0
+                            THEN 'Meter Drift'
+                        ELSE 'Over-Dip / Measurement Error'
+                    END                                                      AS loss_category
+
+                FROM dip d
+                JOIN fms_shift  s  ON s.id = d.shift_id
+                LEFT JOIN meters    m  ON m.shift_id   = d.shift_id
+                                      AND m.product_id  = d.product_id
+                                      AND m.company_id  = d.company_id
+                LEFT JOIN residuals r  ON r.shift_id   = d.shift_id
+                                      AND r.product_id  = d.product_id
+                LEFT JOIN prefs     p  ON p.company_id  = d.company_id
+            )
+        """)

@@ -985,6 +985,74 @@
         <field name="view_mode">list</field>
     </record>
 
+    <!-- ══════════════════════════════════════════════════════════════════
+         E5.4 — Tank Loss Source Analysis (R30)
+    ══════════════════════════════════════════════════════════════════ -->
+
+    <record id="view_fms_tank_loss_list" model="ir.ui.view">
+        <field name="name">fms.report.tank.loss.list</field>
+        <field name="model">fms.report.tank.loss</field>
+        <field name="arch" type="xml">
+            <list string="Tank Loss Source Analysis" create="false" delete="false" edit="false"
+                  decoration-danger="not within_meniscus"
+                  decoration-success="within_meniscus and loss_category == 'OK'">
+                <field name="shift_date"/>
+                <field name="company_id" groups="base.group_multi_company"/>
+                <field name="location_id" string="Tank"/>
+                <field name="product_id"/>
+                <field name="shift_id" string="Shift"/>
+                <field name="shift_state" string="State"/>
+                <field name="dip_opening"     string="Dip Open (L)"    sum="Dip Open"/>
+                <field name="dip_closing"     string="Dip Close (L)"   sum="Dip Close"/>
+                <field name="dip_consumed"    string="Consumed (L)"    sum="Consumed"/>
+                <field name="meter_sold_elec" string="Meter Elec (L)"  sum="Meter Elec"/>
+                <field name="meter_sold_man"  string="Meter Man (L)"   sum="Meter Man" optional="hide"/>
+                <field name="dip_vs_meter"    string="Dip vs Meter (L)" sum="Net Variance"
+                       decoration-danger="not within_meniscus and dip_vs_meter &gt; 0"
+                       decoration-warning="not within_meniscus and dip_vs_meter &lt; 0"/>
+                <field name="meter_drift"     string="Meter Drift (L)" optional="hide"/>
+                <field name="residual_vol"    string="Residual (L)"    optional="hide"/>
+                <field name="meniscus_limit"  string="Meniscus Limit (L)" optional="hide"/>
+                <field name="within_meniscus" string="OK" widget="boolean"/>
+                <field name="loss_category"   string="Category"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_fms_tank_loss_search" model="ir.ui.view">
+        <field name="name">fms.report.tank.loss.search</field>
+        <field name="model">fms.report.tank.loss</field>
+        <field name="arch" type="xml">
+            <search string="Tank Loss Source Analysis">
+                <field name="shift_date"/>
+                <field name="location_id" string="Tank"/>
+                <field name="product_id"/>
+                <filter string="Outside Meniscus" name="f_over_meniscus"
+                        domain="[('within_meniscus', '=', False)]"/>
+                <filter string="Evaporation / Seepage" name="f_evap"
+                        domain="[('loss_category', '=', 'Evaporation / Seepage')]"/>
+                <filter string="Meter Drift" name="f_drift"
+                        domain="[('loss_category', '=', 'Meter Drift')]"/>
+                <filter string="Closed Shifts Only" name="f_closed"
+                        domain="[('shift_state', '=', 'closed')]"/>
+                <separator/>
+                <group expand="0" string="Group By">
+                    <filter string="Date"     name="g_date" context="{'group_by': 'shift_date:day'}"/>
+                    <filter string="Tank"     name="g_tank" context="{'group_by': 'location_id'}"/>
+                    <filter string="Product"  name="g_prod" context="{'group_by': 'product_id'}"/>
+                    <filter string="Category" name="g_cat"  context="{'group_by': 'loss_category'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_fms_tank_loss" model="ir.actions.act_window">
+        <field name="name">Tank Loss Source Analysis</field>
+        <field name="res_model">fms.report.tank.loss</field>
+        <field name="view_mode">list</field>
+        <field name="context">{'search_default_f_closed': 1}</field>
+    </record>
+
 </odoo>
 
 
