@@ -288,7 +288,7 @@
                             </field>
 
                             <!-- FC Cash gate status -->
-                            <group>
+                            <group name="fc_cash_gate_group">
                                 <group string="FC Cash Gate">
                                     <field name="total_reported_sales" readonly="1"
                                            string="Total Meter Sales"/>
