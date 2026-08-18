@@ -1575,6 +1575,11 @@ class FMSShift(models.Model):
         Threshold is configurable via meniscus_pct × total meter volume.
         """
         self.ensure_one()
+        prefs = self.env['fms.site.preferences'].search(
+            [('company_id', '=', self.company_id.id)], limit=1)
+        if prefs and not prefs.require_pos_reconciliation and not self.pos_session_ids:
+            return
+
         # Require product_sales to be up to date
         if not self.product_sales_ids:
             self._refresh_product_sales()
@@ -1613,6 +1618,11 @@ class FMSShift(models.Model):
         unrecorded transactions that must be resolved before closing.
         """
         self.ensure_one()
+        prefs = self.env['fms.site.preferences'].search(
+            [('company_id', '=', self.company_id.id)], limit=1)
+        if prefs and not prefs.require_pos_reconciliation and not self.pos_session_ids:
+            return
+
         if not self.product_sales_ids:
             self._refresh_product_sales()
 

@@ -104,6 +104,14 @@ class FMSSitePreferences(models.Model):
         help="When a shift closes, immediately create and open the next one.",
     )
 
+    # ── POS integration ───────────────────────────────────────────────────────
+    require_pos_reconciliation = fields.Boolean(
+        'Require POS Reconciliation', default=True,
+        help="When enabled, volume and cash gates compare meter readings against "
+             "linked POS sessions. Disable only for stations not using Odoo POS "
+             "(e.g., using an external PTS system or manual entry only).",
+    )
+
     _sql_constraints = [
         ('company_unique', 'UNIQUE(company_id)',
          'Only one set of site preferences is allowed per company.'),
