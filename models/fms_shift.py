@@ -102,6 +102,7 @@ class FMSShift(models.Model):
         required=True,
         default=lambda self: self.env.company,
         readonly=True,
+        index=True,
     )
 
     # ------------------------------------------------------------------
@@ -114,7 +115,7 @@ class FMSShift(models.Model):
         ('closing',  'Closing'),
         ('closed',   'Closed'),
         ('disputed', 'Disputed'),
-    ], string='Status', default='draft', readonly=True, copy=False)
+    ], string='Status', default='draft', readonly=True, copy=False, index=True)
 
     # ------------------------------------------------------------------
     # Timestamps & tracking

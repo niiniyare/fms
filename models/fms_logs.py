@@ -18,7 +18,7 @@ class FMSMeterLog(models.Model):
     _description = 'Meter Reading Audit Log (Immutable)'
     _order = 'shift_id, pump_id, nozzle_id'
 
-    shift_id = fields.Many2one('fms.shift', 'Shift', required=True, ondelete='cascade')
+    shift_id = fields.Many2one('fms.shift', 'Shift', required=True, ondelete='cascade', index=True)
     pump_id = fields.Many2one('fms.pump', 'Pump', required=True)
     nozzle_id = fields.Many2one('fms.pump.nozzle', 'Nozzle', required=True)
     product_id = fields.Many2one(
@@ -100,7 +100,7 @@ class FMSDipLog(models.Model):
     _description = 'Tank Dip Audit Log (Immutable)'
     _order = 'shift_id, location_id'
 
-    shift_id = fields.Many2one('fms.shift', 'Shift', required=True, ondelete='cascade')
+    shift_id = fields.Many2one('fms.shift', 'Shift', required=True, ondelete='cascade', index=True)
     location_id = fields.Many2one(
         'stock.location', 'Tank', required=True,
         domain=[('fms_is_fuel_tank', '=', True)],

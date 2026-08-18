@@ -28,7 +28,7 @@ class FMSShiftMeterEntry(models.Model):
     _description = 'Shift Meter Entry'
     _order = 'pump_id, nozzle_id'
 
-    shift_id = fields.Many2one('fms.shift', 'Shift', required=True, ondelete='cascade')
+    shift_id = fields.Many2one('fms.shift', 'Shift', required=True, ondelete='cascade', index=True)
 
     pump_id = fields.Many2one('fms.pump', 'Pump', required=True)
     nozzle_id = fields.Many2one(
@@ -203,7 +203,7 @@ class FMSShiftDipEntry(models.Model):
     _description = 'Shift Dip Entry'
     _order = 'location_id'
 
-    shift_id = fields.Many2one('fms.shift', 'Shift', required=True, ondelete='cascade')
+    shift_id = fields.Many2one('fms.shift', 'Shift', required=True, ondelete='cascade', index=True)
     location_id = fields.Many2one(
         'stock.location', 'Tank', required=True,
         domain=[('fms_is_fuel_tank', '=', True)],
@@ -299,7 +299,7 @@ class FMSShiftAttendantCash(models.Model):
     _description = 'Shift Attendant Cash Reconciliation'
     _order = 'attendant_id'
 
-    shift_id = fields.Many2one('fms.shift', 'Shift', required=True, ondelete='cascade')
+    shift_id = fields.Many2one('fms.shift', 'Shift', required=True, ondelete='cascade', index=True)
     attendant_id = fields.Many2one(
         'hr.employee', 'Attendant', required=True,
         domain=[('fms_is_attendant', '=', True)],
