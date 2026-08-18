@@ -1,92 +1,239 @@
-.PHONY: help setup setup-all setup-structure setup-git clean status task list info report test test-coverage test-watch git-branch git-commit git-merge odoo odoo-dev odoo-install odoo-update odoo-shell odoo-test odoo-demo odoo-demo-reload odoo-drop docs runbook spec patterns install format lint
+.PHONY: help \
+	setup seed upgrade run run-dev stop shell test build \
+	e2e-setup e2e-seed e2e-update e2e-run e2e-drop e2e-reset \
+	test-unit test-coverage test-watch test-specific test-task \
+	status task list info report \
+	git-status git-branch git-log git-commit git-merge git-tag \
+	docs docs-quick docs-setup docs-system docs-dev docs-spec \
+	docs-patterns docs-runbook docs-install docs-commands \
+	docs-setup-guide docs-operations docs-finance \
+	format lint syntax clean check full-check \
+	install install-dev project-info version tree structure \
+	start-task finish-task dev-cycle \
+	s t o h \
+	odoo odoo-dev odoo-shell odoo-install odoo-update odoo-test \
+	odoo-e2e-create odoo-e2e-seed odoo-e2e-update odoo-e2e odoo-e2e-drop
 
-# Color output
-BLUE := \033[0;34m
-GREEN := \033[0;32m
+# ── Colors ────────────────────────────────────────────────────────────────────
+BLUE   := \033[0;34m
+GREEN  := \033[0;32m
 YELLOW := \033[1;33m
-RED := \033[0;31m
-NC := \033[0m # No Color
+RED    := \033[0;31m
+NC     := \033[0m
 
-# Project variables
+# ── Config ────────────────────────────────────────────────────────────────────
 PROJECT_NAME := FMS (Forecourt Management System)
-PYTHON := python3
-PYTEST := pytest
-DB_NAME := test_fms
-ODOO_PORT := 8069
+PYTHON       := python3
+PYTEST       := pytest
+DB_NAME      := test_fms
+ODOO_PORT    := 8069
 
-# Odoo / venv paths
-ODOO_VENV    := /home/niini/odoo-venv/bin/python
-ODOO_BIN     := /home/niini/odoo18/odoo-bin
-# Addons: odoo core | fms custom | OCA addons
-ODOO_ADDONS  := /home/niini/odoo18/addons,/home/niini/fms/..,/home/niini/oca/account-financial-reporting,/home/niini/oca/account-financial-tools,/home/niini/oca/account-reconcile,/home/niini/oca/credit-control,/home/niini/oca/web,/home/niini/oca/server-ux,/home/niini/oca/reporting-engine,/home/niini/oca/server-tools,/home/niini/oca/mis-builder
+ODOO_VENV   := /home/niini/odoo-venv/bin/python
+ODOO_BIN    := /home/niini/odoo18/odoo-bin
+ODOO_ADDONS := /home/niini/odoo18/addons,/home/niini/fms/..,/home/niini/oca/account-financial-reporting,/home/niini/oca/account-financial-tools,/home/niini/oca/account-reconcile,/home/niini/oca/credit-control,/home/niini/oca/web,/home/niini/oca/server-ux,/home/niini/oca/reporting-engine,/home/niini/oca/server-tools,/home/niini/oca/mis-builder
 
-# Help target (default)
 .DEFAULT_GOAL := help
 
-help: ## Show this help message
+# ═════════════════════════════════════════════════════════════════════════════
+# HELP
+# ═════════════════════════════════════════════════════════════════════════════
+
+help: ## Show this help
 	@echo "$(BLUE)╔════════════════════════════════════════════════════════════╗$(NC)"
-	@echo "$(BLUE)║  $(GREEN)$(PROJECT_NAME)$(BLUE)  ║$(NC)"
-	@echo "$(BLUE)║  Makefile - Common Development Tasks                    ║$(NC)"
+	@echo "$(BLUE)║  $(GREEN)$(PROJECT_NAME)$(BLUE)                     ║$(NC)"
 	@echo "$(BLUE)╚════════════════════════════════════════════════════════════╝$(NC)"
 	@echo ""
-	@echo "$(YELLOW)SETUP (First Time Only):$(NC)"
-	@grep -E '^\s+make (setup|clean)' Makefile | head -5
+	@echo "$(YELLOW)DEVELOPMENT DB ($(DB_NAME), port $(ODOO_PORT)):$(NC)"
+	@echo "  make setup             Install FMS modules (first time)"
+	@echo "  make upgrade           Update modules after code changes"
+	@echo "  make run               Start server → http://localhost:$(ODOO_PORT)"
+	@echo "  make shell             Open Odoo Python shell"
+	@echo "  make seed              Seed demo data into dev DB"
+	@echo "  make build             Drop + setup + seed (full rebuild)"
+	@echo "  make test              Run FMS test suite"
 	@echo ""
-	@echo "$(YELLOW)DEVELOPMENT:$(NC)"
-	@grep -E '^\s+make (status|task|test|odoo)' Makefile | head -8
+	@echo "$(YELLOW)E2E DB (fms_e2e, port 8070):$(NC)"
+	@echo "  make e2e-setup         Create fms_e2e + install modules"
+	@echo "  make e2e-seed          Seed Kenya CoA + products + demo data"
+	@echo "  make e2e-update        Update modules in fms_e2e"
+	@echo "  make e2e-run           Start server → http://localhost:8070"
+	@echo "  make e2e-reset         Drop + recreate + seed fms_e2e"
 	@echo ""
-	@echo "$(YELLOW)GIT WORKFLOW:$(NC)"
-	@grep -E '^\s+make git-' Makefile | head -4
+	@echo "$(YELLOW)TASK MANAGEMENT:$(NC)"
+	@echo "  make status            Show task progress"
+	@echo "  make task TASK=FMS-001 Start a development task"
+	@echo "  make list              List all tasks"
 	@echo ""
-	@echo "$(YELLOW)DOCUMENTATION:$(NC)"
-	@grep -E '^\s+make (docs|spec|patterns|runbook)' Makefile | head -4
+	@echo "$(YELLOW)TESTING:$(NC)"
+	@echo "  make test              Run all tests (recreates DB)"
+	@echo "  make test-coverage     Tests + HTML coverage report"
+	@echo "  make test-task TASK=FMS-001"
+	@echo ""
+	@echo "$(YELLOW)DOCS:$(NC)"
+	@echo "  make docs              List all documentation"
+	@echo "  make docs-setup-guide  Pre-first-shift system setup"
+	@echo "  make docs-operations   Operations training"
+	@echo "  make docs-finance      Finance training"
+	@echo ""
+	@echo "$(YELLOW)SHORTCUTS:$(NC)"
+	@echo "  s=status  t=test  o=run  h=help"
 	@echo ""
 	@echo "$(YELLOW)ALL TARGETS:$(NC)"
-	@grep -E '^[a-z-]+:.*?##' Makefile | awk 'BEGIN {FS = ":.*?## "} {printf "  $(GREEN)%-25s$(NC) %s\n", $$1, $$2}' | sort
+	@grep -E '^[a-z][a-z0-9-]+:.*?## ' Makefile | awk 'BEGIN {FS = ":.*?## "} {printf "  $(GREEN)%-25s$(NC) %s\n", $$1, $$2}' | sort
 
 # ═════════════════════════════════════════════════════════════════════════════
-# SETUP TARGETS
+# DEVELOPMENT DB
 # ═════════════════════════════════════════════════════════════════════════════
 
-setup: setup-all ## Complete project setup (project structure + git)
+setup: ## Install FMS modules on dev DB (first time)
+	@echo "$(BLUE)Installing FMS on $(DB_NAME)...$(NC)"
+	@$(ODOO_VENV) $(ODOO_BIN) -d $(DB_NAME) -i fms,fms_accounting \
+		--addons-path=$(ODOO_ADDONS) --stop-after-init --without-demo=all
+	@echo "$(GREEN)✓ Installed. Next: make run$(NC)"
 
-setup-all: ## Run complete setup (both structure and git)
-	@echo "$(BLUE)Running complete FMS setup...$(NC)"
-	@bash setup-fms-project.sh
-	@bash setup-git-workflow.sh
-	@echo "$(GREEN)✓ Setup complete!$(NC)"
-	@echo "$(YELLOW)Next: make status$(NC)"
+upgrade: ## Update FMS modules after code changes (dev DB)
+	@echo "$(BLUE)Updating fms,fms_accounting on $(DB_NAME)...$(NC)"
+	@$(ODOO_VENV) $(ODOO_BIN) -d $(DB_NAME) -u fms,fms_accounting \
+		--addons-path=$(ODOO_ADDONS) --stop-after-init
+	@echo "$(GREEN)✓ Updated$(NC)"
 
-setup-structure: ## Create project directory structure only
-	@echo "$(BLUE)Creating FMS project structure...$(NC)"
-	@bash setup-fms-project.sh
-	@echo "$(GREEN)✓ Structure created!$(NC)"
+run: ## Start Odoo on dev DB → http://localhost:$(ODOO_PORT)
+	@echo "$(BLUE)Starting Odoo (db: $(DB_NAME), port: $(ODOO_PORT))...$(NC)"
+	@echo "$(YELLOW)Open: http://localhost:$(ODOO_PORT)$(NC)"
+	@$(ODOO_VENV) $(ODOO_BIN) -d $(DB_NAME) -p $(ODOO_PORT) \
+		--addons-path=$(ODOO_ADDONS) --dev=all
 
-setup-git: ## Initialize git workflow only
-	@echo "$(BLUE)Setting up git workflow...$(NC)"
-	@bash setup-git-workflow.sh
-	@echo "$(GREEN)✓ Git setup complete!$(NC)"
+run-dev: ## Start Odoo on port 8070 when 8069 is busy
+	@echo "$(BLUE)Starting Odoo on port 8070 (db: $(DB_NAME))...$(NC)"
+	@echo "$(YELLOW)Open: http://localhost:8070$(NC)"
+	@$(ODOO_VENV) $(ODOO_BIN) -d $(DB_NAME) -p 8070 \
+		--addons-path=$(ODOO_ADDONS) --dev=all
 
-clean: ## Remove generated files (be careful!)
-	@echo "$(RED)Cleaning generated files...$(NC)"
-	@find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
-	@find . -type f -name "*.pyc" -delete
-	@find . -type f -name ".coverage" -delete
-	@rm -rf htmlcov/ .pytest_cache/ .tox/
-	@rm -f PROGRESS.md REPORT.md
-	@echo "$(GREEN)✓ Cleaned!$(NC)"
+stop: ## Kill Odoo processes on ports 8069 and 8070
+	@fuser -k 8069/tcp 2>/dev/null || true
+	@fuser -k 8070/tcp 2>/dev/null || true
+	@echo "$(GREEN)✓ Stopped$(NC)"
+
+shell: ## Open Odoo interactive Python shell (dev DB)
+	@echo "$(BLUE)Opening shell (db: $(DB_NAME))...$(NC)"
+	@$(ODOO_VENV) $(ODOO_BIN) shell -d $(DB_NAME) \
+		--addons-path=$(ODOO_ADDONS)
+
+seed: ## Seed dev DB with demo data
+	@echo "$(BLUE)Seeding $(DB_NAME)...$(NC)"
+	@$(ODOO_VENV) $(ODOO_BIN) shell -d $(DB_NAME) \
+		--addons-path=$(ODOO_ADDONS) --no-http \
+		< scripts/seed_e2e.py
+	@echo "$(GREEN)✓ Seed complete$(NC)"
+
+test: ## Run FMS test suite (drops + recreates test DB)
+	@echo "$(BLUE)Running FMS tests (db: $(DB_NAME))...$(NC)"
+	@dropdb --if-exists $(DB_NAME)
+	@$(ODOO_VENV) $(ODOO_BIN) -d $(DB_NAME) \
+		--addons-path=$(ODOO_ADDONS) \
+		--test-enable --stop-after-init -i fms,fms_accounting --without-demo=all -p 8070 \
+		--test-tags fms,fms_accounting
+	@echo "$(GREEN)✓ Tests complete$(NC)"
+
+build: ## Full rebuild: drop + setup + seed (dev DB from scratch)
+	@echo "$(BLUE)Full build of $(DB_NAME)...$(NC)"
+	@dropdb --if-exists $(DB_NAME) || true
+	@$(MAKE) setup
+	@$(MAKE) seed
+	@echo "$(GREEN)✓ Build complete. Run: make run$(NC)"
 
 # ═════════════════════════════════════════════════════════════════════════════
-# DEVELOPMENT ORCHESTRATION TARGETS
+# E2E DB
 # ═════════════════════════════════════════════════════════════════════════════
 
-status: ## Show development status (completed/in-progress/todo tasks)
+e2e-setup: ## Create fms_e2e DB and install FMS modules
+	@echo "$(BLUE)Creating fms_e2e...$(NC)"
+	$(ODOO_VENV) $(ODOO_BIN) -d fms_e2e \
+		-i fms,fms_accounting \
+		--addons-path=$(ODOO_ADDONS) \
+		--stop-after-init --without-demo=all \
+		--load-language=en_US
+	@echo "$(GREEN)✓ fms_e2e created. Next: make e2e-seed$(NC)"
+
+e2e-seed: ## Seed fms_e2e with Kenya CoA + products + demo data
+	@echo "$(BLUE)Seeding fms_e2e...$(NC)"
+	@$(ODOO_VENV) $(ODOO_BIN) shell -d fms_e2e \
+		--addons-path=$(ODOO_ADDONS) --no-http \
+		< scripts/seed_e2e.py
+	@echo "$(GREEN)✓ e2e seed complete$(NC)"
+
+e2e-update: ## Update fms + fms_accounting in fms_e2e after code changes
+	@echo "$(BLUE)Updating fms_e2e...$(NC)"
+	@$(ODOO_VENV) $(ODOO_BIN) -d fms_e2e -u fms,fms_accounting \
+		--addons-path=$(ODOO_ADDONS) --stop-after-init --no-http
+	@echo "$(GREEN)✓ fms_e2e updated$(NC)"
+
+e2e-run: ## Start Odoo with fms_e2e → http://localhost:8070
+	@fuser -k 8070/tcp 2>/dev/null || true
+	@echo "$(BLUE)Starting Odoo with fms_e2e on port 8070...$(NC)"
+	@echo "$(YELLOW)Open: http://localhost:8070$(NC)"
+	@$(ODOO_VENV) $(ODOO_BIN) -d fms_e2e -p 8070 \
+		--addons-path=$(ODOO_ADDONS) --dev=all
+
+e2e-drop: ## Drop fms_e2e database (WARNING: deletes all data!)
+	@echo "$(RED)WARNING: This will delete fms_e2e$(NC)"
+	@read -p "Type 'yes' to confirm: " confirm; \
+	if [ "$$confirm" = "yes" ]; then \
+		dropdb fms_e2e; \
+		echo "$(GREEN)✓ fms_e2e dropped$(NC)"; \
+	else \
+		echo "$(YELLOW)Cancelled$(NC)"; \
+	fi
+
+e2e-reset: ## Drop + recreate + seed fms_e2e from scratch
+	@echo "$(RED)WARNING: Deletes and recreates fms_e2e$(NC)"
+	@read -p "Type 'yes' to confirm: " confirm; \
+	if [ "$$confirm" = "yes" ]; then \
+		dropdb --if-exists fms_e2e; \
+		$(MAKE) e2e-setup && $(MAKE) e2e-seed; \
+		echo "$(GREEN)✓ fms_e2e reset complete$(NC)"; \
+	else \
+		echo "$(YELLOW)Cancelled$(NC)"; \
+	fi
+
+# ═════════════════════════════════════════════════════════════════════════════
+# TESTING
+# ═════════════════════════════════════════════════════════════════════════════
+
+test-unit: ## Run unit tests only (no integration tests)
+	@$(PYTEST) tests/ -v -m "not integration"
+
+test-coverage: ## Run tests with HTML coverage report
+	@$(PYTEST) tests/ -v --cov=models/ --cov-report=html --cov-report=term
+	@echo "$(GREEN)✓ Coverage: htmlcov/index.html$(NC)"
+
+test-watch: ## Run tests in watch mode (requires pytest-watch)
+	@ptw tests/ -v
+
+test-specific: ## Run one test file (usage: make test-specific TEST=test_fms_shift.py)
+	@if [ -z "$(TEST)" ]; then \
+		echo "$(RED)Usage: make test-specific TEST=test_fms_shift.py$(NC)"; \
+	else \
+		$(PYTEST) tests/$(TEST) -v; \
+	fi
+
+test-task: ## Run tests for one task (usage: make test-task TASK=FMS-001)
+	@if [ -z "$(TASK)" ]; then \
+		echo "$(RED)Usage: make test-task TASK=FMS-001$(NC)"; \
+	else \
+		$(PYTEST) tests/ -v -k "$(shell echo $(TASK) | tr 'A-Z' 'a-z')" || true; \
+	fi
+
+# ═════════════════════════════════════════════════════════════════════════════
+# TASK MANAGEMENT
+# ═════════════════════════════════════════════════════════════════════════════
+
+status: ## Show development progress
 	@$(PYTHON) scripts/dev-guide.py status
 
-task: ## Start specific task (usage: make task TASK=FMS-001)
+task: ## Start a task (usage: make task TASK=FMS-001)
 	@if [ -z "$(TASK)" ]; then \
 		echo "$(RED)Usage: make task TASK=FMS-001$(NC)"; \
-		echo "$(YELLOW)Available tasks:$(NC)"; \
 		$(PYTHON) scripts/dev-guide.py list; \
 	else \
 		$(PYTHON) scripts/dev-guide.py task $(TASK); \
@@ -102,220 +249,86 @@ info: ## Show task details (usage: make info TASK=FMS-001)
 		$(PYTHON) scripts/dev-guide.py info $(TASK); \
 	fi
 
-report: ## Generate development progress report
+report: ## Generate progress report
 	@$(PYTHON) scripts/dev-guide.py report
-	@echo "$(GREEN)✓ Report generated: REPORT.md$(NC)"
+	@echo "$(GREEN)✓ Report: REPORT.md$(NC)"
 
 # ═════════════════════════════════════════════════════════════════════════════
-# TESTING TARGETS
-# ═════════════════════════════════════════════════════════════════════════════
-
-test: ## Run all tests
-	@echo "$(BLUE)Running tests...$(NC)"
-	@$(PYTEST) tests/ -v
-	@echo "$(GREEN)✓ Tests complete$(NC)"
-
-test-unit: ## Run unit tests only (no integration tests)
-	@echo "$(BLUE)Running unit tests...$(NC)"
-	@$(PYTEST) tests/ -v -m "not integration"
-
-test-coverage: ## Run tests with coverage report
-	@echo "$(BLUE)Running tests with coverage...$(NC)"
-	@$(PYTEST) tests/ -v --cov=models/ --cov-report=html --cov-report=term
-	@echo "$(GREEN)✓ Coverage report: htmlcov/index.html$(NC)"
-
-test-watch: ## Run tests in watch mode (re-run on file changes)
-	@echo "$(BLUE)Running tests in watch mode (requires pytest-watch)...$(NC)"
-	@ptw tests/ -v
-
-test-specific: ## Run specific test (usage: make test-specific TEST=test_fms_shift.py)
-	@if [ -z "$(TEST)" ]; then \
-		echo "$(RED)Usage: make test-specific TEST=test_fms_shift.py$(NC)"; \
-	else \
-		$(PYTEST) tests/$(TEST) -v; \
-	fi
-
-test-task: ## Run tests for specific task (usage: make test-task TASK=FMS-001)
-	@if [ -z "$(TASK)" ]; then \
-		echo "$(RED)Usage: make test-task TASK=FMS-001$(NC)"; \
-	else \
-		@echo "$(BLUE)Running tests for $(TASK)...$(NC)"; \
-		$(PYTEST) tests/ -v -k "$(shell echo $(TASK) | tr 'A-Z' 'a-z')" || true; \
-	fi
-
-# ═════════════════════════════════════════════════════════════════════════════
-# GIT WORKFLOW TARGETS
+# GIT
 # ═════════════════════════════════════════════════════════════════════════════
 
 git-status: ## Show git status
 	@git status
 
-git-branch: ## Create feature branch for task (usage: make git-branch TASK=FMS-001)
+git-branch: ## Create feature branch (usage: make git-branch TASK=FMS-001)
 	@if [ -z "$(TASK)" ]; then \
 		echo "$(RED)Usage: make git-branch TASK=FMS-001$(NC)"; \
-		echo "$(YELLOW)Example: make git-branch TASK=FMS-001$(NC)"; \
 	else \
-		BRANCH_NAME="fms-$$(echo $(TASK) | tr '[:upper:]' '[:lower:]' | sed 's/-/_/g')-$$$(echo $(TASK) | sed 's/.*-//')"; \
-		git checkout -b $$BRANCH_NAME; \
-		echo "$(GREEN)✓ Created branch: $$BRANCH_NAME$(NC)"; \
+		BRANCH="fms-$$(echo $(TASK) | tr '[:upper:]' '[:lower:]' | sed 's/-/_/g')"; \
+		git checkout -b $$BRANCH; \
+		echo "$(GREEN)✓ Branch: $$BRANCH$(NC)"; \
 	fi
 
-git-log: ## View commit history (graph view)
+git-log: ## View recent commit history
 	@git log --oneline --graph --all | head -20
 
-git-commit: ## Make commit with task template
-	@echo "$(BLUE)Committing with task template...$(NC)"
+git-commit: ## Interactive commit (stages all changes)
 	@git add .
 	@git commit
 	@echo "$(GREEN)✓ Committed$(NC)"
 
-git-merge: ## Merge feature branch to development (usage: make git-merge BRANCH=fms-001)
+git-merge: ## Merge branch to main (usage: make git-merge BRANCH=fms-001)
 	@if [ -z "$(BRANCH)" ]; then \
 		echo "$(RED)Usage: make git-merge BRANCH=fms-001-core-models$(NC)"; \
 	else \
-		git checkout development; \
+		git checkout main; \
 		git merge --no-ff $(BRANCH); \
-		echo "$(GREEN)✓ Merged $(BRANCH) to development$(NC)"; \
+		echo "$(GREEN)✓ Merged $(BRANCH) to main$(NC)"; \
 	fi
 
 git-tag: ## Tag task completion (usage: make git-tag TASK=FMS-001)
 	@if [ -z "$(TASK)" ]; then \
 		echo "$(RED)Usage: make git-tag TASK=FMS-001$(NC)"; \
 	else \
-		TAG="v0.$$(echo $(TASK) | sed 's/.*-//')-$$(echo $(TASK) | sed 's/-.*//;s/[a-z]//g' | tr 'A-Z' 'a-z')"; \
+		TAG="v0.$$(echo $(TASK) | sed 's/.*-//')-complete"; \
 		git tag $$TAG; \
 		echo "$(GREEN)✓ Tagged: $$TAG$(NC)"; \
 	fi
 
 # ═════════════════════════════════════════════════════════════════════════════
-# ODOO TARGETS
+# DOCUMENTATION
 # ═════════════════════════════════════════════════════════════════════════════
 
-odoo: ## Start Odoo web server (http://localhost:8069)
-	@echo "$(BLUE)Starting Odoo (db: $(DB_NAME), port: $(ODOO_PORT))...$(NC)"
-	@echo "$(YELLOW)Open: http://localhost:$(ODOO_PORT)$(NC)"
-	@$(ODOO_VENV) $(ODOO_BIN) -d $(DB_NAME) -p $(ODOO_PORT) \
-		--addons-path=$(ODOO_ADDONS) --dev=all
-
-odoo-dev: ## Start Odoo web server on port 8070 (use when 8069 is busy)
-	@echo "$(BLUE)Starting Odoo on port 8070 (db: $(DB_NAME))...$(NC)"
-	@echo "$(YELLOW)Open: http://localhost:8070$(NC)"
-	@$(ODOO_VENV) $(ODOO_BIN) -d $(DB_NAME) -p 8070 \
-		--addons-path=$(ODOO_ADDONS) --dev=all
-
-odoo-shell: ## Open Odoo interactive Python shell
-	@echo "$(BLUE)Opening Odoo shell (db: $(DB_NAME))...$(NC)"
-	@$(ODOO_VENV) $(ODOO_BIN) shell -d $(DB_NAME) \
-		--addons-path=$(ODOO_ADDONS)
-
-odoo-install: ## Install FMS module (first time)
-	@echo "$(BLUE)Installing FMS module...$(NC)"
-	@$(ODOO_VENV) $(ODOO_BIN) -d $(DB_NAME) -i fms \
-		--addons-path=$(ODOO_ADDONS) --stop-after-init
-	@echo "$(GREEN)✓ FMS installed$(NC)"
-
-odoo-update: ## Update FMS module after code changes
-	@echo "$(BLUE)Updating FMS module...$(NC)"
-	@$(ODOO_VENV) $(ODOO_BIN) -d $(DB_NAME) -u fms \
-		--addons-path=$(ODOO_ADDONS) --stop-after-init
-	@echo "$(GREEN)✓ FMS updated$(NC)"
-
-odoo-test: ## Run FMS tests (drops and recreates test DB to avoid demo data conflicts)
-	@echo "$(BLUE)Running FMS tests (db: $(DB_NAME))...$(NC)"
-	@dropdb --if-exists $(DB_NAME)
-	@$(ODOO_VENV) $(ODOO_BIN) -d $(DB_NAME) \
-		--addons-path=$(ODOO_ADDONS) \
-		--test-enable --stop-after-init -i fms,fms_accounting --without-demo=all -p 8070 \
-		--test-tags fms,fms_accounting
-	@echo "$(GREEN)✓ Tests complete$(NC)"
-
-odoo-demo: ## Start Odoo web server on the demo database (http://localhost:8070)
-	@echo "$(BLUE)Starting Odoo with demo data (db: fms_demo, port: 8070)...$(NC)"
-	@echo "$(YELLOW)Open: http://localhost:8070  →  Forecourt → Shifts$(NC)"
-	@$(ODOO_VENV) $(ODOO_BIN) -d fms_demo -p 8070 \
-		--addons-path=$(ODOO_ADDONS) --dev=all
-
-odoo-demo-reload: ## Reload demo data into fms_demo (re-runs demo XML)
-	@echo "$(BLUE)Reloading demo data into fms_demo...$(NC)"
-	@$(ODOO_VENV) $(ODOO_BIN) -d fms_demo -u fms \
-		--addons-path=$(ODOO_ADDONS) --stop-after-init -p 8070
-	@echo "$(GREEN)✓ Demo data reloaded$(NC)"
-
-odoo-e2e-create: ## Create fms_e2e DB with Kenya locale and install FMS modules
-	@echo "$(BLUE)Creating fms_e2e database...$(NC)"
-	$(ODOO_VENV) $(ODOO_BIN) -d fms_e2e \
-		-i fms,fms_accounting \
-		--addons-path=$(ODOO_ADDONS) \
-		--stop-after-init --without-demo=all \
-		--load-language=en_US
-	@echo "$(GREEN)✓ fms_e2e created with FMS modules$(NC)"
-
-odoo-e2e-seed: ## Seed fms_e2e with Kenya CoA + all products (run after odoo-e2e-create)
-	@echo "$(BLUE)Seeding fms_e2e database...$(NC)"
-	@$(ODOO_VENV) $(ODOO_BIN) shell -d fms_e2e \
-		--addons-path=$(ODOO_ADDONS) --no-http \
-		< scripts/seed_e2e.py
-	@echo "$(GREEN)✓ Seed complete$(NC)"
-
-odoo-e2e-update: ## Update fms + fms_accounting in fms_e2e after code changes
-	@echo "$(BLUE)Updating fms_e2e...$(NC)"
-	@$(ODOO_VENV) $(ODOO_BIN) -d fms_e2e -u fms,fms_accounting \
-		--addons-path=$(ODOO_ADDONS) --stop-after-init --no-http
-	@echo "$(GREEN)✓ fms_e2e updated$(NC)"
-
-odoo-e2e: ## Start Odoo with the fms_e2e database (http://localhost:8070)
-	@fuser -k 8070/tcp 2>/dev/null || true
-	@echo "$(BLUE)Starting Odoo with fms_e2e on port 8070...$(NC)"
-	@echo "$(YELLOW)Open: http://localhost:8070$(NC)"
-	@$(ODOO_VENV) $(ODOO_BIN) -d fms_e2e -p 8070 \
-		--addons-path=$(ODOO_ADDONS) --dev=all
-
-odoo-e2e-drop: ## Drop fms_e2e database (WARNING: deletes all data!)
-	@echo "$(RED)WARNING: This will delete fms_e2e$(NC)"
-	@read -p "Type 'yes' to confirm: " confirm; \
-	if [ "$$confirm" = "yes" ]; then \
-		dropdb fms_e2e; \
-		echo "$(GREEN)✓ fms_e2e dropped$(NC)"; \
-	else \
-		echo "$(YELLOW)Cancelled$(NC)"; \
-	fi
-
-odoo-drop: ## Drop test database (WARNING: deletes all data!)
-	@echo "$(RED)WARNING: This will delete all data in $(DB_NAME)$(NC)"
-	@read -p "Type 'yes' to confirm: " confirm; \
-	if [ "$$confirm" = "yes" ]; then \
-		dropdb $(DB_NAME); \
-		echo "$(GREEN)✓ Database dropped$(NC)"; \
-	else \
-		echo "$(YELLOW)Cancelled$(NC)"; \
-	fi
-
-# ═════════════════════════════════════════════════════════════════════════════
-# DOCUMENTATION TARGETS
-# ═════════════════════════════════════════════════════════════════════════════
-
-docs: ## Show list of available documentation
+docs: ## List available documentation
 	@echo "$(BLUE)FMS Documentation$(NC)"
 	@echo ""
-	@echo "$(YELLOW)Getting Started:$(NC)"
-	@echo "  make docs-quick          - Quick start guide"
-	@echo "  make docs-setup          - Setup guide"
-	@echo "  make docs-system         - System overview"
+	@echo "$(YELLOW)Training guides:$(NC)"
+	@echo "  make docs-setup-guide    Pre-first-shift system setup"
+	@echo "  make docs-operations     Operations training (supervisors/attendants)"
+	@echo "  make docs-finance        Finance training (accountants)"
 	@echo ""
 	@echo "$(YELLOW)Development:$(NC)"
-	@echo "  make docs-dev            - Development guide"
-	@echo "  make docs-spec           - Technical specification"
-	@echo "  make docs-patterns       - Coding patterns"
+	@echo "  make docs-spec           Technical specification"
+	@echo "  make docs-dev            Development guide"
+	@echo "  make docs-patterns       Coding patterns"
 	@echo ""
 	@echo "$(YELLOW)Operations:$(NC)"
-	@echo "  make docs-runbook        - Operations runbook"
-	@echo "  make docs-install        - Installation guide"
-	@echo ""
+	@echo "  make docs-runbook        Operations runbook"
+	@echo "  make docs-install        Installation guide"
+
+docs-setup-guide: ## View pre-first-shift system setup guide
+	@less docs/training/00-system-setup-before-first-shift.md
+
+docs-operations: ## View operations training guide (supervisors/attendants)
+	@less docs/training/01-fms-operations-training.md
+
+docs-finance: ## View finance training guide (accountants)
+	@less docs/training/02-fms-finance-training.md
 
 docs-quick: ## View quick start guide
 	@less +G QUICK_START.md 2>/dev/null || cat QUICK_START.md
 
-docs-setup: ## View setup guide
+docs-setup: ## View setup summary
 	@less +G SETUP_SUMMARY.md 2>/dev/null || cat SETUP_SUMMARY.md
 
 docs-system: ## View system overview
@@ -336,194 +349,128 @@ docs-runbook: ## View operations runbook
 docs-install: ## View installation guide
 	@less +G docs/INSTALLATION.md 2>/dev/null || cat docs/INSTALLATION.md
 
-docs-commands: ## View commands reference (cheat sheet)
+docs-commands: ## View commands reference
 	@less +G COMMANDS_REFERENCE.md 2>/dev/null || cat COMMANDS_REFERENCE.md
 
 # ═════════════════════════════════════════════════════════════════════════════
-# CODE QUALITY TARGETS
+# CODE QUALITY
 # ═════════════════════════════════════════════════════════════════════════════
 
-format: ## Format Python code (requires black)
-	@echo "$(BLUE)Formatting Python code...$(NC)"
-	@black models/ tests/ scripts/ 2>/dev/null || echo "$(YELLOW)black not installed (pip install black)$(NC)"
+format: ## Auto-format Python with black
+	@black models/ tests/ scripts/ 2>/dev/null || echo "$(YELLOW)Install: pip install black$(NC)"
 	@echo "$(GREEN)✓ Formatted$(NC)"
 
-lint: ## Check code style (requires flake8)
-	@echo "$(BLUE)Checking code style...$(NC)"
-	@flake8 models/ tests/ scripts/ 2>/dev/null || echo "$(YELLOW)flake8 not installed (pip install flake8)$(NC)"
+lint: ## Check code style with flake8
+	@flake8 models/ tests/ scripts/ 2>/dev/null || echo "$(YELLOW)Install: pip install flake8$(NC)"
 
 syntax: ## Check Python syntax
-	@echo "$(BLUE)Checking Python syntax...$(NC)"
-	@$(PYTHON) -m py_compile models/*.py tests/*.py 2>/dev/null && echo "$(GREEN)✓ Syntax OK$(NC)" || echo "$(RED)✗ Syntax errors$(NC)"
+	@$(PYTHON) -m py_compile models/*.py tests/*.py 2>/dev/null \
+		&& echo "$(GREEN)✓ Syntax OK$(NC)" || echo "$(RED)✗ Syntax errors$(NC)"
+
+check: ## Run syntax + tests + coverage
+	@$(MAKE) syntax
+	@$(MAKE) test-coverage
+
+full-check: ## All checks before commit (syntax + test + coverage)
+	@$(MAKE) syntax
+	@$(MAKE) test
+	@$(MAKE) test-coverage
+	@echo "$(GREEN)✓ Ready to commit$(NC)"
 
 # ═════════════════════════════════════════════════════════════════════════════
-# UTILITY TARGETS
+# UTILITIES
 # ═════════════════════════════════════════════════════════════════════════════
 
-tree: ## Show project structure
-	@tree -L 2 -a --gitignore 2>/dev/null || find . -maxdepth 2 -not -path '*/.*' | sort | sed 's|[^/]*/|  |g'
-
-structure: ## Show detailed project structure
-	@find . -type f -not -path './.git/*' -not -path '*/__pycache__/*' -not -path '*.pyc' | sort | head -50
-
-install: ## Install Python dependencies
-	@echo "$(BLUE)Installing dependencies...$(NC)"
+install: ## Install Python test dependencies (pytest)
 	@pip install pytest pytest-cov 2>/dev/null || pip3 install pytest pytest-cov
 	@echo "$(GREEN)✓ Installed$(NC)"
 
-install-dev: ## Install development dependencies
-	@echo "$(BLUE)Installing dev dependencies...$(NC)"
+install-dev: ## Install all dev dependencies (pytest + black + flake8)
 	@pip install pytest pytest-cov black flake8 2>/dev/null || pip3 install pytest pytest-cov black flake8
 	@echo "$(GREEN)✓ Installed$(NC)"
 
-check: ## Run all checks (syntax, tests, coverage)
-	@echo "$(BLUE)Running all checks...$(NC)"
-	@make syntax
-	@make test-coverage
-	@echo "$(GREEN)✓ All checks passed$(NC)"
+clean: ## Remove __pycache__, .pyc, coverage artifacts
+	@find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+	@find . -type f -name "*.pyc" -delete
+	@find . -type f -name ".coverage" -delete
+	@rm -rf htmlcov/ .pytest_cache/ .tox/
+	@echo "$(GREEN)✓ Cleaned$(NC)"
 
-project-info: ## Show project environment information
-	@echo "$(BLUE)╔════════════════════════════════════════════════════════════╗$(NC)"
-	@echo "$(BLUE)║  Project Information                                      ║$(NC)"
-	@echo "$(BLUE)╚════════════════════════════════════════════════════════════╝$(NC)"
-	@echo ""
+tree: ## Show project tree (2 levels)
+	@tree -L 2 -a --gitignore 2>/dev/null || find . -maxdepth 2 -not -path '*/.*' | sort | sed 's|[^/]*/|  |g'
+
+structure: ## List all project files
+	@find . -type f -not -path './.git/*' -not -path '*/__pycache__/*' -not -name '*.pyc' | sort | head -60
+
+project-info: ## Show environment info
 	@echo "$(YELLOW)Project:$(NC) $(PROJECT_NAME)"
+	@echo "$(YELLOW)DB:$(NC)      $(DB_NAME)  Port: $(ODOO_PORT)"
 	@echo "$(YELLOW)Python:$(NC)  $(PYTHON)"
-	@echo "$(YELLOW)Odoo DB:$(NC)  $(DB_NAME)"
-	@echo "$(YELLOW)Port:$(NC)    $(ODOO_PORT)"
-	@echo ""
-	@echo "$(YELLOW)Directories:$(NC)"
-	@ls -d */ 2>/dev/null | head -10
-	@echo ""
-	@echo "$(YELLOW)Key Files:$(NC)"
-	@ls -1 *.py *.yaml *.md 2>/dev/null | head -10
-	@echo ""
+	@echo "$(YELLOW)Odoo:$(NC)    $(ODOO_BIN)"
 
-version: ## Show version information
-	@echo "$(BLUE)FMS Version Information$(NC)"
-	@echo ""
+version: ## Show version info
 	@echo "$(YELLOW)Python:$(NC) $$($(PYTHON) --version)"
 	@echo "$(YELLOW)Pytest:$(NC) $$($(PYTEST) --version 2>/dev/null || echo 'not installed')"
-	@echo ""
 	@git --version 2>/dev/null || echo "git: not found"
 
 # ═════════════════════════════════════════════════════════════════════════════
 # COMBINED WORKFLOWS
 # ═════════════════════════════════════════════════════════════════════════════
 
-start-task: ## Complete workflow for a new task (usage: make start-task TASK=FMS-001)
+start-task: ## Start task workflow: branch + show prompt (usage: make start-task TASK=FMS-001)
 	@if [ -z "$(TASK)" ]; then \
 		echo "$(RED)Usage: make start-task TASK=FMS-001$(NC)"; \
 	else \
-		echo "$(BLUE)Starting task $(TASK)...$(NC)"; \
-		make git-branch TASK=$(TASK); \
-		make task TASK=$(TASK); \
-		echo "$(GREEN)✓ Task $(TASK) started$(NC)"; \
-		echo "$(YELLOW)Next: Run 'make test' after generating code$(NC)"; \
+		$(MAKE) git-branch TASK=$(TASK); \
+		$(MAKE) task TASK=$(TASK); \
 	fi
 
-finish-task: ## Complete workflow after task is done (usage: make finish-task BRANCH=fms-001-core-models TAG=FMS-001)
+finish-task: ## Complete task: tag + merge (usage: make finish-task BRANCH=fms-001 TAG=FMS-001)
 	@if [ -z "$(BRANCH)" ] || [ -z "$(TAG)" ]; then \
 		echo "$(RED)Usage: make finish-task BRANCH=fms-001-core-models TAG=FMS-001$(NC)"; \
 	else \
-		echo "$(BLUE)Finishing task $(TAG)...$(NC)"; \
-		make git-tag TASK=$(TAG); \
-		make git-merge BRANCH=$(BRANCH); \
-		make status; \
-		echo "$(GREEN)✓ Task $(TAG) complete$(NC)"; \
+		$(MAKE) git-tag TASK=$(TAG); \
+		$(MAKE) git-merge BRANCH=$(BRANCH); \
+		$(MAKE) status; \
 	fi
 
-full-check: ## Run complete checks before commit
-	@echo "$(BLUE)Running full checks...$(NC)"
-	@make syntax
-	@make test
-	@make test-coverage
-	@echo "$(GREEN)✓ All checks passed - ready to commit$(NC)"
-
-dev-cycle: ## Complete development cycle (setup → test → commit → next)
-	@echo "$(BLUE)Running development cycle...$(NC)"
-	@make status
-	@make test
-	@make report
-	@echo "$(GREEN)✓ Development cycle complete$(NC)"
+dev-cycle: ## status + test + report
+	@$(MAKE) status
+	@$(MAKE) test
+	@$(MAKE) report
 
 # ═════════════════════════════════════════════════════════════════════════════
-# QUICK ACTIONS
+# SHORTCUTS
 # ═════════════════════════════════════════════════════════════════════════════
 
-s: ## Alias for 'status'
-	@make status
+s: ## Alias: status
+	@$(MAKE) status
 
-t: ## Alias for 'test'
-	@make test
+t: ## Alias: test
+	@$(MAKE) test
 
-o: ## Alias for 'odoo'
-	@make odoo
+o: ## Alias: run
+	@$(MAKE) run
 
-h: ## Alias for 'help'
-	@make help
-
-# ═════════════════════════════════════════════════════════════════════════════
-# INFORMATION
-# ═════════════════════════════════════════════════════════════════════════════
-
-.PHONY: info
-info-all: ## Show comprehensive information
-	@clear
-	@echo "$(BLUE)╔════════════════════════════════════════════════════════════╗$(NC)"
-	@echo "$(BLUE)║  FMS Makefile - Comprehensive Guide                       ║$(NC)"
-	@echo "$(BLUE)╚════════════════════════════════════════════════════════════╝$(NC)"
-	@echo ""
-	@echo "$(YELLOW)QUICK COMMANDS:$(NC)"
-	@echo "  make help               Show all commands"
-	@echo "  make status             Show development status"
-	@echo "  make task TASK=FMS-001  Start development task"
-	@echo "  make test               Run all tests"
-	@echo "  make odoo               Start Odoo server"
-	@echo ""
-	@echo "$(YELLOW)SETUP:$(NC)"
-	@echo "  make setup              Complete setup (recommended)"
-	@echo "  make setup-structure    Create directories only"
-	@echo "  make setup-git          Initialize git only"
-	@echo ""
-	@echo "$(YELLOW)DEVELOPMENT:$(NC)"
-	@echo "  make status             View progress"
-	@echo "  make task TASK=FMS-001  Start specific task"
-	@echo "  make list               List all tasks"
-	@echo "  make info TASK=FMS-001  Show task details"
-	@echo "  make report             Generate progress report"
-	@echo ""
-	@echo "$(YELLOW)TESTING:$(NC)"
-	@echo "  make test               Run all tests"
-	@echo "  make test-coverage      Tests with coverage report"
-	@echo "  make test-task TASK=FMS-001  Tests for specific task"
-	@echo ""
-	@echo "$(YELLOW)GIT:$(NC)"
-	@echo "  make git-status         Show git status"
-	@echo "  make git-branch TASK=FMS-001  Create feature branch"
-	@echo "  make git-log            View commit history"
-	@echo "  make git-commit         Make commit (with template)"
-	@echo ""
-	@echo "$(YELLOW)DOCUMENTATION:$(NC)"
-	@echo "  make docs               List available docs"
-	@echo "  make docs-quick         Quick start guide"
-	@echo "  make docs-dev           Development guide"
-	@echo "  make docs-spec          Technical specification"
-	@echo "  make docs-commands      Command reference"
-	@echo ""
-	@echo "$(YELLOW)ODOO:$(NC)"
-	@echo "  make odoo               Start server"
-	@echo "  make odoo-install       Install FMS module"
-	@echo "  make odoo-shell         Open interactive shell"
-	@echo ""
-	@echo "$(YELLOW)SHORTCUTS:$(NC)"
-	@echo "  make s                  = make status"
-	@echo "  make t                  = make test"
-	@echo "  make o                  = make odoo"
-	@echo "  make h                  = make help"
-	@echo ""
-	@make info
+h: ## Alias: help
+	@$(MAKE) help
 
 # ═════════════════════════════════════════════════════════════════════════════
-# END OF MAKEFILE
+# BACKWARD COMPAT — old odoo-* names still work
 # ═════════════════════════════════════════════════════════════════════════════
+
+odoo:            run
+odoo-dev:        run-dev
+odoo-shell:      shell
+odoo-install:    setup
+odoo-update:     upgrade
+odoo-test:       test
+odoo-e2e-create: e2e-setup
+odoo-e2e-seed:   e2e-seed
+odoo-e2e-update: e2e-update
+odoo-e2e:        e2e-run
+odoo-e2e-drop:   e2e-drop
+
+# ─────────────────────────────────────────────────────────────────────────────
+# END
+# ─────────────────────────────────────────────────────────────────────────────
