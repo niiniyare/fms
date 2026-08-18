@@ -42,7 +42,7 @@ class FMSReportDailyStation(models.Model):
         ('night',   'Night'),
     ], string='Period', readonly=True)
     product_id     = fields.Many2one('product.product', 'Product',    readonly=True)
-    product_name   = fields.Char(                        'Product',   readonly=True)
+    product_name   = fields.Char(                        'Product (SQL)',   readonly=True)
     company_id     = fields.Many2one('res.company',     'Company',    readonly=True)
     supervisor_id  = fields.Many2one('hr.employee',     'Supervisor', readonly=True)
 
@@ -97,7 +97,7 @@ class FMSReportAttendantSales(models.Model):
         ('night',   'Night'),
     ], string='Period', readonly=True)
     attendant_id   = fields.Many2one('hr.employee',     'Attendant',  readonly=True)
-    attendant_name = fields.Char(                        'Attendant', readonly=True)
+    attendant_name = fields.Char('Attendant (SQL)', readonly=True)
     company_id     = fields.Many2one('res.company',     'Company',    readonly=True)
 
     # ── Measures ──────────────────────────────────────────────────────
@@ -161,7 +161,7 @@ class FMSReportWetstock(models.Model):
         ('night',   'Night'),
     ], string='Period', readonly=True)
     tank_id       = fields.Many2one('stock.location',     'Tank',     readonly=True)
-    tank_name     = fields.Char(                           'Tank',    readonly=True)
+    tank_name     = fields.Char(                           'Tank (SQL)',    readonly=True)
     product_id    = fields.Many2one('product.product',    'Product',  readonly=True)
     company_id    = fields.Many2one('res.company',        'Company',  readonly=True)
 
@@ -233,7 +233,7 @@ class FMSReportStockPosition(models.Model):
 
     # ── Dimensions ────────────────────────────────────────────────────
     location_id          = fields.Many2one('stock.location', 'Tank',    readonly=True)
-    tank_name            = fields.Char(                       'Tank',   readonly=True)
+    tank_name            = fields.Char(                       'Tank (SQL)',   readonly=True)
     product_id           = fields.Many2one('product.product', 'Product',readonly=True)
     company_id           = fields.Many2one('res.company',     'Company',readonly=True)
 
@@ -406,9 +406,9 @@ class FMSReportMeterVariance(models.Model):
         ('day', 'Day'), ('evening', 'Evening'), ('night', 'Night'),
     ], string='Period', readonly=True)
     nozzle_id     = fields.Many2one('fms.pump.nozzle',  'Nozzle',     readonly=True)
-    nozzle_name   = fields.Char(                         'Nozzle',     readonly=True)
+    nozzle_name   = fields.Char(                         'Nozzle (SQL)',     readonly=True)
     pump_id       = fields.Many2one('fms.pump',          'Pump',       readonly=True)
-    pump_name     = fields.Char(                         'Pump',       readonly=True)
+    pump_name     = fields.Char(                         'Pump (SQL)',       readonly=True)
     attendant_id  = fields.Many2one('hr.employee',       'Attendant',  readonly=True)
     product_id    = fields.Many2one('product.product',   'Product',    readonly=True)
     company_id    = fields.Many2one('res.company',       'Company',    readonly=True)
@@ -473,7 +473,7 @@ class FMSReportResidualException(models.Model):
         ('day', 'Day'), ('evening', 'Evening'), ('night', 'Night'),
     ], string='Period', readonly=True)
     product_id     = fields.Many2one('product.product', 'Product',    readonly=True)
-    product_name   = fields.Char(                        'Product',   readonly=True)
+    product_name   = fields.Char(                        'Product (SQL)',   readonly=True)
     company_id     = fields.Many2one('res.company',     'Company',    readonly=True)
     supervisor_id  = fields.Many2one('hr.employee',     'Supervisor', readonly=True)
 
@@ -596,13 +596,13 @@ class FMSReportSalesSummary(models.Model):
         ('day', 'Day'), ('evening', 'Evening'), ('night', 'Night'),
     ], string='Period', readonly=True)
     nozzle_id     = fields.Many2one('fms.pump.nozzle',  'Nozzle',     readonly=True)
-    nozzle_name   = fields.Char(                         'Nozzle',     readonly=True)
+    nozzle_name   = fields.Char(                         'Nozzle (SQL)',     readonly=True)
     pump_id       = fields.Many2one('fms.pump',          'Pump',       readonly=True)
-    pump_name     = fields.Char(                         'Pump',       readonly=True)
+    pump_name     = fields.Char(                         'Pump (SQL)',       readonly=True)
     attendant_id  = fields.Many2one('hr.employee',       'Attendant',  readonly=True)
-    attendant_name = fields.Char(                        'Attendant',  readonly=True)
+    attendant_name = fields.Char('Attendant (SQL)',  readonly=True)
     product_id    = fields.Many2one('product.product',   'Product',    readonly=True)
-    product_name  = fields.Char(                         'Product',    readonly=True)
+    product_name  = fields.Char(                         'Product (SQL)',    readonly=True)
     categ_id      = fields.Many2one('product.category',  'Category',   readonly=True)
     company_id    = fields.Many2one('res.company',       'Company',    readonly=True)
 
@@ -657,7 +657,7 @@ class FMSReportThroughput(models.Model):
 
     shift_date   = fields.Date(                        'Date',     readonly=True)
     product_id   = fields.Many2one('product.product',  'Product',  readonly=True)
-    product_name = fields.Char(                         'Product', readonly=True)
+    product_name = fields.Char(                         'Product (SQL)', readonly=True)
     company_id   = fields.Many2one('res.company',      'Company',  readonly=True)
 
     qty_sold     = fields.Float('Volume (L)',            readonly=True, digits=(16, 2))
@@ -699,11 +699,11 @@ class FMSReportNozzlePerf(models.Model):
     _order       = 'total_qty desc'
 
     nozzle_id    = fields.Many2one('fms.pump.nozzle',  'Nozzle',   readonly=True)
-    nozzle_name  = fields.Char(                         'Nozzle',  readonly=True)
+    nozzle_name  = fields.Char(                         'Nozzle (SQL)',  readonly=True)
     pump_id      = fields.Many2one('fms.pump',          'Pump',    readonly=True)
-    pump_name    = fields.Char(                         'Pump',    readonly=True)
+    pump_name    = fields.Char(                         'Pump (SQL)',    readonly=True)
     product_id   = fields.Many2one('product.product',  'Product',  readonly=True)
-    product_name = fields.Char(                         'Product', readonly=True)
+    product_name = fields.Char(                         'Product (SQL)', readonly=True)
     company_id   = fields.Many2one('res.company',      'Company',  readonly=True)
 
     shift_count  = fields.Integer('Shifts',             readonly=True)
@@ -764,11 +764,11 @@ class FMSReportAttendantCategory(models.Model):
         ('day', 'Day'), ('evening', 'Evening'), ('night', 'Night'),
     ], string='Period', readonly=True)
     attendant_id   = fields.Many2one('hr.employee',      'Attendant',  readonly=True)
-    attendant_name = fields.Char(                         'Attendant', readonly=True)
+    attendant_name = fields.Char('Attendant (SQL)', readonly=True)
     nozzle_id      = fields.Many2one('fms.pump.nozzle',  'Nozzle',    readonly=True)
-    nozzle_name    = fields.Char(                         'Nozzle',    readonly=True)
+    nozzle_name    = fields.Char(                         'Nozzle (SQL)',    readonly=True)
     product_id     = fields.Many2one('product.product',  'Product',    readonly=True)
-    product_name   = fields.Char(                         'Product',   readonly=True)
+    product_name   = fields.Char(                         'Product (SQL)',   readonly=True)
     categ_id       = fields.Many2one('product.category', 'Category',   readonly=True)
     company_id     = fields.Many2one('res.company',      'Company',    readonly=True)
 
@@ -824,7 +824,7 @@ class FMSReportShortage(models.Model):
         ('day', 'Day'), ('evening', 'Evening'), ('night', 'Night'),
     ], string='Period', readonly=True)
     attendant_id      = fields.Many2one('hr.employee',   'Attendant',  readonly=True)
-    attendant_name    = fields.Char(                      'Attendant', readonly=True)
+    attendant_name    = fields.Char('Attendant (SQL)', readonly=True)
     supervisor_id     = fields.Many2one('hr.employee',   'Supervisor', readonly=True)
     company_id        = fields.Many2one('res.company',   'Company',    readonly=True)
 
@@ -880,7 +880,7 @@ class FMSReportAttendantPerf(models.Model):
     _order       = 'total_qty desc'
 
     attendant_id   = fields.Many2one('hr.employee',   'Attendant',  readonly=True)
-    attendant_name = fields.Char(                      'Attendant', readonly=True)
+    attendant_name = fields.Char('Attendant (SQL)', readonly=True)
     company_id     = fields.Many2one('res.company',   'Company',    readonly=True)
 
     shift_count    = fields.Integer('Shifts',           readonly=True)
@@ -942,7 +942,7 @@ class FMSReportRiskAnomaly(models.Model):
     _order       = 'risk_score desc'
 
     attendant_id      = fields.Many2one('hr.employee', 'Attendant',  readonly=True)
-    attendant_name    = fields.Char(                    'Attendant', readonly=True)
+    attendant_name    = fields.Char('Attendant (SQL)', readonly=True)
     company_id        = fields.Many2one('res.company', 'Company',    readonly=True)
 
     shift_count       = fields.Integer('Shifts Analysed',     readonly=True)
@@ -1051,11 +1051,11 @@ class FMSReportNozzleHandover(models.Model):
         ('day', 'Day'), ('evening', 'Evening'), ('night', 'Night'),
     ], string='Period', readonly=True)
     nozzle_id      = fields.Many2one('fms.pump.nozzle', 'Nozzle',    readonly=True)
-    nozzle_name    = fields.Char(                        'Nozzle',    readonly=True)
+    nozzle_name    = fields.Char(                        'Nozzle (SQL)',    readonly=True)
     pump_id        = fields.Many2one('fms.pump',         'Pump',      readonly=True)
-    pump_name      = fields.Char(                        'Pump',      readonly=True)
+    pump_name      = fields.Char(                        'Pump (SQL)',      readonly=True)
     attendant_id   = fields.Many2one('hr.employee',     'Attendant',  readonly=True)
-    attendant_name = fields.Char(                        'Attendant', readonly=True)
+    attendant_name = fields.Char('Attendant (SQL)', readonly=True)
     product_id     = fields.Many2one('product.product', 'Product',    readonly=True)
     supervisor_id  = fields.Many2one('hr.employee',     'Supervisor', readonly=True)
     company_id     = fields.Many2one('res.company',     'Company',    readonly=True)

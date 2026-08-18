@@ -93,7 +93,7 @@ class FMSShiftProductSales(models.Model):
     # ── Legacy aliases (kept for backward-compat with existing views/tests) ──
     qty_sold_elec = fields.Float(related='meter_volume',   string='Qty Sold Elec (L)')
     qty_sold_man  = fields.Float(related='meter_volume_man', string='Qty Sold Manual (L)')
-    amount_elec   = fields.Float(related='meter_revenue',  string='Meter Revenue (KES)')
+    amount_elec   = fields.Float(related='meter_revenue',  string='Meter Revenue (KES) [alias]')
     residual_qty  = fields.Float(related='volume_residual', string='Residual Qty (L)')
     residual_amount = fields.Float(related='cash_residual', string='Residual Amount (KES)')
 
