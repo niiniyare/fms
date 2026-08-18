@@ -197,7 +197,7 @@ class TestFMSShift(FMSGLMixin, TransactionCase):
         self.assertGreater(len(shift.dip_entry_ids), 0)
 
     def test_opening_values_from_previous_shift_logs(self):
-        """Meter entry opening volume = previous closed shift's closing log value."""
+        """Meter entry opening volume = previous closed shift's closing meter reading."""
         product = self.env['product.product'].create({
             'name': 'TEST-VPwr', 'fms_is_fuel': True, 'list_price': 250.0,
         })
@@ -206,20 +206,17 @@ class TestFMSShift(FMSGLMixin, TransactionCase):
             'pump_id': pump.id, 'name': 'A', 'letter': 'A',
             'order': 1, 'product_id': product.id,
         })
-        # Build previous closed shift with a meter log closing at 9500 L
+        # Open a previous shift — it auto-populates a meter entry for this nozzle
         prev = self._make_shift(date='2026-01-14', label='1_day')
         prev.action_open_shift()
+        # Set the closing reading on the meter entry before closing
+        prev_entry = prev.meter_entry_ids.filtered(lambda e: e.nozzle_id.id == nozzle.id)
+        if prev_entry:
+            prev_entry.write({'closing_elec_volume': 9500.0})
         prev.action_start_closing()
         prev.action_close_shift()
-        # Write log directly (sudo to bypass immutability guard on fresh create)
-        self.env['fms.meter_log'].sudo().create({
-            'shift_id': prev.id,
-            'pump_id': pump.id,
-            'nozzle_id': nozzle.id,
-            'opening_elec_volume': 9000.0,
-            'closing_elec_volume': 9500.0,
-        })
-        # Now open next shift and verify opening = 9500
+        # On close, shift writes nozzle.current_elec_volume = 9500
+        # Next shift opening should read that value
         shift = self._make_shift(date='2026-01-15', label='1_day')
         shift.action_open_shift()
         entry = shift.meter_entry_ids.filtered(

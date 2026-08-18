@@ -44,7 +44,7 @@ class TestH8Base(TransactionCase):
                 'login': name.lower().replace(' ', '_') + '_h8_test',
                 'email': name.lower().replace(' ', '') + '@h8test.local',
                 'company_id': company.id,
-                'company_ids': [(4, company.id)],
+                'company_ids': [(6, 0, [company.id])],  # replace: exactly one company
                 'groups_id': [(6, 0, [g.id for g in groups] + [group_internal.id])],
             })
 

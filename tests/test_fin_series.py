@@ -211,11 +211,17 @@ class TestFINDryStockAggregation(TestFINBase):
             'shift_id': self.shift.id,
             'product_id': unique_product.id,
         })
-        with self.assertRaises(Exception):  # IntegrityError or ValidationError
-            self.env['fms.shift.product.sales'].create({
-                'shift_id': self.shift.id,
-                'product_id': unique_product.id,
-            })
+        # Use a nested savepoint so the IntegrityError doesn't abort the outer transaction
+        raised = False
+        try:
+            with self.env.cr.savepoint():
+                self.env['fms.shift.product.sales'].create({
+                    'shift_id': self.shift.id,
+                    'product_id': unique_product.id,
+                })
+        except Exception:
+            raised = True
+        self.assertTrue(raised, "Expected IntegrityError or ValidationError on duplicate insert")
 
 
 class TestFINAttendantCashBreakdownView(TestFINBase):
