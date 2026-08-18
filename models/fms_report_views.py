@@ -1609,13 +1609,13 @@ class FMSReportTankLoss(models.Model):
                     GROUP BY ml.shift_id, ml.product_id
                 ),
                 residuals AS (
-                    -- Net residual volume per shift + product from residual allocation
+                    -- Net residual volume per shift + product from product sales rollup
+                    -- (fms_shift_product_sales has product_id + volume_residual)
                     SELECT
-                        ra.shift_id,
-                        ra.product_id,
-                        SUM(COALESCE(ra.qty_litres, 0))                      AS residual_vol
-                    FROM fms_shift_residual_allocation ra
-                    GROUP BY ra.shift_id, ra.product_id
+                        ps.shift_id,
+                        ps.product_id,
+                        COALESCE(ps.volume_residual, 0)                      AS residual_vol
+                    FROM fms_shift_product_sales ps
                 ),
                 prefs AS (
                     SELECT company_id, meniscus_pct FROM fms_site_preferences
