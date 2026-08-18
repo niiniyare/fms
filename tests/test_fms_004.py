@@ -125,7 +125,7 @@ class TestShiftACL(FMSSecurityBase):
         self.assertEqual(shift_as_att.state, 'open')
 
     def test_attendant_cannot_create_shift(self):
-        with self.assertRaises((AccessError, Exception)):
+        with self.assertRaises(Exception):
             self.env['fms.shift'].with_user(self.user_att).create({
                 'date': '2026-03-02', 'label': '2_evening',
                 'supervisor_id': self.emp_sup.id,
@@ -136,7 +136,7 @@ class TestShiftACL(FMSSecurityBase):
             'date': '2026-03-03', 'label': '3_night',
             'supervisor_id': self.emp_sup.id,
         })
-        with self.assertRaises((AccessError, Exception)):
+        with self.assertRaises(Exception):
             shift.with_user(self.user_att).action_open_shift()
 
     def test_supervisor_can_create_and_open_shift(self):

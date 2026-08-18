@@ -108,62 +108,61 @@ class TestClosedShiftWriteProtection(TestH8Base):
 
 class TestLogImmutability(TestH8Base):
 
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        env = cls.env
+        # Pump + nozzle + tank needed for meter/dip log creation
+        fuel_product = env['product.product'].sudo().create({
+            'name': 'H8-ImmLog-Diesel', 'fms_is_fuel': True,
+        })
+        cls.h8_pump = env['fms.pump'].sudo().create({'name': 'H8-ImmLog-Pump', 'order': 88})
+        cls.h8_nozzle = env['fms.pump.nozzle'].sudo().create({
+            'pump_id': cls.h8_pump.id, 'name': 'A', 'letter': 'A',
+            'order': 1, 'product_id': fuel_product.id,
+        })
+        cls.h8_tank = env['stock.location'].sudo().create({
+            'name': 'H8-ImmLog-Tank', 'usage': 'internal',
+            'fms_is_fuel_tank': True, 'fms_fuel_product_id': fuel_product.id,
+        })
+
     def _make_meter_log(self):
         return self.env['fms.meter_log'].sudo().create({
             'shift_id': self.shift_a.id,
-            'nozzle_id': self.env['fms.nozzle'].sudo().create({
-                'name': 'T1',
-                'pump_id': self.env['fms.pump'].sudo().create({
-                    'name': 'P1',
-                    'company_id': self.company_a.id,
-                }).id,
-            }).id if self.env['fms.nozzle']._fields else False,
-            'closing_elec_volume': 1000.0,
+            'pump_id': self.h8_pump.id,
+            'nozzle_id': self.h8_nozzle.id,
             'opening_elec_volume': 900.0,
-            'company_id': self.company_a.id,
+            'closing_elec_volume': 1000.0,
+        })
+
+    def _make_dip_log(self):
+        return self.env['fms.dip_log'].sudo().create({
+            'shift_id': self.shift_a.id,
+            'location_id': self.h8_tank.id,
+            'opening_volume': 4800.0,
+            'closing_volume': 5000.0,
         })
 
     def test_meter_log_write_raises(self):
         """fms.meter_log is fully immutable after creation."""
-        # Create directly via sudo (bypass shift-close workflow for test)
-        log = self.env['fms.meter_log'].sudo().create({
-            'shift_id': self.shift_a.id,
-            'closing_elec_volume': 1000.0,
-            'opening_elec_volume': 900.0,
-            'company_id': self.company_a.id,
-        })
+        log = self._make_meter_log()
         with self.assertRaises(ValidationError):
             log.sudo().write({'closing_elec_volume': 999.0})
 
     def test_meter_log_unlink_raises(self):
         """fms.meter_log cannot be deleted."""
-        log = self.env['fms.meter_log'].sudo().create({
-            'shift_id': self.shift_a.id,
-            'closing_elec_volume': 1000.0,
-            'opening_elec_volume': 900.0,
-            'company_id': self.company_a.id,
-        })
+        log = self._make_meter_log()
         with self.assertRaises(ValidationError):
             log.sudo().unlink()
 
     def test_dip_log_write_raises(self):
         """fms.dip_log is fully immutable."""
-        log = self.env['fms.dip_log'].sudo().create({
-            'shift_id': self.shift_a.id,
-            'closing_volume': 5000.0,
-            'opening_volume': 4800.0,
-            'company_id': self.company_a.id,
-        })
+        log = self._make_dip_log()
         with self.assertRaises(ValidationError):
             log.sudo().write({'closing_volume': 4999.0})
 
     def test_dip_log_unlink_raises(self):
-        log = self.env['fms.dip_log'].sudo().create({
-            'shift_id': self.shift_a.id,
-            'closing_volume': 5000.0,
-            'opening_volume': 4800.0,
-            'company_id': self.company_a.id,
-        })
+        log = self._make_dip_log()
         with self.assertRaises(ValidationError):
             log.sudo().unlink()
 
@@ -175,7 +174,7 @@ class TestAttendantCashClosed(TestH8Base):
     def _make_cash_line(self):
         return self.env['fms.shift.attendant.cash'].sudo().create({
             'shift_id': self.shift_a.id,
-            'employee_id': self.employee_a.id,
+            'attendant_id': self.employee_a.id,
         })
 
     def test_attendant_cash_write_on_closed_shift_raises(self):
@@ -197,15 +196,23 @@ class TestCompanyIsolation(TestH8Base):
 
     def test_supervisor_cannot_read_other_company_shift(self):
         """Supervisor A cannot read Shift B (different company)."""
-        visible = self.env['fms.shift'].with_user(self.supervisor_a).search(
-            [('id', '=', self.shift_b.id)]
+        # with_context(allowed_company_ids=...) sets the session-level company context
+        # that Odoo IR rules read as 'company_ids' — must match user's company
+        visible = (
+            self.env['fms.shift']
+            .with_user(self.supervisor_a)
+            .with_context(allowed_company_ids=[self.company_a.id])
+            .search([('id', '=', self.shift_b.id)])
         )
         self.assertFalse(visible, "Supervisor A must not see company B shifts")
 
     def test_attendant_cannot_read_other_company_shift(self):
         """Attendant A cannot read Shift B."""
-        visible = self.env['fms.shift'].with_user(self.attendant_a).search(
-            [('id', '=', self.shift_b.id)]
+        visible = (
+            self.env['fms.shift']
+            .with_user(self.attendant_a)
+            .with_context(allowed_company_ids=[self.company_a.id])
+            .search([('id', '=', self.shift_b.id)])
         )
         self.assertFalse(visible, "Attendant A must not see company B shifts")
 

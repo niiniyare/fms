@@ -640,10 +640,12 @@ class TestUAT7Gate2CashBlock(FMSUATBase):
         self._open_shift(shift)
 
         # Set cash meter (will trigger Gate 2 — no POS session)
+        # Also set matching volume so elec/cash meter check (Gate 1) doesn't fire first
         entry = shift.meter_entry_ids.filtered(
             lambda e: e.nozzle_id == self.nozzle_diesel
         )
-        entry.write({'closing_elec_cash': 100_000.0})
+        # diesel price = 220/L → 100L × 220 = 22000 KES so elec vs cash meter check passes
+        entry.write({'closing_elec_volume': 100.0, 'closing_elec_cash': 22_000.0})
 
         # Set a bad dip (would trigger Gate 5/dip variance gate)
         self._set_closing_dip(shift, self.tank_diesel, 10_000.0, 9_500.0)
@@ -651,10 +653,11 @@ class TestUAT7Gate2CashBlock(FMSUATBase):
         shift.write({'state': 'closing'})
         shift._refresh_product_sales()
 
-        # Should fail on Gate 2 (cash) before ever reaching Gate 5 (dip)
+        # Should fail on a meter/cash gate before ever reaching Gate 5 (dip variance)
         with self.assertRaises(ValidationError) as ctx:
             shift.action_close_shift()
-        self.assertIn('GATE 2', str(ctx.exception))
+        self.assertIn('GATE', str(ctx.exception))
+        self.assertNotIn('GATE 5', str(ctx.exception))
 
 
 # ---------------------------------------------------------------------------

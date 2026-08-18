@@ -453,8 +453,8 @@ class FMSShift(models.Model):
     @api.model_create_multi
     def create(self, vals_list):
         for vals in vals_list:
-            # Always use the creating user's company — ignore any passed value.
-            vals['company_id'] = self.env.company.id
+            # Use creating user's company unless explicitly overridden (e.g. cross-company admin ops).
+            vals.setdefault('company_id', self.env.company.id)
             # Set planned open/close from site preferences if not already set.
             if not vals.get('planned_open') and vals.get('date') and vals.get('label'):
                 planned_open, planned_close = self._compute_planned_times(
@@ -496,7 +496,7 @@ class FMSShift(models.Model):
                 if shift.state == 'closed':
                     raise ValidationError(
                         "Closed shift %s cannot be re-opened or modified directly. "
-                        "Use the emergency override workflow." % shift.name
+                        "Use the emergency override workflow." % shift.display_name
                     )
         return super().write(vals)
 
