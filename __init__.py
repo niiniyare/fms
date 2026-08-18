@@ -9,4 +9,5 @@ Reference: FMS_Complete_Specification_Technical_Guide.md
 """
 
 from . import models
+from . import wizards
 from .hooks import post_init_hook

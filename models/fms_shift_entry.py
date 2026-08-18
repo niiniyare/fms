@@ -105,10 +105,30 @@ class FMSShiftMeterEntry(models.Model):
             e.elec_cash_sold = e.closing_elec_cash   - (e.opening_elec_cash   or 0.0)
             e.qty_sold_man   = e.closing_man_mech    - (e.opening_man_mech    or 0.0)
 
-    @api.depends('qty_sold_elec', 'product_id', 'product_id.list_price')
+    @api.depends('qty_sold_elec', 'product_id', 'product_id.list_price', 'shift_id.date')
     def _compute_amount(self):
         for e in self:
-            e.amount_elec = e.qty_sold_elec * (e.product_id.list_price or 0.0)
+            price = e._get_shift_price()
+            e.amount_elec = e.qty_sold_elec * price
+
+    def _get_shift_price(self):
+        """Return pump price from active price period for shift date, or product list_price."""
+        if not self.product_id:
+            return 0.0
+        shift_date = self.shift_id.date if self.shift_id else None
+        if shift_date:
+            period = self.env['fms.price.period'].search([
+                ('date_start', '<=', shift_date),
+                ('date_end',   '>=', shift_date),
+                ('active', '=', True),
+            ], limit=1)
+            if period:
+                line = period.price_line_ids.filtered(
+                    lambda l: l.product_id == self.product_id
+                )
+                if line:
+                    return line[0].pump_price
+        return self.product_id.list_price or 0.0
 
     # ------------------------------------------------------------------
     # Auto-fill pump from nozzle
@@ -217,6 +237,19 @@ class FMSShiftDipEntry(models.Model):
                 e.variance_pct = abs(e.qty_change) / e.closing_volume * 100.0
             else:
                 e.variance_pct = 0.0
+
+    @api.constrains('closing_volume')
+    def _check_closing_volume_capacity(self):
+        for e in self:
+            if not e.location_id:
+                continue
+            capacity = e.location_id.fms_tank_capacity_l
+            if capacity and e.closing_volume > capacity:
+                raise ValidationError(
+                    f"Tank '{e.location_id.name}': closing dip {e.closing_volume:.0f}L "
+                    f"exceeds tank capacity {capacity:.0f}L. "
+                    "Check the reading — a physical tank cannot exceed its rated capacity."
+                )
 
     def _check_shift_open(self):
         for entry in self:

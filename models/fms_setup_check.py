@@ -257,7 +257,7 @@ class FMSSetupCheck(models.TransientModel):
 
         for p in no_cogs:
             issues.append(self._issue(
-                'warning',
+                'error',
                 f'Fuel product "{p.name}" has no COGS Account (fms_cogs_account_id).',
                 'Open the product → FMS tab → set Fuel COGS Account. '
                 'Residual allocation journals cannot post without this.',

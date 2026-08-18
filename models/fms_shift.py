@@ -109,10 +109,11 @@ class FMSShift(models.Model):
     # ------------------------------------------------------------------
 
     state = fields.Selection([
-        ('draft',   'Draft'),
-        ('open',    'Open'),
-        ('closing', 'Closing'),
-        ('closed',  'Closed'),
+        ('draft',    'Draft'),
+        ('open',     'Open'),
+        ('closing',  'Closing'),
+        ('closed',   'Closed'),
+        ('disputed', 'Disputed'),
     ], string='Status', default='draft', readonly=True, copy=False)
 
     # ------------------------------------------------------------------
@@ -541,6 +542,43 @@ class FMSShift(models.Model):
         # Auto-calculate residuals on transition to closing
         self._calculate_residuals()
 
+    def action_mark_disputed(self):
+        """
+        Move any open/closing shift to 'Disputed' state when gate failures cannot be resolved immediately.
+
+        Rules:
+        - Only supervisors/accountants may mark a shift disputed.
+        - By default only one disputed shift allowed per company (site pref: allow_multiple_disputed).
+        - Disputed shifts remain editable but cannot close until moved back to 'closing' and gates pass.
+        """
+        self.ensure_one()
+        if self.state not in ('open', 'closing'):
+            raise ValidationError(
+                f"Only open or closing shifts can be marked disputed. Current state: {self.state}."
+            )
+        prefs = self.env['fms.site.preferences'].get_for_company(self.company_id)
+        allow_multiple = prefs.allow_multiple_disputed if prefs else False
+        if not allow_multiple:
+            existing = self.search([
+                ('company_id', '=', self.company_id.id),
+                ('state', '=', 'disputed'),
+                ('id', '!=', self.id),
+            ], limit=1)
+            if existing:
+                raise ValidationError(
+                    f"Shift '{existing.display_name}' is already in disputed state. "
+                    "Resolve it before marking another shift disputed, or enable "
+                    "'Allow Multiple Disputed Shifts' in Site Preferences."
+                )
+        self.write({'state': 'disputed'})
+
+    def action_reopen_disputed(self):
+        """Return disputed shift to 'closing' so the supervisor can retry gate checks."""
+        self.ensure_one()
+        if self.state != 'disputed':
+            raise ValidationError("Only disputed shifts can be reopened.")
+        self.write({'state': 'closing'})
+
     # ------------------------------------------------------------------
     # FMS-003: Residual Allocation Algorithm (Spec Section 7.1)
     # ------------------------------------------------------------------
@@ -734,10 +772,25 @@ class FMSShift(models.Model):
                 "Use 'Start Closing' first."
             )
 
+        # Optimistic concurrency check: detect concurrent edits
+        fresh = self.browse(self.id).read(['write_date'])[0]
+        if fresh['write_date'] != self.write_date:
+            raise ValidationError(
+                "This shift was modified by another user while you were working on it. "
+                "Please reload the shift and try closing again."
+            )
+
         if not self._is_empty_shift():
             # GL account configuration check — surface mis-wired accounts before
             # spending time on gate checks that will succeed but post wrong entries.
-            self._gate_check_gl_config()
+            try:
+                self._gate_check_gl_config()
+            except ValidationError as exc:
+                self.message_post(
+                    body=f"<b>Close attempt failed (GL config)</b> by {self.env.user.name}:<br/>{exc.args[0]}",
+                    subtype_xmlid='mail.mt_note',
+                )
+                raise
 
             # Supervisor required when money is involved
             if not self.supervisor_id:
@@ -745,12 +798,29 @@ class FMSShift(models.Model):
                     "A supervisor must be assigned before closing a shift with sales. "
                     "Set the Supervisor field and try again."
                 )
-            # Full gate sequence
-            self._gate_check_volume_reconciliation()
-            self._gate_check_cash_reconciliation()
-            self._gate_check_attendant_balances()
-            self._gate_check_fc_cash()
-            self._gate_check_stock_variance()
+            # Full gate sequence — log each gate failure to chatter before re-raising
+            for gate_fn in (
+                self._gate_check_meter_elec_vs_manual,
+                self._gate_check_meter_elec_vs_cash,
+                self._gate_check_volume_reconciliation,
+                self._gate_check_cash_reconciliation,
+                self._gate_check_attendant_balances,
+                self._gate_check_fc_cash,
+                self._gate_check_stock_variance,
+            ):
+                try:
+                    gate_fn()
+                except ValidationError as exc:
+                    self.message_post(
+                        body=(
+                            f"<b>Close attempt failed ({gate_fn.__name__})</b> "
+                            f"by {self.env.user.name} at "
+                            f"{fields.Datetime.now().strftime('%Y-%m-%d %H:%M:%S')}:"
+                            f"<br/><pre>{exc.args[0]}</pre>"
+                        ),
+                        subtype_xmlid='mail.mt_note',
+                    )
+                    raise
 
         with self.env.cr.savepoint():
             self._write_meter_logs()
@@ -767,6 +837,80 @@ class FMSShift(models.Model):
         prefs = self.env['fms.site.preferences'].get_for_company(self.company_id)
         if prefs.auto_open_next_shift:
             self._auto_open_next_shift()
+
+    def action_open_emergency_override_wizard(self):
+        """Open the emergency override wizard. Restricted to accountant group."""
+        self.ensure_one()
+        if not self.env.user.has_group('fms.group_fms_accountant'):
+            from odoo.exceptions import AccessError
+            raise AccessError("Emergency override requires the FMS Accountant role.")
+        return {
+            'type': 'ir.actions.act_window',
+            'name': 'Emergency Shift Close Override',
+            'res_model': 'fms.emergency.override.wizard',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {'default_shift_id': self.id},
+        }
+
+    def _apply_emergency_override(self, reason, approver):
+        """
+        Close the shift bypassing all gates.
+        Records an immutable override log and posts to chatter.
+        Must only be called from FMSEmergencyOverrideWizard after group check.
+        """
+        self.ensure_one()
+        if self.state not in ('open', 'closing', 'disputed'):
+            raise ValidationError(
+                f"Emergency override only applies to open/closing/disputed shifts. Current: {self.state}."
+            )
+
+        # Collect what gates would have failed
+        gate_failures = []
+        for gate_fn in (
+            self._gate_check_meter_elec_vs_manual,
+            self._gate_check_meter_elec_vs_cash,
+            self._gate_check_volume_reconciliation,
+            self._gate_check_cash_reconciliation,
+            self._gate_check_attendant_balances,
+            self._gate_check_fc_cash,
+            self._gate_check_stock_variance,
+        ):
+            try:
+                gate_fn()
+            except ValidationError as exc:
+                gate_failures.append(f"{gate_fn.__name__}: {exc.args[0]}")
+
+        # Create immutable audit record
+        self.env['fms.shift.override.log'].sudo().create({
+            'shift_id': self.id,
+            'user_id': self.env.user.id,
+            'approver_id': approver.id,
+            'reason': reason,
+            'gate_failures': '\n\n'.join(gate_failures) if gate_failures else 'No gate failures detected at override time.',
+        })
+
+        # Post GL and close
+        with self.env.cr.savepoint():
+            self._write_meter_logs()
+            self._write_dip_logs()
+            sales_move = self._post_sales_journal()
+            self._post_residual_allocation_journals()
+
+        vals = {'state': 'closed'}
+        if sales_move:
+            vals['sales_journal_entry_id'] = sales_move.id
+        self.write(vals)
+
+        self.message_post(
+            body=(
+                f"<b>⚠ EMERGENCY OVERRIDE CLOSE</b> by {self.env.user.name}<br/>"
+                f"<b>Approver:</b> {approver.name}<br/>"
+                f"<b>Reason:</b> {reason}<br/>"
+                f"<b>Gates bypassed:</b> {len(gate_failures)}"
+            ),
+            subtype_xmlid='mail.mt_note',
+        )
 
     def _auto_open_next_shift(self):
         """
@@ -918,6 +1062,70 @@ class FMSShift(models.Model):
                 "then try closing again."
             )
 
+    def _gate_check_meter_elec_vs_manual(self):
+        """
+        THREE-METER GATE: Electronic volume vs Manual mechanical volume must be within ±1L per nozzle.
+
+        A variance larger than 1L indicates a meter malfunction, tampering, or data entry error.
+        This is a hard block — the shift cannot close until resolved.
+
+        Nozzles where manual reading is zero are skipped (manual meter not recorded for that nozzle).
+        """
+        failures = []
+        for entry in self.meter_entry_ids:
+            if not entry.qty_sold_man:
+                continue
+            diff = abs(entry.qty_sold_elec - entry.qty_sold_man)
+            if diff > 1.0:
+                nozzle_name = entry.nozzle_id.name or entry.nozzle_id.display_name
+                failures.append(
+                    f"• {nozzle_name}: Elec={entry.qty_sold_elec:.2f}L, "
+                    f"Manual={entry.qty_sold_man:.2f}L, Diff={diff:.2f}L"
+                )
+        if failures:
+            raise ValidationError(
+                "THREE-METER CHECK FAILED — Electronic vs Manual volume variance exceeds ±1L:\n\n"
+                + "\n".join(failures)
+                + "\n\nVerify meter readings, check for meter fault or transcription error, "
+                "then re-enter the closing readings."
+            )
+
+    def _gate_check_meter_elec_vs_cash(self):
+        """
+        THREE-METER GATE: Electronic volume vs Cash meter implied volume must be within threshold per nozzle.
+
+        Cash meter volume = (closing_elec_cash - opening_elec_cash) / product_price.
+        Tolerance configurable in Site Preferences (elec_vs_cash_threshold_l). Default 5L.
+        Set threshold to 0 to disable.
+
+        Skips nozzles where cash readings are zero or price is zero.
+        """
+        prefs = self.env['fms.site.preferences'].get_for_company(self.company_id)
+        threshold = prefs.elec_vs_cash_threshold_l if prefs else 5.0
+        if threshold <= 0:
+            return
+        failures = []
+        for entry in self.meter_entry_ids:
+            price = entry.product_id.list_price or 0.0
+            if not price or not entry.elec_cash_sold:
+                continue
+            cash_vol = entry.elec_cash_sold / price
+            diff = abs(entry.qty_sold_elec - cash_vol)
+            if diff > threshold:
+                nozzle_name = entry.nozzle_id.name or entry.nozzle_id.display_name
+                failures.append(
+                    f"• {nozzle_name}: Elec={entry.qty_sold_elec:.2f}L, "
+                    f"Cash implied={cash_vol:.2f}L, Diff={diff:.2f}L "
+                    f"(threshold={threshold:.2f}L)"
+                )
+        if failures:
+            raise ValidationError(
+                "ELEC vs CASH METER CHECK FAILED — variance exceeds threshold:\n\n"
+                + "\n".join(failures)
+                + "\n\nVerify cash totalizer readings and prices in Site Preferences. "
+                "Threshold can be adjusted in Forecourt → Configuration → Site Preferences."
+            )
+
     def _gate_check_volume_reconciliation(self):
         """
         GATE 1 (Volume): Total pump meter volume ≈ total POS-accounted volume.
@@ -1041,50 +1249,24 @@ class FMSShift(models.Model):
     # ------------------------------------------------------------------
 
     def _get_fms_journal(self):
-        """Return the GL journal for FMS shift entries (site prefs → name search → fallback)."""
+        """Return the GL journal for FMS shift entries. Must be configured in Site Preferences."""
         prefs = self.env['fms.site.preferences'].get_for_company(self.company_id)
-        if prefs.sales_journal_id:
+        if prefs and prefs.sales_journal_id:
             return prefs.sales_journal_id
-        Journal = self.env['account.journal']
-        journal = Journal.search([
-            ('name', 'ilike', 'forecourt'),
-            ('type', '=', 'sale'),
-            ('company_id', '=', self.company_id.id),
-        ], limit=1)
-        if not journal:
-            journal = Journal.search([
-                ('type', '=', 'sale'),
-                ('company_id', '=', self.company_id.id),
-            ], limit=1)
-        if not journal:
-            raise ValidationError(
-                "No sale-type journal found. "
-                "Set one in Forecourt → Configuration → Site Preferences."
-            )
-        return journal
+        raise ValidationError(
+            "No FMS Sales Journal configured. "
+            "Go to Forecourt → Configuration → Site Preferences and set the Sales Journal."
+        )
 
     def _get_clearing_account(self):
-        """Return the cash-clearing account (site prefs → name search → fallback)."""
+        """Return the cash-clearing account. Must be configured in Site Preferences."""
         prefs = self.env['fms.site.preferences'].get_for_company(self.company_id)
-        if prefs.clearing_account_id:
+        if prefs and prefs.clearing_account_id:
             return prefs.clearing_account_id
-        Account = self.env['account.account']
-        acc = Account.search([
-            ('name', 'ilike', 'clearing'),
-            ('company_ids', 'in', self.company_id.id),
-            ('account_type', 'in', ('asset_receivable', 'asset_current')),
-        ], limit=1)
-        if not acc:
-            acc = Account.search([
-                ('account_type', '=', 'asset_receivable'),
-                ('company_ids', 'in', self.company_id.id),
-            ], limit=1)
-        if not acc:
-            raise ValidationError(
-                "Cannot find a receivable/clearing account for the sales journal entry. "
-                "Configure accounts in Accounting → Chart of Accounts."
-            )
-        return acc
+        raise ValidationError(
+            "No FMS Cash Clearing Account configured. "
+            "Go to Forecourt → Configuration → Site Preferences and set the Clearing Account."
+        )
 
     def _post_sales_journal(self):
         """

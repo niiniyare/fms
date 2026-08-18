@@ -24,6 +24,20 @@ class FMSSitePreferences(models.Model):
              "Default: 0.5%. Shifts cannot close if any tank exceeds this.",
     )
 
+    # ── Disputed shift control ────────────────────────────────────────────────
+    allow_multiple_disputed = fields.Boolean(
+        'Allow Multiple Disputed Shifts', default=False,
+        help="When enabled, more than one shift can be in 'Disputed' state at the same time. "
+             "Default: disabled (only one disputed shift per company).",
+    )
+
+    # ── Three-meter gate: Electronic vs Cash threshold ────────────────────────
+    elec_vs_cash_threshold_l = fields.Float(
+        'Elec vs Cash Threshold (L)', default=5.0, digits=(10, 2),
+        help="Maximum allowed variance between Electronic volume and Cash meter volume "
+             "per nozzle (in litres). Default: 5L. Set to 0 to disable this gate.",
+    )
+
     # ── Shift labels ──────────────────────────────────────────────────────────
     shift_label_1 = fields.Char('Shift 1 Label', default='1_day')
     shift_label_2 = fields.Char('Shift 2 Label', default='2_evening')

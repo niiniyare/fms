@@ -61,7 +61,9 @@ For each fuel product, two accounts must be set:
 | Fuel Revenue Account | `income` or `income_other` | 400000 Sales of Diesel Income |
 | Fuel COGS Account | `expense_direct_cost` | 591000 Cost of Sales — Diesel |
 
-Products with no revenue account wired: **skipped silently** (sales not posted to GL for that product, only logged as warning). Fix before the next shift closes.
+Products with no revenue account wired: **blocked** — shift close raises a ValidationError. Fix before attempting to close.
+
+Products with no COGS account wired: **blocked** — shift close raises a ValidationError. Residual allocation journals cannot post without COGS. Fix before attempting to close.
 
 ---
 

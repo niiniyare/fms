@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Emergency Override Wizard Form -->
+    <record id="view_fms_emergency_override_wizard_form" model="ir.ui.view">
+        <field name="name">fms.emergency.override.wizard.form</field>
+        <field name="model">fms.emergency.override.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Emergency Shift Close Override">
+                <sheet>
+                    <div class="alert alert-danger" role="alert">
+                        <strong>Warning:</strong> This will close the shift bypassing all gate checks.
+                        All gate failures will be recorded in the permanent audit trail.
+                        This action cannot be undone.
+                    </div>
+                    <group>
+                        <field name="shift_id" readonly="1"/>
+                        <field name="approver_id" required="1"/>
+                        <field name="reason" required="1" placeholder="Explain why normal gate closure cannot be completed..."/>
+                    </group>
+                </sheet>
+                <footer>
+                    <button name="action_confirm_override" type="object" string="Confirm Override" class="btn-danger"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <!-- Override Log List View -->
+    <record id="view_fms_shift_override_log_list" model="ir.ui.view">
+        <field name="name">fms.shift.override.log.list</field>
+        <field name="model">fms.shift.override.log</field>
+        <field name="arch" type="xml">
+            <list string="Emergency Override Audit Log" create="0" edit="0" delete="0">
+                <field name="create_date" string="Timestamp"/>
+                <field name="shift_id"/>
+                <field name="user_id" string="Override By"/>
+                <field name="approver_id" string="Approver"/>
+                <field name="reason"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Override Log Form View -->
+    <record id="view_fms_shift_override_log_form" model="ir.ui.view">
+        <field name="name">fms.shift.override.log.form</field>
+        <field name="model">fms.shift.override.log</field>
+        <field name="arch" type="xml">
+            <form string="Emergency Override Audit Log" create="0" edit="0" delete="0">
+                <sheet>
+                    <group>
+                        <field name="shift_id"/>
+                        <field name="create_date" string="Timestamp"/>
+                        <field name="user_id" string="Override By"/>
+                        <field name="approver_id" string="Approver"/>
+                    </group>
+                    <group string="Override Reason">
+                        <field name="reason" nolabel="1"/>
+                    </group>
+                    <group string="Gate Failures at Override Time">
+                        <field name="gate_failures" nolabel="1"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Action for Override Log -->
+    <record id="action_fms_shift_override_log" model="ir.actions.act_window">
+        <field name="name">Emergency Override Audit Log</field>
+        <field name="res_model">fms.shift.override.log</field>
+        <field name="view_mode">list,form</field>
+        <field name="groups_id" eval="[(4, ref('fms.group_fms_accountant'))]"/>
+    </record>
+
+</odoo>

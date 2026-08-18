@@ -14,11 +14,23 @@
                         </h4>
                     </div>
 
-                    <group string="Gate 3 — Stock Variance">
+                    <group string="Gate — Stock Variance">
                         <field name="meniscus_pct"
                                string="Variance Meniscus (%)"
                                widget="float"
                                help="Shifts cannot close if any tank's dip variance exceeds this percentage."/>
+                    </group>
+
+                    <group string="Gate — Three-Meter Reconciliation">
+                        <field name="elec_vs_cash_threshold_l"
+                               string="Elec vs Cash Threshold (L)"
+                               help="Maximum allowed variance between Electronic volume and Cash meter implied volume per nozzle. Set to 0 to disable."/>
+                    </group>
+
+                    <group string="Shift Concurrency">
+                        <field name="allow_multiple_disputed"
+                               string="Allow Multiple Disputed Shifts"
+                               widget="boolean_toggle"/>
                     </group>
 
                     <group string="Shift Labels">

@@ -184,7 +184,7 @@
     </record>
 
     <!-- ── fms.meter_log (immutable) ─────────────────────────────────── -->
-    <!-- Create granted (shift close needs it); write/unlink blocked by model -->
+    <!-- Create/write/unlink ONLY via sudo() in shift close code. No UI create. -->
     <record id="access_fms_meter_log_attendant" model="ir.model.access">
         <field name="name">fms.meter_log attendant read</field>
         <field name="model_id" ref="model_fms_meter_log"/>
@@ -196,16 +196,17 @@
     </record>
 
     <record id="access_fms_meter_log_supervisor" model="ir.model.access">
-        <field name="name">fms.meter_log supervisor create+read</field>
+        <field name="name">fms.meter_log supervisor read</field>
         <field name="model_id" ref="model_fms_meter_log"/>
         <field name="group_id" ref="group_fms_supervisor"/>
         <field name="perm_read"   eval="1"/>
         <field name="perm_write"  eval="0"/>
-        <field name="perm_create" eval="1"/>
+        <field name="perm_create" eval="0"/>
         <field name="perm_unlink" eval="0"/>
     </record>
 
     <!-- ── fms.dip_log (immutable) ───────────────────────────────────── -->
+    <!-- Create/write/unlink ONLY via sudo() in shift close code. No UI create. -->
     <record id="access_fms_dip_log_attendant" model="ir.model.access">
         <field name="name">fms.dip_log attendant read</field>
         <field name="model_id" ref="model_fms_dip_log"/>
@@ -217,12 +218,12 @@
     </record>
 
     <record id="access_fms_dip_log_supervisor" model="ir.model.access">
-        <field name="name">fms.dip_log supervisor create+read</field>
+        <field name="name">fms.dip_log supervisor read</field>
         <field name="model_id" ref="model_fms_dip_log"/>
         <field name="group_id" ref="group_fms_supervisor"/>
         <field name="perm_read"   eval="1"/>
         <field name="perm_write"  eval="0"/>
-        <field name="perm_create" eval="1"/>
+        <field name="perm_create" eval="0"/>
         <field name="perm_unlink" eval="0"/>
     </record>
 
@@ -574,6 +575,28 @@
         <field name="perm_write"  eval="1"/>
         <field name="perm_create" eval="1"/>
         <field name="perm_unlink" eval="1"/>
+    </record>
+
+    <!-- fms.emergency.override.wizard: TransientModel, accountant only -->
+    <record id="access_fms_emergency_override_wizard_accountant" model="ir.model.access">
+        <field name="name">fms.emergency.override.wizard accountant</field>
+        <field name="model_id" ref="model_fms_emergency_override_wizard"/>
+        <field name="group_id" ref="fms.group_fms_accountant"/>
+        <field name="perm_read"   eval="1"/>
+        <field name="perm_write"  eval="1"/>
+        <field name="perm_create" eval="1"/>
+        <field name="perm_unlink" eval="1"/>
+    </record>
+
+    <!-- fms.shift.override.log: immutable audit log, accountant read -->
+    <record id="access_fms_shift_override_log_accountant" model="ir.model.access">
+        <field name="name">fms.shift.override.log accountant</field>
+        <field name="model_id" ref="model_fms_shift_override_log"/>
+        <field name="group_id" ref="fms.group_fms_accountant"/>
+        <field name="perm_read"   eval="1"/>
+        <field name="perm_write"  eval="0"/>
+        <field name="perm_create" eval="1"/>
+        <field name="perm_unlink" eval="0"/>
     </record>
 
 </odoo>
