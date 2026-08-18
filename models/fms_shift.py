@@ -195,6 +195,13 @@ class FMSShift(models.Model):
 
     notes = fields.Text('Supervisor Notes')
 
+    gate_status_html = fields.Html(
+        'Shift Gate Status',
+        compute='_compute_gate_status_html',
+        sanitize=False,
+        help="Live gate-by-gate checklist showing what must be resolved before shift close.",
+    )
+
     # ------------------------------------------------------------------
     # Product sales rollup
     # ------------------------------------------------------------------
@@ -1057,6 +1064,118 @@ class FMSShift(models.Model):
     # ------------------------------------------------------------------
     # FMS-006: Hard gate validators (Spec Section 7.2–7.3)
     # ------------------------------------------------------------------
+
+    # ------------------------------------------------------------------
+    # Gate status panel (Phase 8 UX)
+    # ------------------------------------------------------------------
+
+    _GATE_REGISTRY = [
+        # (label, method_name, fix_hint)
+        ("G1 Elec vs Manual Meter",      "_gate_check_meter_elec_vs_manual",
+         "Check nozzle meter calibration. Variance must be ≤ 1 L per nozzle."),
+        ("G2 Elec vs Cash Meter",        "_gate_check_meter_elec_vs_cash",
+         "Reconcile electronic vs cash meter totals — check site threshold in preferences."),
+        ("G3 Volume Reconciliation",     "_gate_check_volume_reconciliation",
+         "Enter dip readings and meter entries. Ensure all tanks/nozzles have readings."),
+        ("G4 Cash Reconciliation",       "_gate_check_cash_reconciliation",
+         "Verify reported sales, cash received, and expenses for each attendant."),
+        ("G5 Attendant Balances",        "_gate_check_attendant_balances",
+         "Each attendant's balance must be 0. Investigate and post correction entries."),
+        ("G6 FC Cash = 0",               "_gate_check_fc_cash",
+         "Total forecourt cash must net to 0. Post a supervisor correction if needed."),
+        ("G7 Stock Variance",            "_gate_check_stock_variance",
+         "Tank dip variance exceeds meniscus. Verify dip readings or post adjustment."),
+        ("G8 Meter vs Invoices",         "_gate_check_meter_vs_sales",
+         "Meter sales must match posted invoices + receipts. Check unposted documents."),
+        ("G9 Customer Receipts",         "_gate_check_customer_receipts",
+         "Post all pending customer receipt payments linked to this shift."),
+        ("G10 Float Reconciliation",     "_gate_check_float_reconciliation",
+         "All floats issued must be dropped or carried. Account for outstanding floats."),
+        ("G11 Expense Posting",          "_gate_check_expense_posting",
+         "Confirm all expense payments — no draft expenses allowed at close."),
+        ("G12 Vendor Payment Posting",   "_gate_check_vendor_payment_posting",
+         "Post all vendor payments made from shift cash before closing."),
+        ("G13 Digital Payments",         "_gate_check_digital_payment_reconciliation",
+         "MPesa/Card totals must be non-negative. Check payment entry signs."),
+        ("G14 No Blocking Exceptions",   "_gate_check_no_unresolved_exceptions",
+         "Resolve any disputed shift state or pending override logs."),
+    ]
+
+    @api.depends(
+        'state',
+        'attendant_cash_ids.balance',
+        'attendant_cash_ids.reported_sales',
+        'meter_entry_ids.closing_elec_volume',
+        'meter_entry_ids.closing_man_mech',
+        'dip_entry_ids.closing_volume',
+    )
+    def _compute_gate_status_html(self):
+        for shift in self:
+            if shift.state == 'closed':
+                shift.gate_status_html = (
+                    '<div class="alert alert-success mb-0">'
+                    '<i class="fa fa-check-circle"/> Shift closed — all gates passed.'
+                    '</div>'
+                )
+                continue
+            if shift.state == 'draft':
+                shift.gate_status_html = (
+                    '<div class="alert alert-info mb-0">'
+                    '<i class="fa fa-info-circle"/> Open the shift to see gate status.'
+                    '</div>'
+                )
+                continue
+            rows = shift._collect_gate_status()
+            passed = sum(1 for _, ok, _ in rows if ok)
+            total = len(rows)
+            pct = int(passed / total * 100) if total else 0
+            color = '#28a745' if passed == total else '#ffc107' if passed >= total * 0.7 else '#dc3545'
+            html = [
+                f'<div style="margin-bottom:8px">',
+                f'<b>Shift Close Readiness: {passed}/{total} gates passing</b>',
+                f'<div style="background:#e9ecef;border-radius:4px;height:8px;margin:4px 0">',
+                f'<div style="width:{pct}%;background:{color};height:8px;border-radius:4px"></div>',
+                f'</div></div>',
+                '<table class="table table-sm table-bordered" style="font-size:13px">',
+                '<thead><tr>',
+                '<th style="width:30px"></th>',
+                '<th>Gate</th>',
+                '<th>Status / Action Required</th>',
+                '</tr></thead><tbody>',
+            ]
+            for label, ok, message in rows:
+                icon = '✓' if ok else '✗'
+                row_style = 'background:#d4edda' if ok else 'background:#f8d7da'
+                msg_cell = '' if ok else f'<span style="color:#721c24">{message}</span>'
+                html.append(
+                    f'<tr style="{row_style}">'
+                    f'<td style="text-align:center;font-weight:bold">{icon}</td>'
+                    f'<td><b>{label}</b></td>'
+                    f'<td>{msg_cell}</td>'
+                    f'</tr>'
+                )
+            html.append('</tbody></table>')
+            shift.gate_status_html = ''.join(html)
+
+    def _collect_gate_status(self):
+        """Run all gates in dry-run mode. Returns list of (label, passed, fix_hint_or_error)."""
+        self.ensure_one()
+        results = []
+        for label, method_name, fix_hint in self._GATE_REGISTRY:
+            gate_fn = getattr(self, method_name, None)
+            if gate_fn is None:
+                results.append((label, True, ''))
+                continue
+            try:
+                gate_fn()
+                results.append((label, True, ''))
+            except Exception as exc:
+                msg = str(exc.args[0] if exc.args else exc)
+                # Strip Odoo's ValidationError wrapper prefix if present
+                if '\n' in msg:
+                    msg = msg.split('\n')[0]
+                results.append((label, False, f"{msg}<br/><i>{fix_hint}</i>"))
+        return results
 
     _MENISCUS_PCT = 0.5  # fallback when no site preferences record exists
 

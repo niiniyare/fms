@@ -398,6 +398,17 @@
                         <!-- ═══════════════════════════════════════════
                              TAB 6: Supervisor Notes
                         ═══════════════════════════════════════════ -->
+                        <!-- ═══════════════════════════════════════════
+                             TAB: Gate Status — what's wrong, how to fix
+                             Visible only to supervisors on open/closing shifts
+                        ═══════════════════════════════════════════ -->
+                        <page string="Gate Status" name="gate_status"
+                              groups="fms.group_fms_supervisor"
+                              invisible="state in ('draft', 'closed')">
+                            <field name="gate_status_html" widget="html" readonly="1"
+                                   nolabel="1" style="min-height:120px"/>
+                        </page>
+
                         <page string="Notes" name="notes">
                             <field name="notes"
                                    placeholder="Supervisor investigation notes, variance explanations..."/>
