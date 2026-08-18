@@ -105,11 +105,6 @@
                              Closing = editable
                         ═══════════════════════════════════════════ -->
                         <page string="Meter Readings" name="meters">
-                            <p class="text-muted">
-                                Opening totalizers carry over from the previous shift's
-                                closing figures — only the closing reading needs to be entered.
-                                Qty Sold and Amount are computed automatically.
-                            </p>
                             <field name="meter_entry_ids"
                                    readonly="state == 'closed'"
                                    context="{'default_shift_id': id}">
@@ -165,11 +160,6 @@
                              Closing = editable
                         ═══════════════════════════════════════════ -->
                         <page string="Tank Dips" name="dips">
-                            <p class="text-muted">
-                                Enter the closing dip reading for each tank.
-                                Opening volume is auto-fetched from the previous shift's log.
-                                Variance % exceeding ±0.5% will block shift close (Gate 3).
-                            </p>
                             <field name="dip_entry_ids"
                                    readonly="state == 'closed'"
                                    context="{'default_shift_id': id}">
@@ -207,134 +197,22 @@
                              Balance must = 0 for shift to close (Gate 1+2).
                         ═══════════════════════════════════════════ -->
                         <page string="Attendant Cash" name="cash">
-                            <p class="text-muted">
-                                <strong>Meter Sales</strong> is auto-computed from the
-                                Electronic Cash meter totals of each nozzle assigned to
-                                the attendant in the Meter Readings tab.
-                                <strong>Only "Cash Dropped to Safe" requires manual entry.</strong>
-                                Balance = Meter Sales − (Cash + MPesa + Card + AR + Expenses).
-                                Every attendant's balance must be zero before the shift can close.
-                            </p>
-
-                            <!-- POS sessions — filtered to the shift date for easy picking -->
-                            <group string="Linked POS Sessions" col="1">
-                                <p class="text-muted">
-                                    Link POS sessions that ran during this shift.
-                                    Sessions are filtered to
-                                    <strong><field name="date" readonly="1" nolabel="1"/></strong>.
-                                    MPesa, Card and AR payment totals in the Attendant Cash tab
-                                    are computed from orders in these sessions.
-                                </p>
-                                <field name="pos_session_ids"
-                                       widget="many2many_tags"
-                                       string="POS Sessions"
-                                       domain="[('start_at', '&gt;=', date), ('start_at', '&lt;', date + ' 23:59:59')]"
-                                       context="{'tree_view_ref': 'point_of_sale.view_pos_session_tree'}"/>
-                            </group>
-
-                            <separator string="Per-Attendant Reconciliation"/>
-
                             <field name="attendant_cash_ids"
                                    readonly="state == 'closed'"
                                    context="{'default_shift_id': id}">
                                 <list editable="bottom" string="Attendant Cash">
-                                    <!-- Identity -->
                                     <field name="attendant_id" string="Attendant"/>
-
-                                    <!-- INCOMING — auto-computed from nozzle cash meters -->
-                                    <!-- Blind count: hide expected cash while attendant is entering declared cash -->
-                                    <field name="reported_sales" readonly="1"
-                                           string="Meter Sales"
-                                           sum="Total Meter Sales"
-                                           column_invisible="parent.state in ('open', 'closing')"/>
-                                    <field name="mpesa_amount" readonly="1"
-                                           string="MPesa" sum="MPesa Total"
-                                           optional="show"/>
-                                    <field name="card_amount" readonly="1"
-                                           string="Card" sum="Card Total"
-                                           optional="show"/>
-                                    <field name="ar_amount" readonly="1"
-                                           string="AR/Credit" sum="AR Total"
-                                           optional="show"/>
-
-                                    <!-- DIRECT SALES RECEIPTS — dry-stock -->
-                                    <field name="direct_sales_cash" readonly="1"
-                                           string="Dry-Stock Cash" sum="Dry-Stock Cash Total"
-                                           optional="show"/>
-                                    <field name="direct_sales_digital" readonly="1"
-                                           string="Dry-Stock Digital" sum="Dry-Stock Digital Total"
-                                           optional="hide"/>
-
-                                    <!-- OUTGOING — expense from GL, cash is MANUAL -->
-                                    <field name="expense_amount" readonly="1"
-                                           string="Expenses" sum="Expenses Total"
-                                           optional="show"/>
-                                    <field name="cash_collected"
-                                           string="Cash Dropped"
-                                           sum="Cash Total"/>
-
-                                    <!-- SUMMARY — all read-only computed -->
-                                    <field name="total_in" readonly="1"
-                                           string="Total In" sum="Grand In"/>
-                                    <field name="total_out" readonly="1"
-                                           string="Total Out" sum="Grand Out"/>
-                                    <field name="balance" readonly="1"
-                                           string="Balance" sum="Net Balance"
-                                           decoration-success="balance == 0"
-                                           decoration-danger="balance != 0"/>
-
-                                    <field name="notes" optional="hide"/>
+                                    <field name="cash_collected" string="Amount" sum="Total"/>
                                 </list>
                             </field>
-
-                            <!-- FC Cash gate status -->
-                            <group name="fc_cash_gate_group">
-                                <group string="FC Cash Gate">
-                                    <field name="total_reported_sales" readonly="1"
-                                           string="Total Meter Sales"/>
-                                    <field name="total_meter_sales" readonly="1"
-                                           string="Total Meter Sales"/>
-                                    <field name="fc_cash_balance" readonly="1"
-                                           string="FC Cash Balance"
-                                           decoration-success="fc_cash_balance == 0"
-                                           decoration-danger="fc_cash_balance != 0"/>
-                                </group>
-                            </group>
                         </page>
 
                         <!-- ═══════════════════════════════════════════
-                             TAB 4: Sales KPIs (read-only summary)
-                             Full product-by-product breakdown: Reports → Shift Reconciliation
-                        ═══════════════════════════════════════════ -->
-                        <page string="Sales KPIs" name="sales">
-                            <group>
-                                <group string="Shift Totals">
-                                    <field name="total_meter_sales" readonly="1"
-                                           string="Total Meter Sales"/>
-                                    <field name="total_reported_sales" readonly="1"
-                                           string="Total Reported Sales"/>
-                                    <field name="fc_cash_balance" readonly="1"
-                                           string="FC Cash Balance"
-                                           decoration-success="fc_cash_balance == 0"
-                                           decoration-danger="fc_cash_balance != 0"/>
-                                </group>
-                            </group>
-                            <p class="text-muted">
-                                Full product-by-product meter reconciliation: see Reports → Shift Reconciliation.
-                            </p>
-                        </page>
-
-                        <!-- ═══════════════════════════════════════════
-                             TAB 5: Residual Allocations (FMS-003)
+                             TAB 4: Residual Allocations (FMS-003)
                              Auto-populated by residual algorithm.
                              Read-only.
                         ═══════════════════════════════════════════ -->
                         <page string="Residual Allocations" name="residuals">
-                            <p class="text-muted">
-                                Auto-calculated by the residual allocation algorithm (FMS-003).
-                                Records here show how over-reported products were reallocated
-                                to under-reported products (e.g., Diesel surplus → Carwash).
-                            </p>
                             <field name="residual_allocation_ids" readonly="1">
                                 <list string="Residual Allocations">
                                     <field name="source_product_id"
@@ -351,50 +229,6 @@
                             </field>
                         </page>
 
-                        <!-- ═══════════════════════════════════════════
-                             TAB 6: Supervisor Notes
-                        ═══════════════════════════════════════════ -->
-                        <!-- ═══════════════════════════════════════════
-                             TAB: Gate Status — what's wrong, how to fix
-                             Visible only to supervisors on open/closing shifts
-                        ═══════════════════════════════════════════ -->
-                        <page string="Gate Status" name="gate_status"
-                              groups="fms.group_fms_supervisor"
-                              invisible="state in ('draft', 'closed')">
-                            <field name="gate_status_html" widget="html" readonly="1"
-                                   nolabel="1" style="min-height:120px"/>
-                        </page>
-
-                        <!-- Reconciliation Summary — Spec §8 + §11 -->
-                        <page string="Reconciliation" name="reconciliation"
-                              groups="fms.group_fms_supervisor">
-                            <group string="Sales">
-                                <group>
-                                    <field name="total_fuel_sales"    string="Fuel Sales"/>
-                                    <field name="total_nonfuel_sales" string="Non-Fuel Sales (Dry Stock + Services)"/>
-                                    <field name="total_all_sales"     string="Total Sales"/>
-                                </group>
-                                <group>
-                                    <field name="total_cash_received"    string="Cash Received"/>
-                                    <field name="total_digital_received" string="Digital (MPesa / Card)"/>
-                                    <field name="total_credit_sales"     string="On Credit (AR)"/>
-                                </group>
-                            </group>
-                            <group string="Cash Position">
-                                <group>
-                                    <field name="expected_cash_position" string="Expected Cash"/>
-                                    <field name="declared_cash_total"    string="Declared Cash"/>
-                                    <field name="cash_variance_summary"  string="Variance"
-                                           decoration-danger="cash_variance_summary != 0"
-                                           decoration-success="cash_variance_summary == 0"/>
-                                </group>
-                            </group>
-                        </page>
-
-                        <page string="Notes" name="notes">
-                            <field name="notes"
-                                   placeholder="Supervisor investigation notes, variance explanations..."/>
-                        </page>
 
                     </notebook>
                 </sheet>
