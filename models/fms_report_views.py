@@ -1334,6 +1334,9 @@ class FMSReportCashReconciliation(models.Model):
     is_balanced    = fields.Boolean('Balanced',           readonly=True)
 
     def init(self):
+        # Drop first so CREATE VIEW can redefine columns freely
+        self.env.cr.execute("DROP VIEW IF EXISTS fms_report_cash_reconciliation")
+
         # Graceful degradation: payment columns require fms_accounting
         self.env.cr.execute("""
             SELECT 1 FROM information_schema.columns
@@ -1351,7 +1354,7 @@ class FMSReportCashReconciliation(models.Model):
 
         if has_fms_acc and has_receipt_cls:
             self.env.cr.execute("""
-                CREATE OR REPLACE VIEW fms_report_cash_reconciliation AS (
+                CREATE VIEW fms_report_cash_reconciliation AS (
                     WITH refunds AS (
                         SELECT
                             am.fms_shift_id    AS shift_id,
@@ -1436,7 +1439,7 @@ class FMSReportCashReconciliation(models.Model):
         else:
             # Simplified view without fms_accounting payment columns
             self.env.cr.execute("""
-                CREATE OR REPLACE VIEW fms_report_cash_reconciliation AS (
+                CREATE VIEW fms_report_cash_reconciliation AS (
                     SELECT
                         ac.id                                    AS id,
                         ac.shift_id                              AS shift_id,
