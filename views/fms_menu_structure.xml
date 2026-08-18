@@ -1,48 +1,63 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Root and structural menus — loaded FIRST, no action references -->
+<!-- Root and structural (parent) menus — loaded FIRST, no action references.
+     Leaf menus with actions live in fms_menus.xml and fms_accounting/views/fms_accounting_menus.xml -->
 <odoo>
 
-    <!-- ══════════════════════════════════════════════════
-         ROOT
-    ══════════════════════════════════════════════════ -->
+    <!-- ROOT -->
     <menuitem id="menu_fms_root"
               name="Forecourt"
               sequence="50"
               groups="fms.group_fms_attendant"
               web_icon="fms,static/description/icon.png"/>
 
-    <!-- ══════════════════════════════════════════════════
-         TOP-LEVEL (5 items, Inventory-style)
-    ══════════════════════════════════════════════════ -->
-
+    <!-- Overview (Dashboard + Active Shift) -->
     <menuitem id="menu_fms_overview_section"
               name="Overview"
               parent="menu_fms_root"
               groups="fms.group_fms_attendant"
               sequence="10"/>
 
+    <!-- Sales — receipts, invoices, customer payments -->
+    <menuitem id="menu_fms_sales"
+              name="Sales"
+              parent="menu_fms_root"
+              groups="fms.group_fms_supervisor"
+              sequence="20"/>
+
+    <!-- Operations — shifts, meters, dips, deliveries, cash movements -->
     <menuitem id="menu_fms_operations"
               name="Operations"
               parent="menu_fms_root"
               groups="fms.group_fms_attendant"
-              sequence="20"/>
-
-    <menuitem id="menu_fms_sales_cash"
-              name="Sales &amp; Cash"
-              parent="menu_fms_root"
-              groups="fms.group_fms_supervisor"
               sequence="30"/>
 
-    <menuitem id="menu_fms_reporting"
-              name="Reporting"
+    <!-- Inventory — products, stock receipts, adjustments (Odoo shortcuts) -->
+    <menuitem id="menu_fms_inventory"
+              name="Inventory"
               parent="menu_fms_root"
               groups="fms.group_fms_supervisor"
               sequence="40"/>
 
+    <!-- Reconciliation — shift, meter, wetstock, cash, tank loss -->
+    <menuitem id="menu_fms_reconciliation"
+              name="Reconciliation"
+              parent="menu_fms_root"
+              groups="fms.group_fms_supervisor"
+              sequence="50"/>
+
+    <!-- Reports — shift summary, sales, attendant, customer statements -->
+    <menuitem id="menu_fms_reporting"
+              name="Reports"
+              parent="menu_fms_root"
+              groups="fms.group_fms_supervisor"
+              sequence="60"/>
+
+    <!-- Configuration -->
     <menuitem id="menu_fms_config"
               name="Configuration"
               parent="menu_fms_root"
               groups="fms.group_fms_supervisor"
-              sequence="50"/>
+              sequence="70"/>
+
 
 </odoo>

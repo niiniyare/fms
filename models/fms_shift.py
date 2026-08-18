@@ -183,6 +183,122 @@ class FMSShift(models.Model):
             shift.fc_cash_balance      = sum(shift.attendant_cash_ids.mapped('balance'))
 
     # ------------------------------------------------------------------
+    # Full commercial reconciliation summary (Spec §8 + §11)
+    # ------------------------------------------------------------------
+
+    total_fuel_sales = fields.Float(
+        'Fuel Sales', compute='_compute_commercial_summary', store=True, digits=(16, 2),
+        help="Sum of meter-derived fuel revenue (elec_cash_sold across all fuel products).",
+    )
+    total_nonfuel_sales = fields.Float(
+        'Non-Fuel Sales', compute='_compute_commercial_summary', store=True, digits=(16, 2),
+        help="Revenue from dry-stock + services (posted invoices/receipts linked to this shift).",
+    )
+    total_all_sales = fields.Float(
+        'Total Sales', compute='_compute_commercial_summary', store=True, digits=(16, 2),
+        help="Fuel + non-fuel total revenue for the shift.",
+    )
+    total_cash_received = fields.Float(
+        'Cash Received', compute='_compute_commercial_summary', store=True, digits=(16, 2),
+        help="Cash payments received from customers (fms_payment_context=customer_receipt, cash journal).",
+    )
+    total_digital_received = fields.Float(
+        'Digital Received', compute='_compute_commercial_summary', store=True, digits=(16, 2),
+        help="MPesa / card / bank payments received (customer_receipt, bank journal).",
+    )
+    total_credit_sales = fields.Float(
+        'Credit Sales (AR)', compute='_compute_commercial_summary', store=True, digits=(16, 2),
+        help="Revenue invoiced on credit — no cash collected yet.",
+    )
+    declared_cash_total = fields.Float(
+        'Declared Cash', compute='_compute_commercial_summary', store=True, digits=(16, 2),
+        help="Sum of cash declared by all attendants at shift end.",
+    )
+    expected_cash_position = fields.Float(
+        'Expected Cash', compute='_compute_commercial_summary', store=True, digits=(16, 2),
+        help="Opening float + cash fuel sales + cash non-fuel sales + customer receipts "
+             "- cash drops - expenses - vendor payments.",
+    )
+    cash_variance_summary = fields.Float(
+        'Cash Variance', compute='_compute_commercial_summary', store=True, digits=(16, 2),
+        help="Expected cash minus declared cash. Positive = surplus, negative = shortage.",
+    )
+
+    @api.depends(
+        'product_sales_ids.elec_cash_sold',
+        'product_sales_ids.allocated_amount',
+        'product_sales_ids.is_fuel',
+        'attendant_cash_ids.cash_collected',
+        'attendant_cash_ids.opening_float',
+        'attendant_cash_ids.cash_drop_amount',
+        'attendant_cash_ids.expense_amount',
+        'attendant_cash_ids.vendor_payment_amount',
+    )
+    def _compute_commercial_summary(self):
+        for shift in self:
+            fuel_sales = 0.0
+            nonfuel_sales = 0.0
+            for ps in shift.product_sales_ids:
+                if ps.is_fuel:
+                    fuel_sales += ps.elec_cash_sold
+                else:
+                    nonfuel_sales += ps.allocated_amount or 0.0
+
+            # Cash vs digital breakdown — requires fms_accounting (account.payment extension)
+            cash_recv = 0.0
+            digital_recv = 0.0
+            credit_sales = 0.0
+            AccountPayment = self.env['account.payment']
+            if 'fms_shift_id' in AccountPayment._fields:
+                self.env.cr.execute("""
+                    SELECT
+                        SUM(CASE WHEN j.type = 'cash' THEN ap.amount ELSE 0 END) AS cash_recv,
+                        SUM(CASE WHEN j.type = 'bank' THEN ap.amount ELSE 0 END) AS digital_recv
+                    FROM account_payment ap
+                    JOIN account_journal j ON j.id = ap.journal_id
+                    WHERE ap.fms_shift_id = %s
+                      AND ap.fms_payment_context = 'customer_receipt'
+                      AND ap.state = 'posted'
+                      AND ap.payment_type = 'inbound'
+                """, (shift.id,))
+                row = self.env.cr.fetchone()
+                if row:
+                    cash_recv = row[0] or 0.0
+                    digital_recv = row[1] or 0.0
+
+                # Credit sales: posted out_invoice lines linked to shift (AR)
+                AccountMove = self.env['account.move']
+                if 'fms_shift_id' in AccountMove._fields:
+                    self.env.cr.execute("""
+                        SELECT COALESCE(SUM(am.amount_untaxed), 0)
+                        FROM account_move am
+                        WHERE am.fms_shift_id = %s
+                          AND am.move_type = 'out_invoice'
+                          AND am.state = 'posted'
+                    """, (shift.id,))
+                    row = self.env.cr.fetchone()
+                    credit_sales = row[0] if row else 0.0
+
+            # Expected cash from attendant lines
+            opening_float = sum(shift.attendant_cash_ids.mapped('opening_float'))
+            cash_drops = sum(shift.attendant_cash_ids.mapped('cash_drop_amount'))
+            expenses = sum(shift.attendant_cash_ids.mapped('expense_amount'))
+            vendor_payments = sum(shift.attendant_cash_ids.mapped('vendor_payment_amount'))
+            declared = sum(shift.attendant_cash_ids.mapped('cash_collected'))
+
+            expected = opening_float + fuel_sales + nonfuel_sales + cash_recv - cash_drops - expenses - vendor_payments
+
+            shift.total_fuel_sales = fuel_sales
+            shift.total_nonfuel_sales = nonfuel_sales
+            shift.total_all_sales = fuel_sales + nonfuel_sales
+            shift.total_cash_received = cash_recv
+            shift.total_digital_received = digital_recv
+            shift.total_credit_sales = credit_sales
+            shift.declared_cash_total = declared
+            shift.expected_cash_position = expected
+            shift.cash_variance_summary = expected - declared
+
+    # ------------------------------------------------------------------
     # Notes
     # ------------------------------------------------------------------
 

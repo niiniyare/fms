@@ -409,6 +409,32 @@
                                    nolabel="1" style="min-height:120px"/>
                         </page>
 
+                        <!-- Reconciliation Summary — Spec §8 + §11 -->
+                        <page string="Reconciliation" name="reconciliation"
+                              groups="fms.group_fms_supervisor">
+                            <group string="Sales">
+                                <group>
+                                    <field name="total_fuel_sales"    string="Fuel Sales"/>
+                                    <field name="total_nonfuel_sales" string="Non-Fuel Sales (Dry Stock + Services)"/>
+                                    <field name="total_all_sales"     string="Total Sales"/>
+                                </group>
+                                <group>
+                                    <field name="total_cash_received"    string="Cash Received"/>
+                                    <field name="total_digital_received" string="Digital (MPesa / Card)"/>
+                                    <field name="total_credit_sales"     string="On Credit (AR)"/>
+                                </group>
+                            </group>
+                            <group string="Cash Position">
+                                <group>
+                                    <field name="expected_cash_position" string="Expected Cash"/>
+                                    <field name="declared_cash_total"    string="Declared Cash"/>
+                                    <field name="cash_variance_summary"  string="Variance"
+                                           decoration-danger="cash_variance_summary != 0"
+                                           decoration-success="cash_variance_summary == 0"/>
+                                </group>
+                            </group>
+                        </page>
+
                         <page string="Notes" name="notes">
                             <field name="notes"
                                    placeholder="Supervisor investigation notes, variance explanations..."/>
