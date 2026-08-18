@@ -17,8 +17,8 @@ ODOO_PORT := 8069
 # Odoo / venv paths
 ODOO_VENV    := /home/niini/odoo-venv/bin/python
 ODOO_BIN     := /home/niini/odoo18/odoo-bin
-# Addons: odoo core | fms + fms_accounting + dark_mode_backend (all siblings under /home/niini)
-ODOO_ADDONS  := /home/niini/odoo18/addons,/home/niini/fms/..
+# Addons: odoo core | fms custom | OCA addons
+ODOO_ADDONS  := /home/niini/odoo18/addons,/home/niini/fms/..,/home/niini/oca/account-financial-reporting,/home/niini/oca/account-financial-tools,/home/niini/oca/account-reconcile,/home/niini/oca/credit-control,/home/niini/oca/web,/home/niini/oca/server-ux,/home/niini/oca/reporting-engine,/home/niini/oca/server-tools
 
 # Help target (default)
 .DEFAULT_GOAL := help
