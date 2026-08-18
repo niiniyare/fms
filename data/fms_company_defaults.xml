@@ -34,6 +34,7 @@
             <field name="amount_type">percent</field>
             <field name="type_tax_use">sale</field>
             <field name="company_id" ref="base.main_company"/>
+            <field name="country_id" ref="base.ke"/>
         </record>
 
         <record id="tax_vat_8_sale" model="account.tax">
@@ -42,6 +43,7 @@
             <field name="amount_type">percent</field>
             <field name="type_tax_use">sale</field>
             <field name="company_id" ref="base.main_company"/>
+            <field name="country_id" ref="base.ke"/>
         </record>
 
         <record id="tax_vat_16_purchase" model="account.tax">
@@ -50,6 +52,7 @@
             <field name="amount_type">percent</field>
             <field name="type_tax_use">purchase</field>
             <field name="company_id" ref="base.main_company"/>
+            <field name="country_id" ref="base.ke"/>
         </record>
 
         <record id="tax_vat_8_purchase" model="account.tax">
@@ -58,6 +61,7 @@
             <field name="amount_type">percent</field>
             <field name="type_tax_use">purchase</field>
             <field name="company_id" ref="base.main_company"/>
+            <field name="country_id" ref="base.ke"/>
         </record>
 
     </data>
