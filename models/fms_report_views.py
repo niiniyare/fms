@@ -1585,11 +1585,11 @@ class FMSReportTankLoss(models.Model):
             CREATE OR REPLACE VIEW fms_report_tank_loss AS (
                 WITH dip AS (
                     -- One row per tank per shift from immutable dip logs
+                    -- company_id sourced from fms_shift (not on dip log itself)
                     SELECT
                         dl.shift_id,
                         dl.location_id,
                         dl.product_id,
-                        dl.company_id,
                         COALESCE(dl.opening_volume, 0)                       AS dip_opening,
                         COALESCE(dl.closing_volume, 0)                       AS dip_closing,
                         COALESCE(dl.opening_volume, 0)
@@ -1599,14 +1599,14 @@ class FMSReportTankLoss(models.Model):
                 meters AS (
                     -- Aggregate all nozzle meter logs by shift + product
                     -- (multiple nozzles can serve the same product/tank)
+                    -- company_id sourced from fms_shift via outer join
                     SELECT
                         ml.shift_id,
                         ml.product_id,
-                        ml.company_id,
                         SUM(COALESCE(ml.qty_sold_elec, 0))                   AS meter_sold_elec,
                         SUM(COALESCE(ml.qty_sold_man,  0))                   AS meter_sold_man
                     FROM fms_meter_log ml
-                    GROUP BY ml.shift_id, ml.product_id, ml.company_id
+                    GROUP BY ml.shift_id, ml.product_id
                 ),
                 residuals AS (
                     -- Net residual volume per shift + product from residual allocation
@@ -1673,9 +1673,8 @@ class FMSReportTankLoss(models.Model):
                 JOIN fms_shift  s  ON s.id = d.shift_id
                 LEFT JOIN meters    m  ON m.shift_id   = d.shift_id
                                       AND m.product_id  = d.product_id
-                                      AND m.company_id  = d.company_id
                 LEFT JOIN residuals r  ON r.shift_id   = d.shift_id
                                       AND r.product_id  = d.product_id
-                LEFT JOIN prefs     p  ON p.company_id  = d.company_id
+                LEFT JOIN prefs     p  ON p.company_id  = s.company_id
             )
         """)
