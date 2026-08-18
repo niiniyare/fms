@@ -303,57 +303,10 @@
                         </page>
 
                         <!-- ═══════════════════════════════════════════
-                             TAB 4: Sales Summary (read-only)
-                             Spec Section 3.3 Screen 4
+                             TAB 4: Sales KPIs (read-only summary)
+                             Full product-by-product breakdown: Reports → Shift Reconciliation
                         ═══════════════════════════════════════════ -->
-                        <page string="Sales Summary" name="sales">
-                            <p class="text-muted">
-                                Computed rollup of pump meter readings grouped by product.
-                                Use "Refresh Sales Summary" button after entering meter readings.
-                            </p>
-                            <field name="product_sales_ids" readonly="1">
-                                <list string="Product Sales">
-                                    <field name="product_id"/>
-                                    <!-- Volume side -->
-                                    <field name="meter_volume"
-                                           string="Meter Vol (L)" sum="Total Meter L"/>
-                                    <field name="accounted_volume"
-                                           string="POS Vol (L)" sum="Total POS L"
-                                           optional="show"/>
-                                    <field name="volume_residual"
-                                           string="Vol Residual (L)"
-                                           decoration-success="volume_residual &gt; -0.1 and volume_residual &lt; 0.1"
-                                           decoration-warning="volume_residual &gt;= 0.1 or volume_residual &lt;= -0.1"
-                                           optional="show"/>
-                                    <!-- Cash side -->
-                                    <field name="elec_cash_sold"
-                                           string="Cash Meter" sum="Total Cash"/>
-                                    <field name="pos_cash_collected"
-                                           string="POS Total" sum="Total POS"
-                                           optional="show"/>
-                                    <field name="cash_residual"
-                                           string="Cash Residual"
-                                           decoration-success="cash_residual &gt; -100 and cash_residual &lt; 100"
-                                           decoration-warning="cash_residual &gt;= 100 or cash_residual &lt;= -100"
-                                           optional="show"/>
-                                    <!-- Allocation result -->
-                                    <field name="allocated_volume"
-                                           string="Allocated (L)"
-                                           optional="hide"/>
-                                    <!-- Status -->
-                                    <field name="residual_type"
-                                           string="Vol Status"
-                                           decoration-success="residual_type == 'none'"
-                                           decoration-warning="residual_type == 'under'"
-                                           decoration-danger="residual_type == 'over'"
-                                           optional="show"/>
-                                    <field name="price_at_close"
-                                           string="Price (/L)" optional="hide"/>
-                                    <field name="meter_volume_man"
-                                           string="Manual Vol (L)" optional="hide"/>
-                                </list>
-                            </field>
-
+                        <page string="Sales KPIs" name="sales">
                             <group>
                                 <group string="Shift Totals">
                                     <field name="total_meter_sales" readonly="1"
@@ -366,6 +319,9 @@
                                            decoration-danger="fc_cash_balance != 0"/>
                                 </group>
                             </group>
+                            <p class="text-muted">
+                                Full product-by-product meter reconciliation: see Reports → Shift Reconciliation.
+                            </p>
                         </page>
 
                         <!-- ═══════════════════════════════════════════

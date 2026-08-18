@@ -69,11 +69,12 @@
 
 ## Phase E — Shift Sheet UX
 
-- [ ] Audit existing view tabs for "orphan" operational forms
-- [ ] Wetstock Summary tab: move to Reports, show only KPI summary on shift form
-- [ ] Meter Reconciliation tab: move to Reports
-- [ ] Keep meter_entry_ids and dip_entry_ids directly inside shift form (tab)
-- [ ] Attendant Cash tab: stays (operational input)
+- [x] Audit existing view tabs — no orphan operational forms found
+- [x] "Sales Summary" tab slimmed to KPI-only (removed product_sales_ids list) — renamed to "Sales KPIs"
+- [x] Full product breakdown kept in Reports → Shift Reconciliation (already existed)
+- [x] meter_entry_ids and dip_entry_ids tabs unchanged (operational input)
+- [x] Attendant Cash tab unchanged
+- [x] Residual Allocations tab kept (operational — supervisor reviews before approving close)
 
 ---
 
@@ -82,8 +83,8 @@
 Existing reports (read-only SQL views) already in fms_report_views.py:
 - [x] R1 Shift Overview, R2 Tank Loss, R3 Wetstock, R4 Meter Reconciliation (SQL views)
 - [x] R27 Attendant Cash Breakdown (SQL view, FIN-008)
-- [ ] Confirm all reports are in Reports menu, not mixed with operational forms
-- [ ] Add Customers & Fleet → Customer Statements menu (already has action_fms_ar_statement_report or similar)
+- [x] All reports confirmed in Reconciliation or Reports menus — not mixed with operational forms
+- [x] Added Customer Statements menu under Customers & Fleet (action_fms_customer_statements — FMS shift invoices filtered by partner)
 
 ---
 
@@ -129,3 +130,5 @@ Existing reports (read-only SQL views) already in fms_report_views.py:
 | 2026-08-18 | E2E | fms_e2e DB: pumps + nozzles + fuel tanks created | ✓ |
 | 2026-08-18 | E2E | e2e_v6.py: shift opens 4 meter + 3 dip entries, closes, immutability enforced | PASSED ✓ |
 | 2026-08-18 | E2E | seed_e2e.py updated with idempotent pump/nozzle/tank creation | ✓ |
+| 2026-08-18 | Phase E | Sales Summary tab slimmed to KPI-only, renamed Sales KPIs | ✓ |
+| 2026-08-18 | Phase F | Customer Statements menu added under Customers & Fleet | ✓ |
