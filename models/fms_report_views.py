@@ -1141,111 +1141,108 @@ class FMSReportAttendantCashBreakdown(models.Model):
     is_balanced         = fields.Boolean('Balanced',               readonly=True)
 
     def init(self):
+        # Check if fms_accounting is installed (account_payment.fms_shift_id exists).
+        # When fms is installed standalone (no fms_accounting), use a simplified view
+        # with zeros for payment-based columns.
         self.env.cr.execute("""
-            CREATE OR REPLACE VIEW fms_report_attendant_cash_breakdown AS (
-                SELECT
-                    ac.id                                                          AS id,
-                    ac.shift_id                                                    AS shift_id,
-                    s.date                                                         AS shift_date,
-                    s.label                                                        AS shift_label,
-                    s.company_id                                                   AS company_id,
-                    ac.attendant_id                                                AS attendant_id,
-                    e.name                                                         AS attendant_name,
-
-                    COALESCE(ac.reported_sales, 0)                                 AS meter_sales,
-
-                    -- Customer receipts: posted inbound payments, customer_receipt context
-                    COALESCE((
-                        SELECT SUM(ap.amount)
-                        FROM account_payment ap
-                        WHERE ap.fms_shift_id = ac.shift_id
-                          AND ap.fms_attendant_id = ac.attendant_id
-                          AND ap.fms_payment_context = 'customer_receipt'
-                          AND ap.state = 'posted'
-                          AND ap.payment_type = 'inbound'
-                    ), 0)                                                          AS customer_receipts,
-
-                    -- Floats: cash_float context (may be shift-level, no attendant)
-                    COALESCE((
-                        SELECT SUM(ap.amount)
-                        FROM account_payment ap
-                        WHERE ap.fms_shift_id = ac.shift_id
-                          AND (ap.fms_attendant_id = ac.attendant_id OR ap.fms_attendant_id IS NULL)
-                          AND ap.fms_payment_context = 'cash_float'
-                          AND ap.state = 'posted'
-                    ), 0)                                                          AS float_received,
-
-                    -- Cash drops / pickups
-                    COALESCE((
-                        SELECT SUM(ap.amount)
-                        FROM account_payment ap
-                        WHERE ap.fms_shift_id = ac.shift_id
-                          AND (ap.fms_attendant_id = ac.attendant_id OR ap.fms_attendant_id IS NULL)
-                          AND ap.fms_payment_context IN ('cash_drop', 'cash_pickup')
-                          AND ap.state = 'posted'
-                    ), 0)                                                          AS cash_drops,
-
-                    COALESCE(ac.mpesa_amount, 0)                                   AS mpesa,
-                    COALESCE(ac.card_amount, 0)                                    AS card,
-                    COALESCE(ac.ar_amount, 0)                                      AS ar_credit,
-
-                    -- Vendor payments from shift cash
-                    COALESCE((
-                        SELECT SUM(ap.amount)
-                        FROM account_payment ap
-                        WHERE ap.fms_shift_id = ac.shift_id
-                          AND ap.fms_attendant_id = ac.attendant_id
-                          AND ap.fms_payment_context = 'vendor_payment'
-                          AND ap.state = 'posted'
-                    ), 0)                                                          AS vendor_payments,
-
-                    -- Expenses from shift cash
-                    COALESCE((
-                        SELECT SUM(ap.amount)
-                        FROM account_payment ap
-                        WHERE ap.fms_shift_id = ac.shift_id
-                          AND ap.fms_attendant_id = ac.attendant_id
-                          AND ap.fms_payment_context = 'expense'
-                          AND ap.state = 'posted'
-                    ), 0)                                                          AS expenses,
-
-                    COALESCE(ac.cash_collected, 0)                                 AS cash_declared,
-
-                    -- expected_cash = total_in (same formula as ORM compute)
-                    COALESCE(ac.reported_sales, 0)
-                    + COALESCE((
-                        SELECT SUM(ap.amount)
-                        FROM account_payment ap
-                        WHERE ap.fms_shift_id = ac.shift_id
-                          AND ap.fms_attendant_id = ac.attendant_id
-                          AND ap.fms_payment_context = 'customer_receipt'
-                          AND ap.state = 'posted'
-                          AND ap.payment_type = 'inbound'
-                    ), 0)
-                    + COALESCE((
-                        SELECT SUM(ap.amount)
-                        FROM account_payment ap
-                        WHERE ap.fms_shift_id = ac.shift_id
-                          AND (ap.fms_attendant_id = ac.attendant_id OR ap.fms_attendant_id IS NULL)
-                          AND ap.fms_payment_context = 'cash_float'
-                          AND ap.state = 'posted'
-                    ), 0)
-                    - COALESCE((
-                        SELECT SUM(ap.amount)
-                        FROM account_payment ap
-                        WHERE ap.fms_shift_id = ac.shift_id
-                          AND (ap.fms_attendant_id = ac.attendant_id OR ap.fms_attendant_id IS NULL)
-                          AND ap.fms_payment_context IN ('cash_drop', 'cash_pickup')
-                          AND ap.state = 'posted'
-                    ), 0)                                                          AS expected_cash,
-
-                    -- variance = total_in - total_out
-                    COALESCE(ac.balance, 0)                                        AS variance,
-
-                    ABS(COALESCE(ac.balance, 0)) < 0.01                            AS is_balanced
-
-                FROM fms_shift_attendant_cash ac
-                JOIN fms_shift   s ON s.id  = ac.shift_id
-                JOIN hr_employee e ON e.id  = ac.attendant_id
-            )
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'account_payment' AND column_name = 'fms_shift_id'
+            LIMIT 1
         """)
+        has_fms_accounting = bool(self.env.cr.fetchone())
+
+        if has_fms_accounting:
+            self.env.cr.execute("""
+                CREATE OR REPLACE VIEW fms_report_attendant_cash_breakdown AS (
+                    SELECT
+                        ac.id                                                          AS id,
+                        ac.shift_id                                                    AS shift_id,
+                        s.date                                                         AS shift_date,
+                        s.label                                                        AS shift_label,
+                        s.company_id                                                   AS company_id,
+                        ac.attendant_id                                                AS attendant_id,
+                        e.name                                                         AS attendant_name,
+                        COALESCE(ac.reported_sales, 0)                                 AS meter_sales,
+                        COALESCE((
+                            SELECT SUM(ap.amount)
+                            FROM account_payment ap
+                            WHERE ap.fms_shift_id = ac.shift_id
+                              AND ap.fms_attendant_id = ac.attendant_id
+                              AND ap.fms_payment_context = 'customer_receipt'
+                              AND ap.state = 'posted'
+                              AND ap.payment_type = 'inbound'
+                        ), 0)                                                          AS customer_receipts,
+                        COALESCE((
+                            SELECT SUM(ap.amount)
+                            FROM account_payment ap
+                            WHERE ap.fms_shift_id = ac.shift_id
+                              AND (ap.fms_attendant_id = ac.attendant_id OR ap.fms_attendant_id IS NULL)
+                              AND ap.fms_payment_context = 'cash_float'
+                              AND ap.state = 'posted'
+                        ), 0)                                                          AS float_received,
+                        COALESCE((
+                            SELECT SUM(ap.amount)
+                            FROM account_payment ap
+                            WHERE ap.fms_shift_id = ac.shift_id
+                              AND (ap.fms_attendant_id = ac.attendant_id OR ap.fms_attendant_id IS NULL)
+                              AND ap.fms_payment_context IN ('cash_drop', 'cash_pickup')
+                              AND ap.state = 'posted'
+                        ), 0)                                                          AS cash_drops,
+                        COALESCE(ac.mpesa_amount, 0)                                   AS mpesa,
+                        COALESCE(ac.card_amount, 0)                                    AS card,
+                        COALESCE(ac.ar_amount, 0)                                      AS ar_credit,
+                        COALESCE((
+                            SELECT SUM(ap.amount)
+                            FROM account_payment ap
+                            WHERE ap.fms_shift_id = ac.shift_id
+                              AND ap.fms_attendant_id = ac.attendant_id
+                              AND ap.fms_payment_context = 'vendor_payment'
+                              AND ap.state = 'posted'
+                        ), 0)                                                          AS vendor_payments,
+                        COALESCE((
+                            SELECT SUM(ap.amount)
+                            FROM account_payment ap
+                            WHERE ap.fms_shift_id = ac.shift_id
+                              AND ap.fms_attendant_id = ac.attendant_id
+                              AND ap.fms_payment_context = 'expense'
+                              AND ap.state = 'posted'
+                        ), 0)                                                          AS expenses,
+                        COALESCE(ac.cash_collected, 0)                                 AS cash_declared,
+                        COALESCE(ac.total_in, 0)                                       AS expected_cash,
+                        COALESCE(ac.balance, 0)                                        AS variance,
+                        ABS(COALESCE(ac.balance, 0)) < 0.01                            AS is_balanced
+                    FROM fms_shift_attendant_cash ac
+                    JOIN fms_shift   s ON s.id  = ac.shift_id
+                    JOIN hr_employee e ON e.id  = ac.attendant_id
+                )
+            """)
+        else:
+            # Simplified view: no account_payment subqueries (fms_accounting not installed)
+            self.env.cr.execute("""
+                CREATE OR REPLACE VIEW fms_report_attendant_cash_breakdown AS (
+                    SELECT
+                        ac.id                          AS id,
+                        ac.shift_id                    AS shift_id,
+                        s.date                         AS shift_date,
+                        s.label                        AS shift_label,
+                        s.company_id                   AS company_id,
+                        ac.attendant_id                AS attendant_id,
+                        e.name                         AS attendant_name,
+                        COALESCE(ac.reported_sales, 0) AS meter_sales,
+                        0::numeric                     AS customer_receipts,
+                        0::numeric                     AS float_received,
+                        0::numeric                     AS cash_drops,
+                        COALESCE(ac.mpesa_amount, 0)   AS mpesa,
+                        COALESCE(ac.card_amount, 0)    AS card,
+                        COALESCE(ac.ar_amount, 0)      AS ar_credit,
+                        0::numeric                     AS vendor_payments,
+                        0::numeric                     AS expenses,
+                        COALESCE(ac.cash_collected, 0) AS cash_declared,
+                        COALESCE(ac.total_in, 0)       AS expected_cash,
+                        COALESCE(ac.balance, 0)        AS variance,
+                        ABS(COALESCE(ac.balance, 0)) < 0.01 AS is_balanced
+                    FROM fms_shift_attendant_cash ac
+                    JOIN fms_shift   s ON s.id  = ac.shift_id
+                    JOIN hr_employee e ON e.id  = ac.attendant_id
+                )
+            """)

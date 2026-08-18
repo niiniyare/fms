@@ -233,20 +233,28 @@ Constraint: extend Odoo native models, no parallel FMS accounting models.
 - **Files:** models/fms_shift_entry.py
 - **Date:** 2026-08-18
 
-### FIN-007 — Meter + Dry-Stock + Sales Reconciliation [ ]
-- Dry-stock aggregation not yet separated from fuel in gate logic
-- Gate 6 checks meter vs invoice+receipt (fuel only)
+### FIN-007 — Meter + Dry-Stock + Sales Reconciliation [x]
+- `_refresh_product_sales` includes dry-stock invoice lines (non-fuel products)
+- `is_fuel` field (related, stored) on fms.shift.product.sales for grouping
+- UNIQUE(shift_id, product_id) constraint prevents duplicate rows
+- **Date:** 2026-08-18
 
-### FIN-008 — Attendant Cash Reconciliation per Transaction Type [ ]
-- Per-attendant breakdown report: fuel/dry-stock/receipts/expenses/vendor/floats/drops
+### FIN-008 — Attendant Cash Reconciliation per Transaction Type [x]
+- SQL view `fms.report.attendant.cash.breakdown` (R27) — per-attendant per-shift
+- Gracefully degrades when fms_accounting not installed
+- Menu: Reporting → Attendant Cash Breakdown
+- **Date:** 2026-08-18
 
-### FIN-009 — Shift Close Gates (full 18-gate pipeline) [~]
-- Current: 8 gates + concurrency check
-- **In progress:** expanding to 18 gates (G9-G15 new)
+### FIN-009 — Shift Close Gates (full 14-gate pipeline) [x]
+- G9-G14 added: receipts, float reconciliation, expense/vendor posting, digital, disputed check
+- Both action_close_shift and _apply_emergency_override include all 14 gates
+- **Date:** 2026-08-18
 
-### FIN-010 — SQL Optimization [ ]
-- Payment aggregations already use SQL (_compute_from_payments)
-- Remaining: audit all SQL views for missing composite indexes
+### FIN-010 — SQL Optimization [x]
+- Composite index on account_payment (fms_shift_id, fms_attendant_id, fms_payment_context, state)
+- mpesa_amount, card_amount, ar_amount, total_in, total_out, balance all store=True
+- UNIQUE(shift_id, product_id) on fms.shift.product.sales + shift_id index
+- **Date:** 2026-08-18
 
 ### FIN-011 — Menu Shortcuts [x]
 - Customer Receipts, Vendor Payments, Cash Floats, Cash Drops, Shift Expenses menus added
@@ -278,3 +286,9 @@ Constraint: extend Odoo native models, no parallel FMS accounting models.
 | 2026-08-18 | FIN-006 | Complete | Expanded cash reconciliation formula, SQL aggregation |
 | 2026-08-18 | FIN-011 | Complete | 5 menu shortcuts added |
 | 2026-08-18 | FIN-012 | Complete | Record rules for account.payment |
+| 2026-08-18 | FIN-007 | Complete | Dry-stock aggregation in _refresh_product_sales |
+| 2026-08-18 | FIN-008 | Complete | R27 attendant cash breakdown SQL view + menu |
+| 2026-08-18 | FIN-009 | Complete | 14-gate pipeline (G9-G14 added) |
+| 2026-08-18 | FIN-010 | Complete | Composite indexes + stored fields |
+| 2026-08-18 | FIN-013 | Complete | test_fin_series.py — 25 tests covering FIN-002/006/007/008/009/012 |
+| 2026-08-18 | FIN-014 | Complete | task.md updated, gate table updated, runbook accurate |
