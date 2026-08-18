@@ -229,7 +229,7 @@ class FMSShift(models.Model):
         'product_sales_ids.allocated_amount',
         'product_sales_ids.is_fuel',
         'attendant_cash_ids.cash_collected',
-        'attendant_cash_ids.opening_float',
+        'attendant_cash_ids.float_amount',
         'attendant_cash_ids.cash_drop_amount',
         'attendant_cash_ids.expense_amount',
         'attendant_cash_ids.vendor_payment_amount',
@@ -280,7 +280,7 @@ class FMSShift(models.Model):
                     credit_sales = row[0] if row else 0.0
 
             # Expected cash from attendant lines
-            opening_float = sum(shift.attendant_cash_ids.mapped('opening_float'))
+            opening_float = sum(shift.attendant_cash_ids.mapped('float_amount'))
             cash_drops = sum(shift.attendant_cash_ids.mapped('cash_drop_amount'))
             expenses = sum(shift.attendant_cash_ids.mapped('expense_amount'))
             vendor_payments = sum(shift.attendant_cash_ids.mapped('vendor_payment_amount'))
