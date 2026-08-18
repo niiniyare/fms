@@ -37,15 +37,16 @@ class FMSSecurityBase(FMSGLMixin, TransactionCase):
         group_att  = self.env.ref('fms.group_fms_attendant')
         group_sup  = self.env.ref('fms.group_fms_supervisor')
 
+        group_internal = self.env.ref('base.group_user')
         self.user_att = self.env['res.users'].create({
             'name': 'Test Attendant',
             'login': 'test_fms_att@test.com',
-            'groups_id': [(6, 0, [group_att.id])],
+            'groups_id': [(6, 0, [group_att.id, group_internal.id])],
         })
         self.user_sup = self.env['res.users'].create({
             'name': 'Test Supervisor',
             'login': 'test_fms_sup@test.com',
-            'groups_id': [(6, 0, [group_sup.id])],
+            'groups_id': [(6, 0, [group_sup.id, group_internal.id])],
         })
         # Employees linked to users
         self.emp_att = self.env['hr.employee'].create({

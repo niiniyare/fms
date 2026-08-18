@@ -36,9 +36,9 @@ class FMSUATBase(FMSGLMixin, TransactionCase):
         # Reset any open shifts so the single-open-shift constraint doesn't block tests
         self.env['fms.shift'].search([('state', '=', 'open')]).write({'state': 'draft'})
         self.setup_fms_gl()
-        # Use per-shift mode so attendant-per-nozzle gate doesn't interfere
+        # Use pre_assigned mode so attendant-per-nozzle gate doesn't interfere
         prefs = self.env['fms.site.preferences'].get_for_company()
-        prefs.attendant_assignment_mode = 'per_shift'
+        prefs.attendant_assignment_mode = 'pre_assigned'
 
         # Revenue account for GL posting
         # Note: Odoo 18 uses company_ids (Many2many) on account.account

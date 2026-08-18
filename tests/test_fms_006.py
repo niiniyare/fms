@@ -23,9 +23,9 @@ class FMSGateBase(FMSGLMixin, TransactionCase):
         super().setUp()
         self.env['fms.shift'].search([('state', 'in', ('open', 'closing'))]).write({'state': 'draft'})
         self.setup_fms_gl()
-        # Use per-shift mode so attendant-per-nozzle gate doesn't fire before gate tests
+        # Use pre_assigned mode so attendant-per-nozzle gate doesn't fire before gate tests
         prefs = self.env['fms.site.preferences'].get_for_company()
-        prefs.attendant_assignment_mode = 'per_shift'
+        prefs.attendant_assignment_mode = 'pre_assigned'
         self.supervisor = self.env['hr.employee'].create({'name': 'Gate-Supervisor'})
         self.attendant1 = self.env['hr.employee'].create({
             'name': 'Gate-Attendant-1', 'fms_is_attendant': True,
