@@ -49,7 +49,7 @@ class TestFINBase(TransactionCase):
         # Shift (draft state)
         self.shift = self.env['fms.shift'].create({
             'date': date.today(),
-            'label': 'morning',
+            'label': '1_day',
             'company_id': company.id,
         })
 

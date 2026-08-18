@@ -126,6 +126,7 @@
 
     <record id="pump_ux5" model="fms.pump">
         <field name="name">UX5</field>
+        <field name="code">UX5</field>
         <field name="order">1</field>
     </record>
 
@@ -155,6 +156,7 @@
 
     <record id="pump_dx6" model="fms.pump">
         <field name="name">DX6</field>
+        <field name="code">DX6</field>
         <field name="order">2</field>
     </record>
 
@@ -182,6 +184,7 @@
 
     <record id="pump_kx7" model="fms.pump">
         <field name="name">KX7</field>
+        <field name="code">KX7</field>
         <field name="order">3</field>
     </record>
 

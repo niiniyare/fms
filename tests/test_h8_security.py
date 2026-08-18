@@ -55,12 +55,12 @@ class TestH8Base(TransactionCase):
 
         cls.shift_a = env['fms.shift'].sudo().create({
             'date': date.today(),
-            'label': 'morning',
+            'label': '1_day',
             'company_id': cls.company_a.id,
         })
         cls.shift_b = env['fms.shift'].sudo().create({
             'date': date.today(),
-            'label': 'morning',
+            'label': '1_day',
             'company_id': cls.company_b.id,
         })
 
