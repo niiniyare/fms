@@ -220,11 +220,12 @@ odoo-update: ## Update FMS module after code changes
 		--addons-path=$(ODOO_ADDONS) --stop-after-init
 	@echo "$(GREEN)✓ FMS updated$(NC)"
 
-odoo-test: ## Run FMS tests via Odoo test runner
+odoo-test: ## Run FMS tests (drops and recreates test DB to avoid demo data conflicts)
 	@echo "$(BLUE)Running FMS tests (db: $(DB_NAME))...$(NC)"
+	@dropdb --if-exists $(DB_NAME)
 	@$(ODOO_VENV) $(ODOO_BIN) -d $(DB_NAME) \
 		--addons-path=$(ODOO_ADDONS) \
-		--test-enable --stop-after-init -i fms -p 8070
+		--test-enable --stop-after-init -i fms --without-demo=all -p 8070
 	@echo "$(GREEN)✓ Tests complete$(NC)"
 
 odoo-demo: ## Start Odoo web server on the demo database (http://localhost:8070)

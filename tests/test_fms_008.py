@@ -74,7 +74,7 @@ class FMSUATBase(TransactionCase):
         })
 
         # Pump and nozzles
-        self.pump = self.env['fms.pump'].create({'name': 'UAT-Pump', 'order': 99})
+        self.pump = self.env['fms.pump'].create({'name': 'UAT-Pump', 'code': 'UAT-P', 'order': 99})
         self.nozzle_diesel = self.env['fms.pump.nozzle'].create({
             'pump_id': self.pump.id, 'name': 'A', 'letter': 'A', 'order': 1,
             'product_id': self.diesel.id,

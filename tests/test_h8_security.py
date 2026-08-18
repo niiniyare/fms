@@ -53,14 +53,17 @@ class TestH8Base(TransactionCase):
         cls.attendant_b2 = _make_user('Att B', cls.company_a, [group_attendant])
         cls.accountant_a = _make_user('Acc A', cls.company_a, [group_accountant, group_supervisor])
 
+        # Use a fixed past date to avoid conflict with other tests that
+        # may create a draft shift for today on the main company.
+        _h8_date = date(2025, 6, 15)
         cls.shift_a = env['fms.shift'].sudo().create({
-            'date': date.today(),
-            'label': '1_day',
+            'date': _h8_date,
+            'label': '3_night',
             'company_id': cls.company_a.id,
         })
         cls.shift_b = env['fms.shift'].sudo().create({
-            'date': date.today(),
-            'label': '1_day',
+            'date': _h8_date,
+            'label': '3_night',
             'company_id': cls.company_b.id,
         })
 
