@@ -1,23 +1,63 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    fms_company_defaults.xml — base-safe defaults only.
-    Nothing here requires the `account` module.
+    fms_company_defaults.xml
 
-    All GL accounts, journals, taxes, and company accounting fields
-    (account_fiscal_country_id, currency_id) are set in
-    fms_accounting/data/fms_accounting_company_defaults.xml,
-    which loads only when fms_accounting (and therefore account) is installed.
+    Currency: activates KES as selectable — does NOT force company currency.
+    GL accounts/journal/taxes: created by fms_accounting/_ensure_fms_gl_setup().
 
-    Currency: FMS does NOT force a company currency. The company's existing
-    active currency is used. Activating base.KES here only makes KES
-    selectable in the currency picker — it does not change the company currency.
+    The tax and tax-group stubs below exist ONLY to keep their ir_model_data
+    entries alive so Odoo's _process_end does not try to DELETE the underlying
+    account_tax records (which are referenced by account_move_line).
+    noupdate="1" prevents Odoo from re-creating or modifying them on upgrade.
+    fms always depends on account, so account.tax is always available here.
 -->
 <odoo>
     <data noupdate="1">
 
-        <!-- Make KES selectable — does not change company currency. -->
+        <!-- Make KES selectable in the currency picker. -->
         <record id="base.KES" model="res.currency">
             <field name="active">True</field>
+        </record>
+
+        <!-- Kenya VAT tax group — stub to prevent orphan deletion.
+             Actual record created/found by fms_accounting._ensure_fms_gl_setup(). -->
+        <record id="tax_group_vat_ke" model="account.tax.group">
+            <field name="name">VAT</field>
+            <field name="company_id" ref="base.main_company"/>
+        </record>
+
+        <!-- VAT tax stubs — keep ir_model_data entries alive.
+             Actual records created/found by fms_accounting._ensure_fms_gl_setup(). -->
+        <record id="tax_vat_16_sale" model="account.tax">
+            <field name="name">VAT 16%</field>
+            <field name="amount">16.0</field>
+            <field name="amount_type">percent</field>
+            <field name="type_tax_use">sale</field>
+            <field name="company_id" ref="base.main_company"/>
+        </record>
+
+        <record id="tax_vat_8_sale" model="account.tax">
+            <field name="name">VAT 8%</field>
+            <field name="amount">8.0</field>
+            <field name="amount_type">percent</field>
+            <field name="type_tax_use">sale</field>
+            <field name="company_id" ref="base.main_company"/>
+        </record>
+
+        <record id="tax_vat_16_purchase" model="account.tax">
+            <field name="name">VAT 16%</field>
+            <field name="amount">16.0</field>
+            <field name="amount_type">percent</field>
+            <field name="type_tax_use">purchase</field>
+            <field name="company_id" ref="base.main_company"/>
+        </record>
+
+        <record id="tax_vat_8_purchase" model="account.tax">
+            <field name="name">VAT 8%</field>
+            <field name="amount">8.0</field>
+            <field name="amount_type">percent</field>
+            <field name="type_tax_use">purchase</field>
+            <field name="company_id" ref="base.main_company"/>
         </record>
 
     </data>
