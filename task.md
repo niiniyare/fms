@@ -138,3 +138,15 @@ Existing reports (read-only SQL views) already in fms_report_views.py:
 | 2026-08-18 | Verify | 266/266 tests pass on fresh install (test_fms3) | ✓ |
 | 2026-08-18 | Verify | fms_e2e -u fms,fms_accounting: exit 0, no errors | ✓ |
 | 2026-08-18 | Verify | E2E workflow (fms_e2e_v6.py): shift open/close/immutability all pass | ✓ |
+
+## OCA Migration
+
+- [x] OCA-001 Audit Cybrosys dependencies — Cybrosys never installed, zero hard dependencies
+- [x] OCA-002 Build replacement matrix — see docs/runbook/11-oca-migration.md
+- [x] OCA-003 Remove fms_cybrosys_compat.py (dead file — docstring only, no logic)
+- [x] OCA-004 Remove dead import from fms_accounting/models/__init__.py
+- [x] OCA-005 Remove cybrosys_addons from Makefile ODOO_ADDONS path
+- [x] OCA-006 Write docs/runbook/11-oca-migration.md
+- [x] OCA-007 Re-run full test suite post-cleanup
+- [x] OCA-008 End-to-end shift workflow post-cleanup — PASSED (266/266, e2e shift 6 closed)
+- [x] OCA-009 Final repository-wide Cybrosys scan — only benign comment refs in docs/task.md
