@@ -807,6 +807,7 @@ class FMSShift(models.Model):
                 self._gate_check_attendant_balances,
                 self._gate_check_fc_cash,
                 self._gate_check_stock_variance,
+                self._gate_check_meter_vs_sales,
             ):
                 try:
                     gate_fn()
@@ -875,6 +876,7 @@ class FMSShift(models.Model):
             self._gate_check_attendant_balances,
             self._gate_check_fc_cash,
             self._gate_check_stock_variance,
+            self._gate_check_meter_vs_sales,
         ):
             try:
                 gate_fn()
@@ -1042,6 +1044,72 @@ class FMSShift(models.Model):
                 f"±{meniscus}% variance meniscus:\n"
                 f"{lines}\n\n"
                 "Investigate the variance or post a dip adjustment before closing."
+            )
+
+    def _gate_check_meter_vs_sales(self):
+        """
+        GATE 6: Meter volume vs Invoice+Receipt volume per fuel product.
+
+        For each fuel product: meter_vol (elec) must ≈ sales_vol (invoices + receipts).
+        Tolerance: same meniscus percentage as Gate 5.
+
+        Skipped if fms_accounting is not installed (no account.move.fms_shift_id field).
+        Skipped if no invoices/receipts are linked to this shift.
+        """
+        # Check if fms_accounting fields exist on account.move
+        AccountMove = self.env['account.move']
+        if 'fms_shift_id' not in AccountMove._fields:
+            return
+
+        prefs = self.env['fms.site.preferences'].get_for_company(self.company_id)
+        meniscus_pct = prefs.meniscus_pct if prefs else 0.5
+
+        # Sum meter volumes per fuel product
+        meter_by_product = {}
+        for entry in self.meter_entry_ids:
+            if not entry.product_id.fms_is_fuel:
+                continue
+            pid = entry.product_id.id
+            meter_by_product[pid] = meter_by_product.get(pid, 0.0) + entry.qty_sold_elec
+
+        if not meter_by_product:
+            return
+
+        # Sum sales volumes per fuel product from posted invoices + receipts
+        moves = AccountMove.search([
+            ('fms_shift_id', '=', self.id),
+            ('move_type', 'in', ('out_invoice', 'out_receipt')),
+            ('state', '=', 'posted'),
+        ])
+        sales_by_product = {}
+        for move in moves:
+            for line in move.invoice_line_ids:
+                if not line.product_id or not line.product_id.fms_is_fuel:
+                    continue
+                pid = line.product_id.id
+                sales_by_product[pid] = sales_by_product.get(pid, 0.0) + line.quantity
+
+        if not sales_by_product:
+            return
+
+        failures = []
+        for pid, meter_vol in meter_by_product.items():
+            sales_vol = sales_by_product.get(pid, 0.0)
+            threshold = meter_vol * meniscus_pct / 100.0 if meter_vol else 0.5
+            diff = abs(meter_vol - sales_vol)
+            if diff > threshold:
+                product = self.env['product.product'].browse(pid)
+                failures.append(
+                    f"• {product.name}: Meter={meter_vol:.2f}L, "
+                    f"Sales={sales_vol:.2f}L, Diff={diff:.2f}L "
+                    f"(threshold={threshold:.2f}L)"
+                )
+        if failures:
+            raise ValidationError(
+                "GATE 6 FAILED — Meter volume vs Invoice+Receipt volume mismatch:\n\n"
+                + "\n".join(failures)
+                + "\n\nEnsure all fuel sales are posted (confirmed) as invoices or "
+                "receipts before closing the shift."
             )
 
     def _gate_check_gl_config(self):
