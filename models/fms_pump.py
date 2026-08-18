@@ -40,6 +40,21 @@ class FMSPump(models.Model):
         ('code_unique', 'UNIQUE(code)', 'Pump code must be unique.'),
     ]
 
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            if not vals.get('code') and vals.get('name'):
+                # Auto-derive code from name: strip non-alphanumeric, uppercase, max 8 chars
+                base = ''.join(c for c in vals['name'] if c.isalnum()).upper()[:8] or 'PUMP'
+                # Ensure uniqueness by appending order if needed
+                code = base
+                suffix = 1
+                while self.search([('code', '=', code)], limit=1):
+                    code = f"{base[:6]}{suffix:02d}"
+                    suffix += 1
+                vals['code'] = code
+        return super().create(vals_list)
+
 
 class FMSPumpNozzle(models.Model):
     """
