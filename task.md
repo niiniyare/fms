@@ -132,3 +132,9 @@ Existing reports (read-only SQL views) already in fms_report_views.py:
 | 2026-08-18 | E2E | seed_e2e.py updated with idempotent pump/nozzle/tank creation | ✓ |
 | 2026-08-18 | Phase E | Sales Summary tab slimmed to KPI-only, renamed Sales KPIs | ✓ |
 | 2026-08-18 | Phase F | Customer Statements menu added under Customers & Fleet | ✓ |
+| 2026-08-18 | Fix | test_g11_blocks_on_draft_expense: add fms_accounting guard | ✓ |
+| 2026-08-18 | Fix | fms_company_defaults.xml: add tax_group_id to tax stubs | ✓ |
+| 2026-08-18 | Fix | fms_company_defaults.xml: remove tax/group stubs (uniqueness violation on -u) | ✓ |
+| 2026-08-18 | Verify | 266/266 tests pass on fresh install (test_fms3) | ✓ |
+| 2026-08-18 | Verify | fms_e2e -u fms,fms_accounting: exit 0, no errors | ✓ |
+| 2026-08-18 | Verify | E2E workflow (fms_e2e_v6.py): shift open/close/immutability all pass | ✓ |
