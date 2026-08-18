@@ -126,3 +126,6 @@ Existing reports (read-only SQL views) already in fms_report_views.py:
 | 2026-08-18 | Phase H | Full test suite run (all 66 modules) | fms: 0 failures ✓, fms_accounting: 0 failures ✓ |
 | 2026-08-18 | Phase H | View fix: fms_odometer always-invisible validator | Fixed — removed `not fms_vehicle_id` condition |
 | 2026-08-18 | Phase H | Scoped test run --test-tags fms,fms_accounting | 0 FAIL / 0 ERROR — all passing ✓ |
+| 2026-08-18 | E2E | fms_e2e DB: pumps + nozzles + fuel tanks created | ✓ |
+| 2026-08-18 | E2E | e2e_v6.py: shift opens 4 meter + 3 dip entries, closes, immutability enforced | PASSED ✓ |
+| 2026-08-18 | E2E | seed_e2e.py updated with idempotent pump/nozzle/tank creation | ✓ |
