@@ -164,7 +164,10 @@ class FMSShiftMeterEntry(models.Model):
 
     def write(self, vals):
         self._check_shift_open()
-        return super().write(vals)
+        result = super().write(vals)
+        if 'attendant_id' in vals:
+            self.mapped('shift_id')._sync_attendant_cash_lines()
+        return result
 
     def unlink(self):
         self._check_shift_open()

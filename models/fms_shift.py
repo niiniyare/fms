@@ -573,6 +573,8 @@ class FMSShift(models.Model):
             'opening_meter_user_id': self.env.user.id,
         })
 
+        self._sync_attendant_cash_lines()
+
     def _get_previous_shift(self):
         """Return the most-recently closed shift for this company, or False."""
         return self.search([
