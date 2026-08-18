@@ -256,9 +256,11 @@ python /opt/odoo/odoo-bin -d production -i fms_accounting \
 | Supplier for deliveries | Contacts | Mark fuel suppliers with `Is Supplier` |
 | Fuel product taxes | Products → Taxes | Add VAT tax to fuel products; `fms_accounting` auto-splits net + tax on shift GL posting |
 
-### Coexistence with Cybrosys accounting addon
+### Third-party accounting addons
 
-`fms_accounting` only creates `account.move` records programmatically and does **not** override `account.move` form views. Cybrosys can be installed alongside it for financial reports and bank reconciliation without view conflicts. Install order: `fms` → `fms_accounting` → Cybrosys.
+`fms_accounting` only creates `account.move` records programmatically and does **not** override the `account.move` form view. It is safe to install alongside OCA financial reporting addons (e.g. `account_financial_report`) without view conflicts. Install order: `fms` → `fms_accounting` → OCA addons.
+
+See `docs/runbook/11-oca-migration.md` for the current dependency inventory and OCA roadmap.
 
 ---
 

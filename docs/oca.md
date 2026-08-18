@@ -1,5 +1,15 @@
-# OCA Addons: Complete Replacement for Cybrosys base_accounting_kit
-## Odoo 18 Community Edition - Feature-by-Feature Comparison
+# OCA Addons: Feature Comparison (Historical Planning Document)
+
+> **Status (2026-08-18):** Superseded. Audit confirmed Cybrosys was never installed
+> and FMS has zero Cybrosys dependencies. See the authoritative migration doc:
+> **`docs/runbook/11-oca-migration.md`**
+>
+> This document is kept as a reference for OCA module selection if/when the system
+> scales beyond 50 stations. Do not treat it as current architecture.
+
+---
+
+## Odoo 18 Community Edition - Feature-by-Feature Comparison (Archive)
 
 ---
 
