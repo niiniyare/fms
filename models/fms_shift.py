@@ -2016,6 +2016,14 @@ class FMSShift(models.Model):
                 }))
                 # One line per tax group
                 for tax_line in tax_res['taxes']:
+                    if not tax_line.get('account_id') or abs(tax_line['amount']) < 0.001:
+                        # Tax has no repartition account (e.g. price-included informational tax)
+                        # or zero amount — skip to avoid move imbalance
+                        _logger.warning(
+                            "FMS VAT: tax '%s' on product '%s' has no account or zero amount — skipped",
+                            tax_line.get('name'), product.name,
+                        )
+                        continue
                     move_lines.append((0, 0, {
                         'account_id': tax_line['account_id'],
                         'name': f"VAT — {product.name} — {self.display_name}",
@@ -2187,5 +2195,5 @@ class FMSShift(models.Model):
             })
             move._action_confirm()
             move._action_assign()
-            move.sudo().write({'quantity': qty})
-            move._action_done()
+            move._set_quantity_done(qty)
+            move.with_context(cancel_backorder=True)._action_done()
