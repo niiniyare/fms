@@ -911,6 +911,8 @@ class FMSShift(models.Model):
         Empty shifts can close automatically without gate checks or a supervisor.
         """
         self.ensure_one()
+        self.invalidate_recordset(['total_meter_sales'])
+        self.attendant_cash_ids.invalidate_recordset(['balance'])
         if abs(self.total_meter_sales) > 0.01:
             return False
         if any(abs(c.balance) > 0.01 for c in self.attendant_cash_ids):
@@ -1303,7 +1305,10 @@ class FMSShift(models.Model):
         they must post a correction before the shift can close.
         """
         self.ensure_one()
-        # Re-compute to get latest value from computed fields
+        # Invalidate ORM cache so stored computed fields reflect latest DB state.
+        # Without this, a stale cached balance of 0.0 can silently pass the gate
+        # even when the attendant line was changed after the shift record was loaded.
+        self.attendant_cash_ids.invalidate_recordset(['balance', 'total_in', 'total_out'])
         balance = sum(c.balance for c in self.attendant_cash_ids)
         if abs(balance) > 0.01:
             raise ValidationError(
@@ -1320,6 +1325,7 @@ class FMSShift(models.Model):
         be resolved one-by-one.  The error lists every failing attendant.
         """
         self.ensure_one()
+        self.attendant_cash_ids.invalidate_recordset(['balance', 'total_in', 'total_out'])
         failing = []
         for cash in self.attendant_cash_ids:
             if abs(cash.balance) > 0.01:
