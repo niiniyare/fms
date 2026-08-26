@@ -1,6 +1,7 @@
 {
     "name": "FMS (Forecourt Management System)",
     "version": "18.0.1.0.0",
+    "license": "LGPL-3",
     "category": "Inventory",
     "summary": "Fuel station shift management with automatic reconciliation",
     "description": """
