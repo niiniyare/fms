@@ -70,16 +70,13 @@
                                         <td><t t-esc="entry.product_id.name"/></td>
                                         <td><t t-esc="entry.attendant_id.name or '—'"/></td>
                                         <td class="text-end">
-                                            <t t-esc="entry.opening_elec_cash"
-                                               t-options="{'widget': 'monetary', 'display_currency': False}"/>
+                                            <t t-esc="'%.2f' % entry.opening_elec_cash"/>
                                         </td>
                                         <td class="text-end">
-                                            <t t-esc="entry.closing_elec_cash"
-                                               t-options="{'widget': 'monetary', 'display_currency': False}"/>
+                                            <t t-esc="'%.2f' % entry.closing_elec_cash"/>
                                         </td>
                                         <td class="text-end fw-bold">
-                                            <t t-esc="entry.elec_cash_sold"
-                                               t-options="{'widget': 'monetary', 'display_currency': False}"/>
+                                            <t t-esc="'%.2f' % entry.elec_cash_sold"/>
                                         </td>
                                         <td class="text-end">
                                             <t t-esc="'%.2f' % entry.opening_elec_volume"/>
