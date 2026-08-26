@@ -1026,11 +1026,11 @@ class FMSShift(models.Model):
             self._write_dip_logs()
             sales_move = self._post_sales_journal()
             self._post_residual_allocation_journals()
-
-        vals = {'state': 'closed'}
-        if sales_move:
-            vals['sales_journal_entry_id'] = sales_move.id
-        self.write(vals)
+            self._post_stock_consumption()
+            vals = {'state': 'closed'}
+            if sales_move:
+                vals['sales_journal_entry_id'] = sales_move.id
+            self.write(vals)
 
         # Auto-open next shift if site preferences say so
         prefs = self.env['fms.site.preferences'].get_for_company(self.company_id)
@@ -1103,11 +1103,11 @@ class FMSShift(models.Model):
             self._write_dip_logs()
             sales_move = self._post_sales_journal()
             self._post_residual_allocation_journals()
-
-        vals = {'state': 'closed'}
-        if sales_move:
-            vals['sales_journal_entry_id'] = sales_move.id
-        self.write(vals)
+            self._post_stock_consumption()
+            vals = {'state': 'closed'}
+            if sales_move:
+                vals['sales_journal_entry_id'] = sales_move.id
+            self.write(vals)
 
         self.message_post(
             body=(
@@ -1927,12 +1927,17 @@ class FMSShift(models.Model):
           CR  Product Revenue account  (per product, fms_revenue_account_id)
 
         Products without fms_revenue_account_id are skipped with a warning log.
+        Idempotent: returns existing move if already posted.
 
         Returns the created account.move or False if nothing to post.
         """
         self.ensure_one()
         import logging
         _logger = logging.getLogger(__name__)
+
+        # Idempotency: return existing entry rather than creating a duplicate
+        if self.sales_journal_entry_id:
+            return self.sales_journal_entry_id
 
         # Use elec_cash_sold (cash meter) as the authoritative revenue figure.
         # vol×price (amount_elec) is theoretical; the cash meter is what the
@@ -2071,3 +2076,85 @@ class FMSShift(models.Model):
             })
             move.action_post()
             alloc.sudo().write({'journal_entry_id': move.id})
+
+    def _post_stock_consumption(self):
+        """
+        Record fuel consumption in Odoo's stock ledger via validated stock.move records.
+
+        One stock.move per fuel product sold (grouped from meter entries).
+        Source: the fuel tank (stock.location with fms_is_fuel_tank=True, linked to product).
+        Destination: virtual "Customers" location (partner_id=False, usage=customer).
+
+        Idempotent: checks for existing stock.moves with origin matching this shift
+        before creating new ones.
+
+        Skipped when:
+          - No meter sales exist
+          - Tank has no fms_fuel_product_id configured
+          - Product has no storable type (service products don't move stock)
+        """
+        import logging
+        _logger = logging.getLogger(__name__)
+        self.ensure_one()
+
+        # Already posted — skip (idempotency)
+        existing = self.env['stock.move'].sudo().search([
+            ('origin', '=', f'FMS/{self.display_name}'),
+            ('state', '=', 'done'),
+        ], limit=1)
+        if existing:
+            return
+
+        # Qty sold per product from electronic (cash) meter — authoritative
+        qty_by_product = {}
+        for entry in self.meter_entry_ids:
+            pid = entry.product_id.id
+            qty_by_product[pid] = qty_by_product.get(pid, 0.0) + entry.qty_sold_elec
+
+        if not any(q > 0.01 for q in qty_by_product.values()):
+            return
+
+        # Map product → source tank (stock.location)
+        tanks = self.env['stock.location'].sudo().search([
+            ('fms_is_fuel_tank', '=', True),
+            ('fms_fuel_product_id', '!=', False),
+            ('active', '=', True),
+        ])
+        tank_by_product = {t.fms_fuel_product_id.id: t for t in tanks}
+
+        # Standard "Customers" virtual location
+        customer_loc = self.env.ref('stock.stock_location_customers', raise_if_not_found=False)
+        if not customer_loc:
+            _logger.warning("FMS stock: 'stock.stock_location_customers' not found — stock consumption skipped.")
+            return
+
+        for product in self.env['product.product'].sudo().browse(list(qty_by_product)):
+            qty = qty_by_product.get(product.id, 0.0)
+            if qty < 0.01:
+                continue
+            if product.type not in ('product', 'consu'):
+                # Service product — no stock ledger impact
+                continue
+            tank = tank_by_product.get(product.id)
+            if not tank:
+                _logger.warning(
+                    "FMS stock: no fuel tank configured for product '%s' — skipping stock move.",
+                    product.name,
+                )
+                continue
+
+            move = self.env['stock.move'].sudo().create({
+                'name': f'Fuel consumption — {product.name} — {self.display_name}',
+                'origin': f'FMS/{self.display_name}',
+                'product_id': product.id,
+                'product_uom': product.uom_id.id,
+                'product_uom_qty': qty,
+                'location_id': tank.id,
+                'location_dest_id': customer_loc.id,
+                'date': fields.Datetime.now(),
+                'company_id': self.company_id.id,
+            })
+            move._action_confirm()
+            move._action_assign()
+            move.sudo().write({'quantity': qty})
+            move._action_done()
