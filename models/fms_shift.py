@@ -1981,10 +1981,11 @@ class FMSShift(models.Model):
             'credit': 0.0,
         }))
 
-        # CR: one line per product
+        # CR: one line per product (net revenue) + tax lines when taxes configured
+        currency = self.company_id.currency_id
         for product in products:
-            amount = cash_by_product.get(product.id, 0.0)
-            if abs(amount) < 0.01:
+            gross = cash_by_product.get(product.id, 0.0)
+            if abs(gross) < 0.01:
                 continue
             if not product.fms_revenue_account_id:
                 _logger.warning(
@@ -1992,19 +1993,49 @@ class FMSShift(models.Model):
                     "skipped in sales journal for shift %s",
                     product.name, self.display_name,
                 )
-                total_cash -= amount  # keep DR balanced
+                total_cash -= gross  # keep DR balanced
                 continue
-            move_lines.append((0, 0, {
-                'account_id': product.fms_revenue_account_id.id,
-                'name': f'{product.name} — {self.display_name}',
-                'debit': 0.0,
-                'credit': amount,
-            }))
+
+            taxes = product.taxes_id.filtered(
+                lambda t: t.company_id == self.company_id
+            )
+            if taxes:
+                # Gross amount is tax-inclusive (cash meter collects total)
+                tax_res = taxes.compute_all(
+                    gross, currency=currency, quantity=1.0,
+                    product=product, partner=None,
+                    is_refund=False, handle_price_include=True,
+                )
+                net = tax_res['total_excluded']
+                # Revenue line (net)
+                move_lines.append((0, 0, {
+                    'account_id': product.fms_revenue_account_id.id,
+                    'name': f'{product.name} — {self.display_name}',
+                    'debit': 0.0,
+                    'credit': net,
+                }))
+                # One line per tax group
+                for tax_line in tax_res['taxes']:
+                    move_lines.append((0, 0, {
+                        'account_id': tax_line['account_id'],
+                        'name': f"VAT — {product.name} — {self.display_name}",
+                        'debit': 0.0,
+                        'credit': tax_line['amount'],
+                        'tax_line_id': tax_line['id'],
+                    }))
+            else:
+                # No taxes — post full gross to revenue
+                move_lines.append((0, 0, {
+                    'account_id': product.fms_revenue_account_id.id,
+                    'name': f'{product.name} — {self.display_name}',
+                    'debit': 0.0,
+                    'credit': gross,
+                }))
 
         if len(move_lines) < 2:
             return False
 
-        # Rebalance DR to equal actual sum of CRs (after skipping unconfigured products)
+        # Rebalance DR to equal actual sum of CRs (net revenue + tax lines)
         cr_total = sum(l[2]['credit'] for l in move_lines if l[2]['credit'])
         move_lines[0][2]['debit'] = cr_total
 

@@ -140,6 +140,9 @@ class FMSDipLog(models.Model):
                 log.variance_pct = 0.0
 
     def write(self, vals):
+        # Delivery update context: allow closing_volume update before picking is validated
+        if self.env.context.get('fms_delivery_update'):
+            return super().write(vals)
         raise ValidationError(
             "Dip logs are immutable. Contact your supervisor to post a correction entry."
         )
