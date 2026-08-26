@@ -1996,11 +1996,14 @@ class FMSShift(models.Model):
                 total_cash -= gross  # keep DR balanced
                 continue
 
+            # Only split price-inclusive taxes: the cash meter total = net + VAT.
+            # Tax-excluded taxes (posted separately on invoices) are skipped here
+            # to avoid double-counting — the DR clearing already reflects gross.
             taxes = product.taxes_id.filtered(
-                lambda t: t.company_id == self.company_id
+                lambda t: t.company_id == self.company_id and t.price_include
             )
             if taxes:
-                # Gross amount is tax-inclusive (cash meter collects total)
+                # Gross is tax-inclusive; back-calculate net and tax amounts.
                 tax_res = taxes.compute_all(
                     gross, currency=currency, quantity=1.0,
                     product=product, partner=None,
@@ -2029,7 +2032,7 @@ class FMSShift(models.Model):
                         'name': f"VAT — {product.name} — {self.display_name}",
                         'debit': 0.0,
                         'credit': tax_line['amount'],
-                        'tax_line_id': tax_line['id'],
+                        'tax_repartition_line_id': tax_line['tax_repartition_line_id'],
                     }))
             else:
                 # No taxes — post full gross to revenue
