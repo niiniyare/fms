@@ -1,0 +1,42 @@
+version: "3.8"
+
+services:
+
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: odoo
+      POSTGRES_PASSWORD: odoo
+      POSTGRES_DB: postgres
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "odoo"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  odoo:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8069:8069"
+    environment:
+      FMS_DB: fms
+      FMS_SEED: "false"       # set to "true" on first boot to load demo data
+    volumes:
+      - odoo_data:/var/lib/odoo
+      - odoo_logs:/var/log/odoo
+      # Live-reload FMS source during development (comment out for production)
+      - /home/niini/fms:/opt/fms
+      - /home/niini/fms_accounting:/opt/fms_accounting
+    command: odoo
+
+volumes:
+  pgdata:
+  odoo_data:
+  odoo_logs:
