@@ -11,3 +11,4 @@ from . import fms_price_period
 from . import fms_incident
 from . import fms_overview
 from . import fms_setup_check
+from . import fms_config_settings

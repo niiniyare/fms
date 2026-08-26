@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_fms_config_settings" model="ir.ui.view">
+        <field name="name">res.config.settings.fms</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="base.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//app[@name='general_settings']" position="after">
+                <app string="Forecourt" name="fms" id="fms"
+                     groups="fms.group_fms_supervisor">
+
+                    <block title="Shift Schedule" name="fms_shift_schedule">
+                        <setting string="Shift Duration"
+                                 help="Controls how many shifts run per day and which labels are assigned.">
+                            <field name="fms_shift_duration_hrs"/>
+                        </setting>
+                        <setting string="Auto-open Next Shift on Close"
+                                 help="When a shift closes, immediately create and open the next one.">
+                            <field name="fms_auto_open_next_shift"/>
+                        </setting>
+                        <setting string="Auto-sync Attendant Lines"
+                                 help="Automatically create attendant cash lines when Start Closing is clicked.">
+                            <field name="fms_auto_sync_attendants"/>
+                        </setting>
+                    </block>
+
+                    <block title="Gates &amp; Reconciliation" name="fms_gates">
+                        <setting string="Dip Variance Meniscus (%)"
+                                 help="Maximum allowed tank dip variance as % of closing volume. Shifts cannot close if exceeded.">
+                            <field name="fms_meniscus_pct"/>
+                        </setting>
+                        <setting string="Elec vs Cash Threshold (L)"
+                                 help="Maximum variance between electronic and cash meter readings per nozzle.">
+                            <field name="fms_elec_vs_cash_threshold_l"/>
+                        </setting>
+                        <setting string="Require POS Reconciliation"
+                                 help="Enforce volume and cash gate checks against linked POS sessions. Disable for stations using an external PTS system.">
+                            <field name="fms_require_pos_reconciliation"/>
+                        </setting>
+                        <setting string="Allow Multiple Disputed Shifts"
+                                 help="When disabled, only one shift can be in Disputed state at a time.">
+                            <field name="fms_allow_multiple_disputed"/>
+                        </setting>
+                    </block>
+
+                    <block title="Attendants" name="fms_attendants">
+                        <setting string="Attendant Assignment Mode"
+                                 help="Per Nozzle: supervisor sets attendant on each row. Pre-Assigned: uses the nozzle default.">
+                            <field name="fms_attendant_assignment_mode"/>
+                        </setting>
+                    </block>
+
+                    <block title="GL Accounts &amp; Journals" name="fms_gl">
+                        <setting string="Forecourt Sales Journal"
+                                 help="Journal used for shift sales entries.">
+                            <field name="fms_sales_journal_id"/>
+                        </setting>
+                        <setting string="Cash Clearing Account"
+                                 help="Debited on shift close for total cash sales before banking.">
+                            <field name="fms_clearing_account_id"/>
+                        </setting>
+                        <setting string="Default Fuel Revenue Account"
+                                 help="Pre-filled on new fuel products.">
+                            <field name="fms_default_revenue_account_id"/>
+                        </setting>
+                        <setting string="Default Fuel COGS Account"
+                                 help="Pre-filled on new fuel products.">
+                            <field name="fms_default_cogs_account_id"/>
+                        </setting>
+                    </block>
+
+                </app>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>
