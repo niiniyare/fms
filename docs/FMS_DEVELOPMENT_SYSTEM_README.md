@@ -81,8 +81,8 @@ Expected: **12/12 passing**
 
 ### 7. Visual Testing
 Follow the testing guide provided by CLI:
-1. Start Odoo: `./odoo-bin -d test_fms`
-2. Install FMS module
+1. Start Odoo: `make run`
+2. Open http://localhost:8070
 3. Create sample data (provided in guide)
 4. Take screenshot of working form
 5. Verify no errors in console (F12)
@@ -187,7 +187,7 @@ python dev-guide.py task FMS-002
 
 **Example (FMS-001):**
 ```
-1. Start Odoo: ./odoo-bin -d test_fms
+1. Start Odoo: make run  (http://localhost:8070)
 2. Install FMS module
 3. Create sample data:
    - Pumps: UX5, UX6, DX5
@@ -260,7 +260,7 @@ python dev-guide.py task FMS-002
 ┌─────────────────────────────────────────────────────────┐
 │ Step 5: Visual Testing (Follow Guide)                   │
 │                                                          │
-│ 1. Start Odoo: ./odoo-bin -d test_fms                  │
+│ 1. Start Odoo: make run  (http://localhost:8070)                  │
 │ 2. Install module: Settings → Apps → FMS               │
 │ 3. Create sample data (provided in guide)              │
 │ 4. Verify forms load, no errors                        │
@@ -482,8 +482,9 @@ fms/                              (Odoo module root)
 │   └── import_sample_data.py     (FMS-008)
 │
 └── docs/                         (Documentation)
-    ├── RUNBOOK.md                (FMS-008)
     ├── INSTALLATION.md           (FMS-008)
+    ├── runbook/                  (operational runbook, 11 sections)
+    ├── training/                 (training guides — setup, ops, finance)
     └── UAT_CHECKLIST.md          (FMS-008)
 ```
 
@@ -524,12 +525,12 @@ fms/                              (Odoo module root)
 
 ### 2. Show Status
 ```bash
-python dev-guide.py status
+make status
 ```
 
 ### 3. Start FMS-001
 ```bash
-python dev-guide.py task FMS-001
+make task TASK=FMS-001
 ```
 
 ### 4. Copy Prompt to Claude Code
@@ -574,4 +575,4 @@ Tests run locally, visual test in Odoo, approve, commit, move on.
 
 ---
 
-**Ready to build? Run: `python dev-guide.py task FMS-001`**
+**Ready to build? Run: `make task TASK=FMS-001`**

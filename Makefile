@@ -308,13 +308,13 @@ docs-patterns: ## View coding patterns
 	@less +G docs/fms-development.skill 2>/dev/null || cat docs/fms-development.skill
 
 docs-runbook: ## View operations runbook
-	@less +G docs/RUNBOOK.md 2>/dev/null || cat docs/RUNBOOK.md
+	@less docs/runbook/README.md 2>/dev/null || cat docs/runbook/README.md
 
 docs-install: ## View installation guide
 	@less +G docs/INSTALLATION.md 2>/dev/null || cat docs/INSTALLATION.md
 
-docs-commands: ## View commands reference
-	@less +G COMMANDS_REFERENCE.md 2>/dev/null || cat COMMANDS_REFERENCE.md
+docs-commands: ## View commands reference (make help)
+	@$(MAKE) help
 
 # ═════════════════════════════════════════════════════════════════════════════
 # CODE QUALITY
