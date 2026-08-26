@@ -7,12 +7,13 @@ DB="${FMS_DB:-fms}"
 
 # Wait for PostgreSQL
 echo "Waiting for PostgreSQL..."
-until pg_isready -h db -U odoo -q; do sleep 2; done
+until PGPASSWORD="${PGPASSWORD:-odoo}" pg_isready -h db -U odoo -q; do sleep 2; done
 echo "PostgreSQL ready."
 
 if [ "$1" = "odoo" ]; then
     # First boot: install modules if DB doesn't exist
-    if ! psql -h db -U odoo -lqt 2>/dev/null | cut -d\| -f1 | grep -qw "$DB"; then
+    if ! PGPASSWORD="${PGPASSWORD:-odoo}" psql -h db -U odoo -lqt \
+            | cut -d\| -f1 | grep -qw "$DB"; then
         echo "Creating database $DB and installing FMS..."
         $ODOO $CONF -d "$DB" \
             -i fms,fms_accounting \
@@ -20,7 +21,6 @@ if [ "$1" = "odoo" ]; then
             --load-language=en_US \
             --stop-after-init
 
-        # Seed demo data if requested
         if [ "${FMS_SEED:-false}" = "true" ]; then
             echo "Seeding demo data..."
             $ODOO $CONF shell -d "$DB" --no-http < /opt/fms/scripts/seed_e2e.py

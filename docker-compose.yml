@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
 
   db:
@@ -7,7 +5,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: odoo
-      POSTGRES_PASSWORD: odoo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-odoo}
       POSTGRES_DB: postgres
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -24,16 +22,14 @@ services:
       db:
         condition: service_healthy
     ports:
-      - "8069:8069"
+      - "${ODOO_PORT:-8069}:8069"
     environment:
-      FMS_DB: fms
-      FMS_SEED: "false"       # set to "true" on first boot to load demo data
+      FMS_DB: ${FMS_DB:-fms}
+      FMS_SEED: ${FMS_SEED:-false}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-odoo}
     volumes:
       - odoo_data:/var/lib/odoo
       - odoo_logs:/var/log/odoo
-      # Live-reload FMS source during development (comment out for production)
-      - /home/niini/fms:/opt/fms
-      - /home/niini/fms_accounting:/opt/fms_accounting
     command: odoo
 
 volumes:

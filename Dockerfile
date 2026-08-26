@@ -1,18 +1,18 @@
 FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive \
-    ODOO_VERSION=18.0 \
     LANG=en_US.UTF-8
 
 # ── System deps ───────────────────────────────────────────────────────────────
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 python3-pip python3-venv python3-dev \
     postgresql-client libpq-dev \
-    git curl wget gnupg2 \
+    git curl \
     libxml2-dev libxslt1-dev libldap2-dev libsasl2-dev \
     libjpeg-dev libpng-dev libfreetype6-dev \
     node-less npm \
     wkhtmltopdf \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 # ── Odoo 18 source ────────────────────────────────────────────────────────────
@@ -26,7 +26,6 @@ RUN python3 -m venv /opt/odoo-venv \
     && /opt/odoo-venv/bin/pip install openupgradelib cairosvg
 
 # ── OCA modules ───────────────────────────────────────────────────────────────
-WORKDIR /opt/oca
 RUN for repo in \
         account-financial-reporting \
         account-financial-tools \
@@ -38,8 +37,6 @@ RUN for repo in \
         server-tools \
         mis-builder; do \
     git clone --depth=1 --branch 18.0 \
-        https://github.com/OCA/$repo.git /opt/oca/$repo 2>/dev/null || \
-    git clone --depth=1 --branch 17.0 \
         https://github.com/OCA/$repo.git /opt/oca/$repo; \
 done \
     && /opt/odoo-venv/bin/pip install \
