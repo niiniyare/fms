@@ -215,10 +215,10 @@ class FMSOverview(models.TransientModel):
         )
 
         wrow = self._safe_query("""
-            SELECT tank_name, variance_pct_7d
+            SELECT tank_name, variance_pct
             FROM fms_report_wetstock
             WHERE company_id = %s AND shift_date >= %s
-            ORDER BY ABS(variance_pct_7d) DESC NULLS LAST
+            ORDER BY ABS(variance_pct) DESC NULLS LAST
             LIMIT 1
         """, (cid, ago_7), None)
         if wrow:
@@ -244,9 +244,9 @@ class FMSOverview(models.TransientModel):
         # ── Row 5: debtors (fms_accounting optional) ──────────────────────
 
         drow = self._safe_query("""
-            SELECT COALESCE(SUM(outstanding_balance), 0),
+            SELECT COALESCE(SUM(balance), 0),
                    COUNT(*) FILTER (WHERE over_limit),
-                   COALESCE(SUM(bucket_90plus), 0)
+                   COALESCE(SUM(bucket_90_plus), 0)
             FROM fms_report_debtor_aging
             WHERE company_id = %s
         """, (cid,), (0.0, 0, 0.0))
@@ -283,8 +283,7 @@ class FMSOverview(models.TransientModel):
         vals['current_attendant_count'] = row[0] or 0
 
         row = self._safe_query("""
-            SELECT COALESCE(ABS(SUM(cumulative_balance))
-                            FILTER (WHERE cumulative_balance < 0), 0)
+            SELECT COALESCE(ABS(SUM(cumulative_balance) FILTER (WHERE cumulative_balance < 0)), 0)
             FROM fms_report_shortage
             WHERE company_id = %s
         """, (cid,), (0.0,))
