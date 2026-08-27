@@ -20,7 +20,7 @@
 
                     <div class="alert alert-danger d-flex align-items-center gap-2 mb-0"
                          role="alert" invisible="not any_alert">
-                        <i class="fa fa-exclamation-triangle fa-lg"/>
+                        <i class="fa fa-exclamation-triangle fa-lg" title="Action required"/>
                         <div class="d-flex flex-wrap gap-2">
                             <button type="action" name="%(action_fms_shift)d"
                                     string="Shift(s) open past close time"
@@ -43,7 +43,7 @@
 
                     <div class="alert alert-success d-flex align-items-center gap-2 mb-0"
                          role="status" invisible="any_alert">
-                        <i class="fa fa-check-circle fa-lg"/>
+                        <i class="fa fa-check-circle fa-lg" title="All clear"/>
                         All clear — no action items.
                     </div>
 
@@ -90,12 +90,9 @@
 
                         <!-- FC Cash balance -->
                         <button type="action" name="%(action_fms_shift)d"
-                                class="o_stat_button"
-                                icon="fa-check-circle-o"
-                                invisible="yesterday_cash_var == 0"/>
-                        <button type="action" name="%(action_fms_shift)d"
                                 class="o_stat_button o_stat_button_danger"
                                 icon="fa-exclamation-circle"
+                                title="Cash variance — click to view shifts"
                                 invisible="yesterday_cash_var == 0">
                             <div class="o_stat_info">
                                 <span class="o_stat_text text-danger">Cash Var.</span>
@@ -108,6 +105,7 @@
                         <button type="action" name="%(action_fms_shift)d"
                                 class="o_stat_button"
                                 icon="fa-check-circle-o"
+                                title="Cash balanced"
                                 invisible="yesterday_cash_var != 0">
                             <div class="o_stat_info">
                                 <span class="o_stat_text text-success">Cash</span>
