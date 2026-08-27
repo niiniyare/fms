@@ -13,6 +13,7 @@ Tile layout (§15.2):
   Row 6  People     — current shift, nozzle assignments
 """
 
+import json
 from odoo import api, fields, models
 from datetime import date, timedelta
 
@@ -69,6 +70,9 @@ class FMSOverview(models.TransientModel):
     current_supervisor      = fields.Char('Supervisor',             readonly=True)
     current_attendant_count = fields.Integer('Attendants on Shift', readonly=True)
     open_shortage_kes       = fields.Float('Outstanding Shortages', readonly=True, digits=(16, 0))
+
+    # ── Graph — 30-day daily throughput (L) for dashboard_graph widget ────────
+    throughput_graph        = fields.Text('Throughput Graph JSON',  readonly=True)
 
     # ------------------------------------------------------------------
     # Singleton entry point — action opens (or refreshes) one record
@@ -288,5 +292,26 @@ class FMSOverview(models.TransientModel):
             WHERE company_id = %s
         """, (cid,), (0.0,))
         vals['open_shortage_kes'] = float(row[0] or 0)
+
+        # ── 30-day throughput graph (L per day) ───────────────────────────
+        graph_rows = []
+        try:
+            cr.execute("""
+                SELECT s.date::text, COALESCE(SUM(me.qty_sold_elec), 0)
+                FROM fms_shift s
+                LEFT JOIN fms_shift_meter_entry me ON me.shift_id = s.id
+                WHERE s.company_id = %s AND s.state = 'closed'
+                  AND s.date >= %s
+                GROUP BY s.date ORDER BY s.date
+            """, (cid, ago_30))
+            graph_rows = [{'x': r[0], 'y': float(r[1])} for r in cr.fetchall()]
+        except Exception:
+            pass
+        vals['throughput_graph'] = json.dumps([{
+            'values': graph_rows,
+            'title': 'Throughput (L)',
+            'key': 'throughput',
+            'area': True,
+        }])
 
         return vals
