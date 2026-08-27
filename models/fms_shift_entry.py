@@ -166,7 +166,10 @@ class FMSShiftMeterEntry(models.Model):
         self._check_shift_open()
         result = super().write(vals)
         if 'attendant_id' in vals:
-            self.mapped('shift_id')._sync_attendant_cash_lines()
+            for shift in self.mapped('shift_id'):
+                prefs = self.env['fms.site.preferences'].get_for_company(shift.company_id)
+                if prefs.auto_sync_attendants:
+                    shift._sync_attendant_cash_lines()
         return result
 
     def unlink(self):
