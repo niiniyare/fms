@@ -25,8 +25,8 @@ PROJECT_NAME := FMS (Forecourt Management System)
 PYTHON       := python3
 PYTEST       := pytest
 
-# Main working database (fms_e2e) — used for all daily commands
-DB_NAME      := fms_e2e
+# Main working database — used for all daily commands
+DB_NAME      := fms
 ODOO_PORT    := 8070
 
 # Test-only database — recreated fresh for every 'make test' run

@@ -38,6 +38,17 @@ class StockLocationFMS(models.Model):
                                             help="Buffer days on top of lead time.")
 
 
+class ProductCategoryFMS(models.Model):
+    """Extend product.category with FMS classification flags."""
+
+    _inherit = 'product.category'
+
+    fms_is_fuel = fields.Boolean('Is Fuel Category', default=False,
+        help='Products in this category are treated as fuel products by FMS.')
+    fms_is_fms = fields.Boolean('Is FMS Product Category', default=False,
+        help='Category managed/tracked by FMS (fuel, lubricants, LPG, filters, etc.).')
+
+
 class ProductProductFMS(models.Model):
     """Extend product.product with fuel-specific accounting fields."""
 
