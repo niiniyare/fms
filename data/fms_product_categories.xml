@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- FMS product categories with fms_is_fms / fms_is_fuel flags -->
+    <record id="categ_fuel" model="product.category">
+        <field name="name">Fuel</field>
+        <field name="parent_id" ref="product.product_category_all"/>
+        <field name="fms_is_fms" eval="True"/>
+        <field name="fms_is_fuel" eval="True"/>
+    </record>
+    <record id="categ_lubricants" model="product.category">
+        <field name="name">Lubricants</field>
+        <field name="parent_id" ref="product.product_category_all"/>
+        <field name="fms_is_fms" eval="True"/>
+        <field name="fms_is_fuel" eval="False"/>
+    </record>
+    <record id="categ_lpg" model="product.category">
+        <field name="name">LPG</field>
+        <field name="parent_id" ref="product.product_category_all"/>
+        <field name="fms_is_fms" eval="True"/>
+        <field name="fms_is_fuel" eval="False"/>
+    </record>
+    <record id="categ_filters_air" model="product.category">
+        <field name="name">Filters - Air</field>
+        <field name="parent_id" ref="product.product_category_all"/>
+        <field name="fms_is_fms" eval="True"/>
+        <field name="fms_is_fuel" eval="False"/>
+    </record>
+    <record id="categ_filters_oil" model="product.category">
+        <field name="name">Filters - Oil</field>
+        <field name="parent_id" ref="product.product_category_all"/>
+        <field name="fms_is_fms" eval="True"/>
+        <field name="fms_is_fuel" eval="False"/>
+    </record>
+    <record id="categ_filters_fuel" model="product.category">
+        <field name="name">Filters - Fuel</field>
+        <field name="parent_id" ref="product.product_category_all"/>
+        <field name="fms_is_fms" eval="True"/>
+        <field name="fms_is_fuel" eval="False"/>
+    </record>
+    <record id="categ_filters_cabin" model="product.category">
+        <field name="name">Filters - Cabin</field>
+        <field name="parent_id" ref="product.product_category_all"/>
+        <field name="fms_is_fms" eval="True"/>
+        <field name="fms_is_fuel" eval="False"/>
+    </record>
+    <record id="categ_spark_plugs" model="product.category">
+        <field name="name">Spark Plugs</field>
+        <field name="parent_id" ref="product.product_category_all"/>
+        <field name="fms_is_fms" eval="True"/>
+        <field name="fms_is_fuel" eval="False"/>
+    </record>
+    <record id="categ_brake_parts" model="product.category">
+        <field name="name">Brake Parts</field>
+        <field name="parent_id" ref="product.product_category_all"/>
+        <field name="fms_is_fms" eval="True"/>
+        <field name="fms_is_fuel" eval="False"/>
+    </record>
+    <record id="categ_fluids_coolants" model="product.category">
+        <field name="name">Fluids &amp; Coolants</field>
+        <field name="parent_id" ref="product.product_category_all"/>
+        <field name="fms_is_fms" eval="True"/>
+        <field name="fms_is_fuel" eval="False"/>
+    </record>
+    <record id="categ_accessories_misc" model="product.category">
+        <field name="name">Accessories &amp; Misc</field>
+        <field name="parent_id" ref="product.product_category_all"/>
+        <field name="fms_is_fms" eval="True"/>
+        <field name="fms_is_fuel" eval="False"/>
+    </record>
+    <record id="categ_services" model="product.category">
+        <field name="name">Services</field>
+        <field name="parent_id" ref="product.product_category_all"/>
+        <field name="fms_is_fms" eval="False"/>
+        <field name="fms_is_fuel" eval="False"/>
+    </record>
+</odoo>

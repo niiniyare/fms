@@ -58,6 +58,7 @@ Reference: Complete specification in FMS_Complete_Specification_Technical_Guide.
         "data/fms_sequences.xml",
         "data/fms_site_preferences.xml",
         "data/fms_company_defaults.xml",
+        "data/fms_product_categories.xml",
 
         # Menu structure first — all view files and menus depend on root/section menus
         "views/fms_menu_structure.xml",
