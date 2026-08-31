@@ -670,11 +670,10 @@ class FMSShift(models.Model):
                     book_stock = quant.quantity if quant else 0.0
 
                 dip_entries.append({
-                    'shift_id':       self.id,
-                    'location_id':    tank.id,
-                    'opening_volume': opening_vol,
-                    'closing_volume': 0.0,
-                    'delivery_qty':   0.0,
+                    'shift_id':        self.id,
+                    'location_id':     tank.id,
+                    'opening_volume':  opening_vol,
+                    'closing_volume':  0.0,
                     'book_stock_open': book_stock,
                 })
             if dip_entries:
@@ -1391,9 +1390,26 @@ class FMSShift(models.Model):
         """, (self.id, product.id))
         meter_sales = self.env.cr.fetchone()[0]
 
+        # Delivery qty: sum of confirmed/billed delivery lines into this tank this shift
+        # fms_accounting may not be installed — check table existence
+        delivery = 0.0
+        self.env.cr.execute("""
+            SELECT to_regclass('fms_fuel_delivery_line')
+        """)
+        if self.env.cr.fetchone()[0]:
+            self.env.cr.execute("""
+                SELECT COALESCE(SUM(fdl.quantity_litres), 0.0)
+                FROM fms_fuel_delivery_line fdl
+                JOIN fms_fuel_delivery fd ON fd.id = fdl.delivery_id
+                WHERE fdl.location_id = %s
+                  AND fd.shift_id = %s
+                  AND fd.state IN ('confirmed', 'billed')
+                  AND fd.company_id = ANY(%s)
+            """, (location.id, self.id, company_ids))
+            delivery = self.env.cr.fetchone()[0]
+
         # Shift variance
         opening   = dip_entry.opening_volume or 0.0
-        delivery  = dip_entry.delivery_qty or 0.0
         closing   = dip_entry.closing_volume or 0.0
         shift_var = closing - (opening + delivery - meter_sales)
 

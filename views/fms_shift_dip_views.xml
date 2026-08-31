@@ -15,7 +15,6 @@
                 <field name="product_id"/>
                 <field name="opening_volume" string="Opening (L)" optional="show"/>
                 <field name="book_stock_open" string="Book Stock (L)" optional="show"/>
-                <field name="delivery_qty" string="Delivery (L)" optional="show"/>
                 <field name="closing_volume" string="Closing Dip (L)"/>
                 <field name="notes" optional="hide"/>
             </list>
@@ -37,7 +36,6 @@
                         <group string="Volumes">
                             <field name="opening_volume" readonly="1"/>
                             <field name="book_stock_open" readonly="1"/>
-                            <field name="delivery_qty"/>
                             <field name="closing_volume"/>
                         </group>
                     </group>

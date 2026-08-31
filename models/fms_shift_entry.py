@@ -223,8 +223,6 @@ class FMSShiftDipEntry(models.Model):
         help="Closing dip from previous shift — auto-populated on shift open.")
     closing_volume = fields.Float('Closing Dip (L)', digits=(16, 2),
         help="Physical stick reading at end of shift.")
-    delivery_qty = fields.Float('Delivery (L)', digits=(16, 2), default=0.0,
-        help="Litres delivered into this tank during the shift. Leave 0 if no delivery.")
     book_stock_open = fields.Float('Book Stock (L)', digits=(16, 2), readonly=True,
         help="Odoo inventory stock for this tank at the moment the shift was opened.")
 
@@ -266,11 +264,10 @@ class FMSShiftDipEntry(models.Model):
         """
         self.ensure_one()
         vals = {
-            'shift_id':       self.shift_id.id,
-            'location_id':    self.location_id.id,
-            'opening_volume': self.opening_volume,
-            'closing_volume': self.closing_volume,
-            'delivery_qty':   self.delivery_qty,
+            'shift_id':        self.shift_id.id,
+            'location_id':     self.location_id.id,
+            'opening_volume':  self.opening_volume,
+            'closing_volume':  self.closing_volume,
             'book_stock_open': self.book_stock_open,
         }
         if variance_data:

@@ -190,8 +190,6 @@
                                            string="Opening (L)" optional="show"/>
                                     <field name="book_stock_open" readonly="1"
                                            string="Book Stock (L)" optional="show"/>
-                                    <field name="delivery_qty"
-                                           string="Delivery (L)"/>
                                     <field name="closing_volume"
                                            string="Closing Dip (L)"/>
                                     <field name="notes" optional="hide"/>
