@@ -11,7 +11,7 @@
 	start-task finish-task dev-cycle \
 	s t o h \
 	odoo odoo-dev odoo-shell odoo-install odoo-update odoo-test \
-	odoo-e2e-create odoo-e2e-seed odoo-e2e-update odoo-e2e odoo-e2e-drop
+	odoo-create odoo-seed odoo-update odoo-e2e odoo-drop
 
 # ── Colors ────────────────────────────────────────────────────────────────────
 BLUE   := \033[0;34m
@@ -80,10 +80,10 @@ help: ## Show this help
 	@grep -E '^[a-z][a-z0-9-]+:.*?## ' Makefile | awk 'BEGIN {FS = ":.*?## "} {printf "  $(GREEN)%-25s$(NC) %s\n", $$1, $$2}' | sort
 
 # ═════════════════════════════════════════════════════════════════════════════
-# DAILY COMMANDS  (all target fms_e2e on port 8070)
+# DAILY COMMANDS  (all target fms on port 8070)
 # ═════════════════════════════════════════════════════════════════════════════
 
-setup: ## Create fms_e2e DB and install FMS modules (first time)
+setup: ## Create fms DB and install FMS modules (first time)
 	@echo "$(BLUE)Creating $(DB_NAME)...$(NC)"
 	$(ODOO_VENV) $(ODOO_BIN) -d $(DB_NAME) \
 		-i fms,fms_accounting \
@@ -92,7 +92,7 @@ setup: ## Create fms_e2e DB and install FMS modules (first time)
 		--load-language=en_US
 	@echo "$(GREEN)✓ $(DB_NAME) created. Next: make seed$(NC)"
 
-seed: ## Seed fms_e2e with Kenya CoA + products + demo data
+seed: ## Seed fms with Kenya CoA + products + demo data
 	@echo "$(BLUE)Seeding $(DB_NAME)...$(NC)"
 	@$(ODOO_VENV) $(ODOO_BIN) shell -d $(DB_NAME) \
 		--addons-path=$(ODOO_ADDONS) --no-http \
@@ -124,7 +124,7 @@ shell: ## Open Odoo interactive Python shell
 	@$(ODOO_VENV) $(ODOO_BIN) shell -d $(DB_NAME) \
 		--addons-path=$(ODOO_ADDONS)
 
-drop: ## Drop fms_e2e database (WARNING: deletes all data!)
+drop: ## Drop fms database (WARNING: deletes all data!)
 	@echo "$(RED)WARNING: This will delete $(DB_NAME)$(NC)"
 	@read -p "Type 'yes' to confirm: " confirm; \
 	if [ "$$confirm" = "yes" ]; then \
@@ -134,7 +134,7 @@ drop: ## Drop fms_e2e database (WARNING: deletes all data!)
 		echo "$(YELLOW)Cancelled$(NC)"; \
 	fi
 
-reset: ## Drop + setup + seed fms_e2e from scratch
+reset: ## Drop + setup + seed fms from scratch
 	@echo "$(RED)WARNING: Deletes and recreates $(DB_NAME)$(NC)"
 	@read -p "Type 'yes' to confirm: " confirm; \
 	if [ "$$confirm" = "yes" ]; then \
@@ -429,11 +429,11 @@ odoo-shell:      shell
 odoo-install:    setup
 odoo-update:     upgrade
 odoo-test:       test
-odoo-e2e-create: setup
-odoo-e2e-seed:   seed
-odoo-e2e-update: upgrade
+odoo-create: setup
+odoo-seed:   seed
+odoo-update: upgrade
 odoo-e2e:        run
-odoo-e2e-drop:   drop
+odoo-drop:   drop
 
 # ─────────────────────────────────────────────────────────────────────────────
 # END
