@@ -30,9 +30,9 @@
                             <div class="col-8">
                                 <h2>Shift Reconciliation Report</h2>
                                 <h4>
-                                    <t t-esc="shift.date"/>
+                                    <t t-out="shift.date"/>
                                     —
-                                    <t t-esc="dict(shift._fields['label'].selection).get(shift.label, shift.label)"/>
+                                    <t t-out="dict(shift._fields['label'].selection).get(shift.label, shift.label)"/>
                                 </h4>
                             </div>
                             <div class="col-4 text-end">
@@ -42,7 +42,7 @@
                                     'bg-warning' if shift.state == 'closing' else
                                     'bg-dark'
                                 } fs-6">
-                                    <t t-esc="dict(shift._fields['state'].selection).get(shift.state, shift.state).upper()"/>
+                                    <t t-out="dict(shift._fields['state'].selection).get(shift.state, shift.state).upper()"/>
                                 </span>
                             </div>
                         </div>
@@ -53,19 +53,19 @@
                                 <table class="table table-sm table-borderless">
                                     <tr>
                                         <td class="fw-bold" style="width:40%">Supervisor</td>
-                                        <td><t t-esc="shift.supervisor_id.name"/></td>
+                                        <td><t t-out="shift.supervisor_id.name"/></td>
                                     </tr>
                                     <tr>
                                         <td class="fw-bold">Company</td>
-                                        <td><t t-esc="shift.company_id.name"/></td>
+                                        <td><t t-out="shift.company_id.name"/></td>
                                     </tr>
                                     <tr>
                                         <td class="fw-bold">Opened At</td>
-                                        <td><t t-esc="shift.opening_meter_date or '—'"/></td>
+                                        <td><t t-out="shift.opening_meter_date or '—'"/></td>
                                     </tr>
                                     <tr>
                                         <td class="fw-bold">Closed At</td>
-                                        <td><t t-esc="shift.closing_meter_date or '—'"/></td>
+                                        <td><t t-out="shift.closing_meter_date or '—'"/></td>
                                     </tr>
                                 </table>
                             </div>
@@ -74,13 +74,13 @@
                                     <tr>
                                         <td class="fw-bold" style="width:50%">Total Meter Sales</td>
                                         <td class="text-end">
-                                            <t t-esc="shift.company_id.currency_id.name"/> <t t-esc="'{:,.2f}'.format(shift.total_meter_sales)"/>
+                                            <t t-out="shift.company_id.currency_id.name"/> <t t-out="'{:,.2f}'.format(shift.total_meter_sales)"/>
                                         </td>
                                     </tr>
                                     <tr>
                                         <td class="fw-bold">Total Reported Sales</td>
                                         <td class="text-end">
-                                            <t t-esc="shift.company_id.currency_id.name"/> <t t-esc="'{:,.2f}'.format(shift.total_reported_sales)"/>
+                                            <t t-out="shift.company_id.currency_id.name"/> <t t-out="'{:,.2f}'.format(shift.total_reported_sales)"/>
                                         </td>
                                     </tr>
                                     <tr>
@@ -88,14 +88,14 @@
                                         <td t-attf-class="text-end fw-bold #{
                                             'text-success' if abs(shift.fc_cash_balance) &lt; 0.01 else 'text-danger'
                                         }">
-                                            <t t-esc="shift.company_id.currency_id.name"/> <t t-esc="'{:,.2f}'.format(shift.fc_cash_balance)"/>
+                                            <t t-out="shift.company_id.currency_id.name"/> <t t-out="'{:,.2f}'.format(shift.fc_cash_balance)"/>
                                         </td>
                                     </tr>
                                     <t t-if="shift.sales_journal_entry_id">
                                         <tr>
                                             <td class="fw-bold">Sales GL Entry</td>
                                             <td class="text-end">
-                                                <t t-esc="shift.sales_journal_entry_id.name"/>
+                                                <t t-out="shift.sales_journal_entry_id.name"/>
                                             </td>
                                         </tr>
                                     </t>
@@ -115,19 +115,19 @@
                                         <th class="text-end">Opening (L)</th>
                                         <th class="text-end">Closing (L)</th>
                                         <th class="text-end">Qty Sold (L)</th>
-                                        <th class="text-end">Amount </th>
+                                        <th class="text-end">Amount</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <t t-foreach="shift.meter_entry_ids" t-as="entry">
                                         <tr>
-                                            <td><t t-esc="entry.pump_id.name"/></td>
-                                            <td><t t-esc="entry.nozzle_id.name"/></td>
-                                            <td><t t-esc="entry.product_id.name"/></td>
-                                            <td class="text-end"><t t-esc="'{:,.2f}'.format(entry.opening_elec_volume)"/></td>
-                                            <td class="text-end"><t t-esc="'{:,.2f}'.format(entry.closing_elec_volume)"/></td>
-                                            <td class="text-end"><t t-esc="'{:,.2f}'.format(entry.qty_sold_elec)"/></td>
-                                            <td class="text-end"><t t-esc="'{:,.2f}'.format(entry.amount_elec)"/></td>
+                                            <td><t t-out="entry.pump_id.name"/></td>
+                                            <td><t t-out="entry.nozzle_id.name"/></td>
+                                            <td><t t-out="entry.product_id.name"/></td>
+                                            <td class="text-end"><t t-out="'{:,.2f}'.format(entry.opening_elec_volume)"/></td>
+                                            <td class="text-end"><t t-out="'{:,.2f}'.format(entry.closing_elec_volume)"/></td>
+                                            <td class="text-end"><t t-out="'{:,.2f}'.format(entry.qty_sold_elec)"/></td>
+                                            <td class="text-end"><t t-out="'{:,.2f}'.format(entry.amount_elec)"/></td>
                                         </tr>
                                     </t>
                                 </tbody>
@@ -135,10 +135,10 @@
                                     <tr>
                                         <td colspan="5">Total</td>
                                         <td class="text-end">
-                                            <t t-esc="'{:,.2f}'.format(sum(shift.meter_entry_ids.mapped('qty_sold_elec')))"/>
+                                            <t t-out="'{:,.2f}'.format(sum(shift.meter_entry_ids.mapped('qty_sold_elec')))"/>
                                         </td>
                                         <td class="text-end">
-                                            <t t-esc="shift.company_id.currency_id.name"/> <t t-esc="'{:,.2f}'.format(shift.total_meter_sales)"/>
+                                            <t t-out="shift.company_id.currency_id.name"/> <t t-out="'{:,.2f}'.format(shift.total_meter_sales)"/>
                                         </td>
                                     </tr>
                                 </tfoot>
@@ -154,31 +154,22 @@
                                         <th>Tank</th>
                                         <th>Product</th>
                                         <th class="text-end">Opening (L)</th>
-                                        <th class="text-end">Closing (L)</th>
+                                        <th class="text-end">Book Stock (L)</th>
+                                        <th class="text-end">Closing Dip (L)</th>
                                         <th class="text-end">Change (L)</th>
-                                        <th class="text-end">Variance %</th>
-                                        <th>Status</th>
+                                        <th>Notes</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <t t-foreach="shift.dip_entry_ids" t-as="dip">
                                         <tr>
-                                            <td><t t-esc="dip.location_id.name"/></td>
-                                            <td><t t-esc="dip.product_id.name or '—'"/></td>
-                                            <td class="text-end"><t t-esc="'{:,.2f}'.format(dip.opening_volume)"/></td>
-                                            <td class="text-end"><t t-esc="'{:,.2f}'.format(dip.closing_volume)"/></td>
-                                            <td class="text-end"><t t-esc="'{:,.2f}'.format(dip.qty_change)"/></td>
-                                            <td t-attf-class="text-end #{
-                                                'text-success' if dip.variance_pct &lt;= 0.5 else
-                                                'text-warning' if dip.variance_pct &lt;= 2.0 else 'text-danger'
-                                            }">
-                                                <t t-esc="'{:.4f}'.format(dip.variance_pct)"/>%
-                                            </td>
-                                            <td>
-                                                <t t-if="dip.variance_pct &lt;= 0.5">OK</t>
-                                                <t t-elif="dip.variance_pct &lt;= 2.0">WARNING</t>
-                                                <t t-else="">EXCEEDED</t>
-                                            </td>
+                                            <td><t t-out="dip.location_id.name"/></td>
+                                            <td><t t-out="dip.product_id.name or '—'"/></td>
+                                            <td class="text-end"><t t-out="'{:,.2f}'.format(dip.opening_volume)"/></td>
+                                            <td class="text-end"><t t-out="'{:,.2f}'.format(dip.book_stock_open)"/></td>
+                                            <td class="text-end"><t t-out="'{:,.2f}'.format(dip.closing_volume)"/></td>
+                                            <td class="text-end"><t t-out="'{:,.2f}'.format(dip.closing_volume - dip.opening_volume)"/></td>
+                                            <td><t t-out="dip.notes or ''"/></td>
                                         </tr>
                                     </t>
                                 </tbody>
@@ -192,29 +183,29 @@
                                 <thead class="table-light">
                                     <tr>
                                         <th>Attendant</th>
-                                        <th class="text-end">POS Sales </th>
-                                        <th class="text-end">MPesa </th>
-                                        <th class="text-end">Card </th>
-                                        <th class="text-end">AR </th>
-                                        <th class="text-end">Expenses </th>
-                                        <th class="text-end">Cash Dropped </th>
-                                        <th class="text-end">Balance </th>
+                                        <th class="text-end">Pump Sales</th>
+                                        <th class="text-end">MPesa</th>
+                                        <th class="text-end">Card</th>
+                                        <th class="text-end">AR</th>
+                                        <th class="text-end">Expenses</th>
+                                        <th class="text-end">Cash Dropped</th>
+                                        <th class="text-end">Balance</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <t t-foreach="shift.attendant_cash_ids" t-as="cash">
                                         <tr>
-                                            <td><t t-esc="cash.attendant_id.name"/></td>
-                                            <td class="text-end"><t t-esc="'{:,.2f}'.format(cash.reported_sales)"/></td>
-                                            <td class="text-end"><t t-esc="'{:,.2f}'.format(cash.mpesa_amount)"/></td>
-                                            <td class="text-end"><t t-esc="'{:,.2f}'.format(cash.card_amount)"/></td>
-                                            <td class="text-end"><t t-esc="'{:,.2f}'.format(cash.ar_amount)"/></td>
-                                            <td class="text-end"><t t-esc="'{:,.2f}'.format(cash.expense_amount)"/></td>
-                                            <td class="text-end"><t t-esc="'{:,.2f}'.format(cash.cash_collected)"/></td>
+                                            <td><t t-out="cash.attendant_id.name"/></td>
+                                            <td class="text-end"><t t-out="'{:,.2f}'.format(cash.reported_sales)"/></td>
+                                            <td class="text-end"><t t-out="'{:,.2f}'.format(cash.mpesa_amount)"/></td>
+                                            <td class="text-end"><t t-out="'{:,.2f}'.format(cash.card_amount)"/></td>
+                                            <td class="text-end"><t t-out="'{:,.2f}'.format(cash.ar_amount)"/></td>
+                                            <td class="text-end"><t t-out="'{:,.2f}'.format(cash.expense_amount)"/></td>
+                                            <td class="text-end"><t t-out="'{:,.2f}'.format(cash.cash_collected)"/></td>
                                             <td t-attf-class="text-end fw-bold #{
                                                 'text-success' if abs(cash.balance) &lt; 0.01 else 'text-danger'
                                             }">
-                                                <t t-esc="'{:,.2f}'.format(cash.balance)"/>
+                                                <t t-out="'{:,.2f}'.format(cash.balance)"/>
                                             </td>
                                         </tr>
                                     </t>
@@ -230,30 +221,30 @@
                                     <tr>
                                         <th>Product</th>
                                         <th class="text-end">Meter Qty (L)</th>
-                                        <th class="text-end">Meter Amount </th>
+                                        <th class="text-end">Meter Amount</th>
                                         <th class="text-end">Residual Qty (L)</th>
-                                        <th class="text-end">Residual Amt </th>
+                                        <th class="text-end">Residual Amt</th>
                                         <th>Status</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <t t-foreach="shift.product_sales_ids" t-as="ps">
                                         <tr>
-                                            <td><t t-esc="ps.product_id.name"/></td>
-                                            <td class="text-end"><t t-esc="'{:,.2f}'.format(ps.qty_sold_elec)"/></td>
-                                            <td class="text-end"><t t-esc="'{:,.2f}'.format(ps.amount_elec)"/></td>
-                                            <td class="text-end"><t t-esc="'{:,.2f}'.format(ps.residual_qty)"/></td>
+                                            <td><t t-out="ps.product_id.name"/></td>
+                                            <td class="text-end"><t t-out="'{:,.2f}'.format(ps.qty_sold_elec)"/></td>
+                                            <td class="text-end"><t t-out="'{:,.2f}'.format(ps.amount_elec)"/></td>
+                                            <td class="text-end"><t t-out="'{:,.2f}'.format(ps.residual_qty)"/></td>
                                             <td t-attf-class="text-end #{
                                                 'text-success' if abs(ps.residual_amount) &lt; 0.01 else
                                                 'text-warning' if ps.residual_amount &gt; 0 else 'text-danger'
                                             }">
-                                                <t t-esc="'{:,.2f}'.format(ps.residual_amount)"/>
+                                                <t t-out="'{:,.2f}'.format(ps.residual_amount)"/>
                                             </td>
                                             <td t-attf-class="#{
                                                 'text-success' if ps.residual_type == 'none' else
                                                 'text-warning' if ps.residual_type == 'under' else 'text-danger'
                                             }">
-                                                <t t-esc="dict([
+                                                <t t-out="dict([
                                                     ('none','Balanced'),
                                                     ('over','Over-reported'),
                                                     ('under','Under-reported'),
@@ -266,10 +257,10 @@
                                     <tr>
                                         <td>Total</td>
                                         <td class="text-end">
-                                            <t t-esc="'{:,.2f}'.format(sum(shift.product_sales_ids.mapped('qty_sold_elec')))"/>
+                                            <t t-out="'{:,.2f}'.format(sum(shift.product_sales_ids.mapped('qty_sold_elec')))"/>
                                         </td>
                                         <td class="text-end">
-                                            <t t-esc="shift.company_id.currency_id.name"/> <t t-esc="'{:,.2f}'.format(shift.total_meter_sales)"/>
+                                            <t t-out="shift.company_id.currency_id.name"/> <t t-out="'{:,.2f}'.format(shift.total_meter_sales)"/>
                                         </td>
                                         <td colspan="3"></td>
                                     </tr>
@@ -286,18 +277,18 @@
                                         <th>From (Over-reported)</th>
                                         <th>To (Under-reported)</th>
                                         <th class="text-end">Qty (L)</th>
-                                        <th class="text-end">Amount </th>
+                                        <th class="text-end">Amount</th>
                                         <th>GL Entry</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <t t-foreach="shift.residual_allocation_ids" t-as="alloc">
                                         <tr>
-                                            <td><t t-esc="alloc.source_product_id.name"/></td>
-                                            <td><t t-esc="alloc.target_product_id.name"/></td>
-                                            <td class="text-end"><t t-esc="'{:,.2f}'.format(alloc.qty_litres)"/></td>
-                                            <td class="text-end"><t t-esc="'{:,.2f}'.format(alloc.amount)"/></td>
-                                            <td><t t-esc="alloc.journal_entry_id.name or '—'"/></td>
+                                            <td><t t-out="alloc.source_product_id.name"/></td>
+                                            <td><t t-out="alloc.target_product_id.name"/></td>
+                                            <td class="text-end"><t t-out="'{:,.2f}'.format(alloc.qty_litres)"/></td>
+                                            <td class="text-end"><t t-out="'{:,.2f}'.format(alloc.amount)"/></td>
+                                            <td><t t-out="alloc.journal_entry_id.name or '—'"/></td>
                                         </tr>
                                     </t>
                                 </tbody>
@@ -317,7 +308,7 @@
                                     <td t-attf-class="text-end #{
                                         'text-success' if abs(shift.fc_cash_balance) &lt; 0.01 else 'text-danger'
                                     }">
-                                        <t t-esc="shift.company_id.currency_id.name"/> <t t-esc="'{:,.2f}'.format(shift.fc_cash_balance)"/>
+                                        <t t-out="shift.company_id.currency_id.name"/> <t t-out="'{:,.2f}'.format(shift.fc_cash_balance)"/>
                                     </td>
                                 </tr>
                                 <tr>
@@ -327,17 +318,18 @@
                                     </td>
                                     <td><strong>GATE 2 — All Attendants Clear</strong></td>
                                     <td class="text-end">
-                                        <t t-esc="len([c for c in shift.attendant_cash_ids if abs(c.balance) &gt;= 0.01])"/> unresolved
+                                        <t t-out="len([c for c in shift.attendant_cash_ids if abs(c.balance) &gt;= 0.01])"/> unresolved
                                     </td>
                                 </tr>
                                 <tr>
                                     <td>
-                                        <t t-if="all(d.variance_pct &lt;= 0.5 or d.closing_volume &lt;= 0 for d in shift.dip_entry_ids)">✓</t>
-                                        <t t-else="">✗</t>
+                                        <t t-if="shift.state == 'closed'">✓</t>
+                                        <t t-else="">—</t>
                                     </td>
-                                    <td><strong>GATE 3 — Stock Variance &lt; ±0.5%</strong></td>
-                                    <td class="text-end">
-                                        <t t-esc="len([d for d in shift.dip_entry_ids if d.variance_pct &gt; 0.5 and d.closing_volume &gt; 0])"/> tanks exceeded
+                                    <td><strong>GATE 3 — Tank Dip Variance (±1,000 L meniscus)</strong></td>
+                                    <td class="text-end text-muted">
+                                        <t t-if="shift.state == 'closed'">Passed at close</t>
+                                        <t t-else="">Checked on shift close</t>
                                     </td>
                                 </tr>
                             </table>
