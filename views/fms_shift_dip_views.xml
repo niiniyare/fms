@@ -2,7 +2,7 @@
 <odoo>
 
     <!-- ================================================================
-         Standalone dip entry views
+         Standalone dip entry views (used in Reporting → Dip Entries)
     ================================================================ -->
 
     <record id="view_fms_shift_dip_entry_tree" model="ir.ui.view">
@@ -11,13 +11,13 @@
         <field name="arch" type="xml">
             <list string="Dip Entries">
                 <field name="shift_id"/>
-                <field name="location_id"/>
+                <field name="location_id" string="Tank"/>
                 <field name="product_id"/>
-                <field name="opening_volume"/>
-                <field name="closing_volume"/>
-                <field name="qty_change"/>
-                <field name="variance_pct"
-                       decoration-danger="variance_pct > 0.5"/>
+                <field name="opening_volume" string="Opening (L)" optional="show"/>
+                <field name="book_stock_open" string="Book Stock (L)" optional="show"/>
+                <field name="delivery_qty" string="Delivery (L)" optional="show"/>
+                <field name="closing_volume" string="Closing Dip (L)"/>
+                <field name="notes" optional="hide"/>
             </list>
         </field>
     </record>
@@ -31,15 +31,14 @@
                     <group>
                         <group string="Tank">
                             <field name="shift_id"/>
-                            <field name="location_id"/>
+                            <field name="location_id" string="Tank"/>
                             <field name="product_id" readonly="1"/>
                         </group>
                         <group string="Volumes">
-                            <field name="opening_volume"/>
+                            <field name="opening_volume" readonly="1"/>
+                            <field name="book_stock_open" readonly="1"/>
+                            <field name="delivery_qty"/>
                             <field name="closing_volume"/>
-                            <field name="qty_change" readonly="1"/>
-                            <field name="variance_pct" readonly="1"
-                                   decoration-danger="variance_pct > 0.5"/>
                         </group>
                     </group>
                     <group>

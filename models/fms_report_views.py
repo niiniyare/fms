@@ -204,7 +204,9 @@ class FMSReportWetstock(models.Model):
                     GROUP BY s.id, sm.product_id
                 ),
                 prefs AS (
-                    SELECT company_id, meniscus_pct FROM fms_site_preferences LIMIT 1
+                    SELECT company_id,
+                           COALESCE(default_dip_variance_meniscus, 1000.0) AS meniscus_l
+                    FROM fms_site_preferences
                 )
                 SELECT
                     de.id                                                   AS id,
@@ -218,20 +220,29 @@ class FMSReportWetstock(models.Model):
                     COALESCE(de.opening_volume, 0)                          AS opening_vol,
                     COALESCE(d.delivered_l, 0)                              AS deliveries_l,
                     COALESCE(m.metered_sale, 0)                             AS metered_sale,
-                    -- Theoretical: opening + deliveries - meter sales
                     COALESCE(de.opening_volume, 0)
                         + COALESCE(d.delivered_l, 0)
                         - COALESCE(m.metered_sale, 0)                       AS theoretical,
                     COALESCE(de.closing_volume, 0)                          AS closing_vol,
-                    -- Variance: actual dip − theoretical
+                    -- Variance: actual dip − (opening + deliveries − meter_sales)
                     COALESCE(de.closing_volume, 0) - (
                         COALESCE(de.opening_volume, 0)
                         + COALESCE(d.delivered_l, 0)
                         - COALESCE(m.metered_sale, 0)
                     )                                                       AS variance_l,
-                    COALESCE(de.variance_pct, 0)                            AS variance_pct,
-                    ABS(COALESCE(de.variance_pct, 0)) <= COALESCE(p.meniscus_pct, 0.5)
-                                                                            AS within_tolerance
+                    -- variance_pct kept as legacy column (absolute/closing ratio)
+                    CASE WHEN COALESCE(de.closing_volume, 0) > 0 THEN
+                        ABS(COALESCE(de.closing_volume, 0) - (
+                            COALESCE(de.opening_volume, 0)
+                            + COALESCE(d.delivered_l, 0)
+                            - COALESCE(m.metered_sale, 0)
+                        )) / de.closing_volume * 100.0
+                    ELSE 0 END                                              AS variance_pct,
+                    ABS(COALESCE(de.closing_volume, 0) - (
+                        COALESCE(de.opening_volume, 0)
+                        + COALESCE(d.delivered_l, 0)
+                        - COALESCE(m.metered_sale, 0)
+                    )) <= COALESCE(p.meniscus_l, 1000.0)                    AS within_tolerance
                 FROM fms_shift_dip_entry de
                 JOIN fms_shift s           ON s.id = de.shift_id
                 JOIN stock_location sl     ON sl.id = de.location_id

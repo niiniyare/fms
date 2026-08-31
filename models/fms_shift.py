@@ -643,6 +643,7 @@ class FMSShift(models.Model):
 
         # ── Dip entries ──────────────────────────────────────────────────────
         if not self.dip_entry_ids:
+            company_ids = self.env.companies.ids
             tanks = self.env['stock.location'].search([
                 ('fms_is_fuel_tank', '=', True),
                 ('active', '=', True),
@@ -657,11 +658,24 @@ class FMSShift(models.Model):
                     ], limit=1)
                     if log:
                         opening_vol = log.closing_volume
+
+                # Book stock = current stock.quant quantity for this tank
+                book_stock = 0.0
+                if tank.fms_fuel_product_id:
+                    quant = self.env['stock.quant'].search([
+                        ('location_id', '=', tank.id),
+                        ('product_id', '=', tank.fms_fuel_product_id.id),
+                        ('company_id', 'in', company_ids),
+                    ], limit=1)
+                    book_stock = quant.quantity if quant else 0.0
+
                 dip_entries.append({
-                    'shift_id':      self.id,
-                    'location_id':   tank.id,
+                    'shift_id':       self.id,
+                    'location_id':    tank.id,
                     'opening_volume': opening_vol,
-                    'closing_volume': 0.0,  # entered at shift end
+                    'closing_volume': 0.0,
+                    'delivery_qty':   0.0,
+                    'book_stock_open': book_stock,
                 })
             if dip_entries:
                 self.env['fms.shift.dip.entry'].create(dip_entries)
@@ -1035,6 +1049,7 @@ class FMSShift(models.Model):
         with self.env.cr.savepoint():
             self._write_meter_logs()
             self._write_dip_logs()
+            self._sync_stock_quant_from_dips()
             sales_move = self._post_sales_journal()
             self._post_residual_allocation_journals()
             self._post_stock_consumption()
@@ -1112,6 +1127,7 @@ class FMSShift(models.Model):
         with self.env.cr.savepoint():
             self._write_meter_logs()
             self._write_dip_logs()
+            self._sync_stock_quant_from_dips()
             sales_move = self._post_sales_journal()
             self._post_residual_allocation_journals()
             self._post_stock_consumption()
@@ -1351,33 +1367,108 @@ class FMSShift(models.Model):
                 "Each attendant balance must be 0 before the shift can close."
             )
 
-    def _gate_check_stock_variance(self):
-        """
-        GATE 5 (Variance): Tank dip variance must be within the allowed meniscus.
+    def _compute_dip_variance_data(self, dip_entry):
+        """Return variance dict for one dip entry. Called at gate check and shift close.
 
-        Default meniscus: ±0.5% of closing dip volume.
-        If a tank's variance_pct exceeds this, the supervisor must
-        investigate and post an adjustment or dip correction.
+        Returns:
+            meter_sales     : litres metered for this product this shift
+            shift_variance  : closing_dip − (opening + delivery − meter_sales)
+            shift_var_amount: shift_variance × price/L  (company currency)
+            month_variance  : closing_dip − (month_opening + month_deliveries − month_meter_sales)
+            month_var_amount: month_variance × price/L
+            var_rate        : price/L used
         """
         self.ensure_one()
-        meniscus = self._get_meniscus_pct()
+        product = dip_entry.product_id
+        location = dip_entry.location_id
+        company_ids = self.env.companies.ids
+
+        # Meter sales for this product this shift
+        self.env.cr.execute("""
+            SELECT COALESCE(SUM(qty_sold_elec), 0.0)
+            FROM fms_shift_meter_entry
+            WHERE shift_id = %s AND product_id = %s
+        """, (self.id, product.id))
+        meter_sales = self.env.cr.fetchone()[0]
+
+        # Shift variance
+        opening   = dip_entry.opening_volume or 0.0
+        delivery  = dip_entry.delivery_qty or 0.0
+        closing   = dip_entry.closing_volume or 0.0
+        shift_var = closing - (opening + delivery - meter_sales)
+
+        # Price per litre (company currency — never hardcoded)
+        var_rate = product.list_price if product else 0.0
+        shift_var_amount = shift_var * var_rate
+
+        # Month variance — query dip_log for this tank since month start
+        month_start = self.date.replace(day=1) if self.date else None
+        month_var = 0.0
+        if month_start:
+            self.env.cr.execute("""
+                SELECT
+                    MIN(dl.opening_volume)          AS month_opening,
+                    COALESCE(SUM(dl.delivery_qty),0) AS month_deliveries,
+                    COALESCE(SUM(dl.meter_sales_snapshot),0) AS month_meter_sales
+                FROM fms_dip_log dl
+                JOIN fms_shift s ON s.id = dl.shift_id
+                WHERE dl.location_id = %s
+                  AND s.date >= %s
+                  AND s.date <= %s
+                  AND s.company_id = ANY(%s)
+                  AND s.state = 'closed'
+            """, (location.id, month_start, self.date, company_ids))
+            row = self.env.cr.fetchone()
+            if row and row[0] is not None:
+                month_opening = row[0]
+                month_deliveries = row[1]
+                month_meter_sales_prev = row[2]
+                # Include current shift's data
+                month_var = closing - (month_opening + month_deliveries + delivery - month_meter_sales_prev - meter_sales)
+            else:
+                # No prior closed shifts this month — month variance = shift variance
+                month_var = shift_var
+
+        return {
+            'meter_sales':     meter_sales,
+            'shift_variance':  shift_var,
+            'shift_var_amount': shift_var_amount,
+            'month_variance':  month_var,
+            'month_var_amount': month_var * var_rate,
+            'var_rate':        var_rate,
+        }
+
+    def _gate_check_stock_variance(self):
+        """
+        GATE 5 (Variance): Tank dip variance must be within the site meniscus (absolute litres).
+
+        Uses shift_variance = closing_dip − (opening + delivery − meter_sales).
+        Replaces the old percentage-based check which produced false failures every shift.
+        """
+        self.ensure_one()
+        prefs = self.env['fms.site.preferences'].get_for_company(self.company_id)
+        meniscus_l = (prefs.default_dip_variance_meniscus
+                      if prefs and prefs.default_dip_variance_meniscus > 0 else 1000.0)
+        currency = self.company_id.currency_id
         failing = []
         for dip in self.dip_entry_ids:
             if dip.closing_volume <= 0:
-                continue  # Skip tanks with no reading — not an error
-            if dip.variance_pct > meniscus:
+                continue
+            vdata = self._compute_dip_variance_data(dip)
+            sv = vdata['shift_variance']
+            if abs(sv) > meniscus_l:
+                sign = '+' if sv >= 0 else ''
                 failing.append(
-                    f"  • {dip.location_id.name}: "
-                    f"variance {dip.variance_pct:.4f}% "
-                    f"(limit ±{meniscus}%)"
+                    f"  • {dip.location_id.name} ({dip.product_id.name}): "
+                    f"variance {sign}{sv:,.2f} L  "
+                    f"({currency.name} {sign}{vdata['shift_var_amount']:,.2f})  "
+                    f"limit ±{meniscus_l:,.0f} L"
                 )
         if failing:
-            lines = "\n".join(failing)
             raise ValidationError(
-                f"GATE 5 FAILED (Variance) — {len(failing)} tank(s) exceed the "
-                f"±{meniscus}% variance meniscus:\n"
-                f"{lines}\n\n"
-                "Investigate the variance or post a dip adjustment before closing."
+                f"GATE 5 FAILED (Dip Variance) — {len(failing)} tank(s) exceed ±{meniscus_l:,.0f} L:\n"
+                + "\n".join(failing)
+                + "\n\nVerify the closing dip reading and delivery quantity, then retry."
             )
 
     def _gate_check_meter_vs_sales(self):
@@ -1903,7 +1994,47 @@ class FMSShift(models.Model):
         )
         for entry in self.dip_entry_ids:
             if entry.location_id.id not in existing_tank_ids:
-                entry._create_dip_log()
+                vdata = self._compute_dip_variance_data(entry)
+                entry._create_dip_log(variance_data=vdata)
+
+    def _sync_stock_quant_from_dips(self):
+        """Set stock.quant for each fuel tank to the closing dip volume.
+
+        Called after _write_dip_logs() on shift close. Keeps Odoo book stock
+        in sync with physical dip readings so the next shift's book_stock_open
+        reflects the actual closing dip of this shift.
+
+        Idempotent: applying the same closing volume twice is harmless.
+        Does not raise on failure — logs a warning so shift close is not blocked.
+        """
+        self.ensure_one()
+        company_ids = self.env.companies.ids
+        for entry in self.dip_entry_ids:
+            if not entry.closing_volume or not entry.product_id:
+                continue
+            try:
+                quant = self.env['stock.quant'].search([
+                    ('location_id', '=', entry.location_id.id),
+                    ('product_id',  '=', entry.product_id.id),
+                    ('company_id',  'in', company_ids),
+                ], limit=1)
+                if quant:
+                    if abs(quant.quantity - entry.closing_volume) < 0.001:
+                        continue  # already correct
+                    quant.sudo().write({'inventory_quantity': entry.closing_volume})
+                else:
+                    quant = self.env['stock.quant'].sudo().create({
+                        'location_id':        entry.location_id.id,
+                        'product_id':         entry.product_id.id,
+                        'company_id':         self.company_id.id,
+                        'inventory_quantity': entry.closing_volume,
+                    })
+                quant.sudo().action_apply_inventory()
+            except Exception as exc:
+                _logger.warning(
+                    "FMS: stock quant sync failed for tank %s: %s",
+                    entry.location_id.name, exc,
+                )
 
     # ------------------------------------------------------------------
     # FMS-005: GL journal posting

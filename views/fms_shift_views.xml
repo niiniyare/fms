@@ -182,20 +182,18 @@
                                    readonly="state == 'closed'"
                                    context="{'default_shift_id': id}">
                                 <list editable="bottom" string="Tank Dip Readings">
-                                    <field name="location_id" string="Tank"/>
+                                    <field name="location_id" string="Tank"
+                                           readonly="1"/>
                                     <field name="product_id" readonly="1"
                                            string="Product"/>
                                     <field name="opening_volume" readonly="1"
-                                           string="Opening (L)"/>
+                                           string="Opening (L)" optional="show"/>
+                                    <field name="book_stock_open" readonly="1"
+                                           string="Book Stock (L)" optional="show"/>
+                                    <field name="delivery_qty"
+                                           string="Delivery (L)"/>
                                     <field name="closing_volume"
                                            string="Closing Dip (L)"/>
-                                    <field name="qty_change" readonly="1"
-                                           string="Change (L)"/>
-                                    <field name="variance_pct" readonly="1"
-                                           string="Variance %"
-                                           decoration-success="variance_pct &lt;= 0.5"
-                                           decoration-warning="variance_pct &gt; 0.5 and variance_pct &lt;= 2.0"
-                                           decoration-danger="variance_pct &gt; 2.0"/>
                                     <field name="notes" optional="hide"/>
                                 </list>
                             </field>

@@ -219,30 +219,16 @@ class FMSShiftDipEntry(models.Model):
         related='location_id.fms_fuel_product_id', store=True, readonly=True,
     )
 
-    opening_volume = fields.Float('Opening Volume (L)', digits=(16, 2))
-    closing_volume = fields.Float('Closing Volume (L)', digits=(16, 2))
-
-    qty_change = fields.Float(
-        'Volume Change (L)', compute='_compute_qty', store=True, digits=(16, 2),
-    )
-    variance_pct = fields.Float(
-        'Variance %', compute='_compute_variance', store=True, digits=(16, 4),
-    )
+    opening_volume = fields.Float('Opening (L)', digits=(16, 2), readonly=True,
+        help="Closing dip from previous shift — auto-populated on shift open.")
+    closing_volume = fields.Float('Closing Dip (L)', digits=(16, 2),
+        help="Physical stick reading at end of shift.")
+    delivery_qty = fields.Float('Delivery (L)', digits=(16, 2), default=0.0,
+        help="Litres delivered into this tank during the shift. Leave 0 if no delivery.")
+    book_stock_open = fields.Float('Book Stock (L)', digits=(16, 2), readonly=True,
+        help="Odoo inventory stock for this tank at the moment the shift was opened.")
 
     notes = fields.Char('Notes')
-
-    @api.depends('closing_volume', 'opening_volume')
-    def _compute_qty(self):
-        for e in self:
-            e.qty_change = e.closing_volume - (e.opening_volume or 0.0)
-
-    @api.depends('qty_change', 'closing_volume')
-    def _compute_variance(self):
-        for e in self:
-            if e.closing_volume > 0:
-                e.variance_pct = abs(e.qty_change) / e.closing_volume * 100.0
-            else:
-                e.variance_pct = 0.0
 
     @api.constrains('closing_volume')
     def _check_closing_volume_capacity(self):
@@ -272,15 +258,31 @@ class FMSShiftDipEntry(models.Model):
         self._check_shift_open()
         return super().unlink()
 
-    def _create_dip_log(self):
-        """Copy this entry to fms.dip_log (called by shift on close)."""
+    def _create_dip_log(self, variance_data=None):
+        """Copy this entry to fms.dip_log (called by shift on close).
+
+        variance_data: dict from fms.shift._compute_dip_variance_data().
+        When provided, snapshot fields (meter_sales, shift_variance, etc.) are stored.
+        """
         self.ensure_one()
-        return self.env['fms.dip_log'].sudo().create({
-            'shift_id': self.shift_id.id,
-            'location_id': self.location_id.id,
+        vals = {
+            'shift_id':       self.shift_id.id,
+            'location_id':    self.location_id.id,
             'opening_volume': self.opening_volume,
             'closing_volume': self.closing_volume,
-        })
+            'delivery_qty':   self.delivery_qty,
+            'book_stock_open': self.book_stock_open,
+        }
+        if variance_data:
+            vals.update({
+                'meter_sales_snapshot': variance_data.get('meter_sales', 0.0),
+                'shift_variance':       variance_data.get('shift_variance', 0.0),
+                'shift_var_amount':     variance_data.get('shift_var_amount', 0.0),
+                'month_variance':       variance_data.get('month_variance', 0.0),
+                'month_var_amount':     variance_data.get('month_var_amount', 0.0),
+                'var_rate':             variance_data.get('var_rate', 0.0),
+            })
+        return self.env['fms.dip_log'].sudo().create(vals)
 
 
 class FMSShiftAttendantCash(models.Model):

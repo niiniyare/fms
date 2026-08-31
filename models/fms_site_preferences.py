@@ -17,11 +17,16 @@ class FMSSitePreferences(models.Model):
         default=lambda self: self.env.company,
     )
 
-    # ── Gate 3: Dip variance meniscus ────────────────────────────────────────
+    # ── Gate 5: Dip variance meniscus (absolute litres) ──────────────────────
+    default_dip_variance_meniscus = fields.Float(
+        'Dip Variance Meniscus (L)', default=1000.0, digits=(10, 2),
+        help="Maximum absolute tank dip variance in litres before Gate 5 blocks shift close. "
+             "Default: ±1000 L. Supervisor must investigate or post a stock adjustment if exceeded.",
+    )
     meniscus_pct = fields.Float(
-        'Variance Meniscus (%)', default=0.5, digits=(5, 2),
-        help="Maximum allowed tank dip variance as a percentage of closing volume. "
-             "Default: 0.5%. Shifts cannot close if any tank exceeds this.",
+        'Variance Meniscus (%) [deprecated]', default=0.5, digits=(5, 2),
+        help="Kept for Gate 6 (meter vs invoice) backward compatibility only. "
+             "Dip gate now uses Dip Variance Meniscus (L) above.",
     )
 
     # ── Attendant assignment mode ─────────────────────────────────────────────

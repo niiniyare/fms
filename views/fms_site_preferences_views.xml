@@ -14,11 +14,15 @@
                         </h4>
                     </div>
 
-                    <group string="Gate — Stock Variance">
-                        <field name="meniscus_pct"
-                               string="Variance Meniscus (%)"
+                    <group string="Gate — Tank Dip Variance">
+                        <field name="default_dip_variance_meniscus"
+                               string="Dip Variance Meniscus (L)"
                                widget="float"
-                               help="Shifts cannot close if any tank's dip variance exceeds this percentage."/>
+                               help="Shift close is blocked if any tank's shift variance exceeds this absolute limit in litres. Default: ±1000 L."/>
+                        <field name="meniscus_pct"
+                               string="Meter vs Invoice Tolerance (%)"
+                               widget="float"
+                               help="Used by Gate 6 (meter volume vs invoice volume check). Separate from the dip gate."/>
                     </group>
 
                     <group string="Gate — Three-Meter Reconciliation">

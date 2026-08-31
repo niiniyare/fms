@@ -110,14 +110,34 @@ class FMSDipLog(models.Model):
         related='location_id.fms_fuel_product_id', store=True, readonly=True,
     )
 
-    opening_volume = fields.Float('Opening Volume (L)', digits=(16, 2))
-    closing_volume = fields.Float('Closing Volume (L)', required=True, digits=(16, 2))
+    opening_volume = fields.Float('Opening (L)', digits=(16, 2))
+    closing_volume = fields.Float('Closing Dip (L)', required=True, digits=(16, 2))
 
+    # ── Snapshot fields — written once on shift close, never updated ──────────
+    delivery_qty         = fields.Float('Delivery (L)',          digits=(16, 2))
+    book_stock_open      = fields.Float('Book Stock Open (L)',   digits=(16, 2))
+    meter_sales_snapshot = fields.Float('Meter Sales (L)',       digits=(16, 2),
+        help="Sum of electronic meter sales for this product on the shift at close time.")
+
+    # Shift variance: closing dip vs expected from previous physical dip
+    shift_variance   = fields.Float('Shift Variance (L)',  digits=(16, 2))
+    shift_var_amount = fields.Float('Shift Var Amount',    digits=(16, 2),
+        help="shift_variance × price per litre at close time. Negative = loss, positive = gain.")
+
+    # Month variance: closing dip vs expected from book stock at month start
+    month_variance   = fields.Float('Month Variance (L)', digits=(16, 2))
+    month_var_amount = fields.Float('Month Var Amount',   digits=(16, 2))
+
+    var_rate = fields.Float('Rate (/L)', digits=(16, 4),
+        help="Price per litre used to compute variance amounts.")
+
+    # ── Legacy computed fields — kept for existing views/reports ─────────────
     qty_change = fields.Float(
         'Volume Change (L)', compute='_compute_qty', store=True, digits=(16, 2),
     )
     variance_pct = fields.Float(
-        'Variance %', compute='_compute_variance', store=True, digits=(16, 4),
+        'Raw Var %', compute='_compute_variance', store=True, digits=(16, 4),
+        help="(closing - opening) / closing. Legacy field — use shift_variance for reconciliation.",
     )
 
     recorded_date = fields.Datetime('Recorded At', default=fields.Datetime.now, readonly=True)

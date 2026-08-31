@@ -218,17 +218,21 @@
         <field name="arch" type="xml">
             <list string="Dip (Tank) Log" create="false" edit="false" delete="false"
                   default_order="recorded_date desc"
-                  decoration-danger="variance_pct &gt; 0.5 or variance_pct &lt; -0.5">
-                <field name="shift_id"       string="Shift"/>
-                <field name="recorded_date"  string="Date"/>
-                <field name="location_id"    string="Tank"/>
+                  decoration-danger="shift_variance != 0">
+                <field name="shift_id"            string="Shift"/>
+                <field name="recorded_date"       string="Date"/>
+                <field name="location_id"         string="Tank"/>
                 <field name="product_id"/>
-                <field name="opening_volume" string="Opening (L)"  optional="show"/>
-                <field name="closing_volume" string="Closing (L)"/>
-                <field name="qty_change"     string="Change (L)"   sum="Change (L)"/>
-                <field name="variance_pct"   string="Variance %"
-                       decoration-danger="variance_pct &gt; 0.5 or variance_pct &lt; -0.5"
-                       decoration-warning="(variance_pct &gt; 0.2 or variance_pct &lt; -0.2) and not (variance_pct &gt; 0.5 or variance_pct &lt; -0.5)"/>
+                <field name="opening_volume"      string="Opening (L)"     optional="show"/>
+                <field name="delivery_qty"        string="Delivery (L)"    optional="show"/>
+                <field name="meter_sales_snapshot" string="Meter Sales (L)" optional="show"/>
+                <field name="closing_volume"      string="Closing Dip (L)"/>
+                <field name="shift_variance"      string="Shift Var (L)"
+                       decoration-danger="shift_variance &lt; 0"
+                       decoration-success="shift_variance &gt; 0"/>
+                <field name="shift_var_amount"    string="Shift Var Amount"  optional="show"/>
+                <field name="month_variance"      string="Month Var (L)"    optional="show"/>
+                <field name="month_var_amount"    string="Month Var Amount"  optional="show"/>
             </list>
         </field>
     </record>
