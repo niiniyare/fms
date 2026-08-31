@@ -650,15 +650,6 @@ class FMSShift(models.Model):
             ])
             dip_entries = []
             for tank in tanks:
-                opening_vol = 0.0
-                if prev:
-                    log = self.env['fms.dip_log'].search([
-                        ('shift_id', '=', prev.id),
-                        ('location_id', '=', tank.id),
-                    ], limit=1)
-                    if log:
-                        opening_vol = log.closing_volume
-
                 # Book stock = current stock.quant quantity for this tank
                 book_stock = 0.0
                 if tank.fms_fuel_product_id:
@@ -668,6 +659,19 @@ class FMSShift(models.Model):
                         ('company_id', 'in', company_ids),
                     ], limit=1)
                     book_stock = quant.quantity if quant else 0.0
+
+                # Opening = previous shift's closing dip log
+                # Fallback: stock.quant (first shift ever, or after manual adjustment)
+                opening_vol = 0.0
+                if prev:
+                    log = self.env['fms.dip_log'].search([
+                        ('shift_id', '=', prev.id),
+                        ('location_id', '=', tank.id),
+                    ], limit=1)
+                    if log:
+                        opening_vol = log.closing_volume
+                if not opening_vol:
+                    opening_vol = book_stock
 
                 dip_entries.append({
                     'shift_id':        self.id,
