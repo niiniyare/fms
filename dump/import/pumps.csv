@@ -1,4 +1,4 @@
-id,name,code,order
+id,Pump Name,code,order
 fms_pump_1,Pump 1,P1,1
 fms_pump_2,Pump 2,P2,2
 fms_pump_3,Pump 3,P3,3
