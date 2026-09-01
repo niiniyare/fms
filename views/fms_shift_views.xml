@@ -3,8 +3,7 @@
 
     <!-- ================================================================
          Main unified shift form — spec Section 3.3 / Section 10.2
-         Layout: Header → Meter Readings → Tank Dips →
-                 Attendant Cash → Sales Summary → Residual Allocations
+         Tabs: [ Meters ] [ Dips ] [ Non Fuel Sales ] [ Floats / Drops ]
     ================================================================ -->
 
     <record id="view_fms_shift_form" model="ir.ui.view">
@@ -28,23 +27,6 @@
                             groups="fms.group_fms_supervisor"
                             invisible="state != 'closing'"
                             confirm="This will lock the shift and post all journal entries. Continue?"/>
-                    <button name="action_sync_attendant_cash_lines"
-                            string="Sync Attendants"
-                            type="object" class="btn-secondary"
-                            groups="fms.group_fms_supervisor"
-                            invisible="state not in ('open', 'closing')"
-                            title="Add cash lines for any attendant assigned to a nozzle but not yet in the Attendant Cash tab"/>
-                    <button name="action_refresh_product_sales"
-                            string="Refresh Sales"
-                            type="object" class="btn-secondary"
-                            groups="fms.group_fms_supervisor"
-                            invisible="state not in ('open', 'closing')"/>
-                    <button name="action_calculate_residuals"
-                            string="Recalculate Residuals"
-                            type="object" class="btn-secondary"
-                            groups="fms.group_fms_supervisor"
-                            invisible="state not in ('open', 'closing')"
-                            confirm="This will clear and rebuild all residual allocations. Continue?"/>
                     <button name="action_report_fms_shift"
                             string="Print Shift Report"
                             type="object"
@@ -94,25 +76,19 @@
                         </group>
                     </group>
 
-                    <!-- ── Reconciliation Summary (read-only, visible in closing/closed) ── -->
-                    <group string="Reconciliation Summary"
-                           invisible="state not in ('closing', 'closed')"
-                           class="o_group_col_4">
-                        <group string="Meter vs Cash">
+                    <!-- ── FC Cash status bar (always visible when open/closing/closed) ── -->
+                    <group invisible="state == 'draft'" class="o_group_col_4">
+                        <group string="Meter Sales">
                             <field name="total_meter_sales" readonly="1"
-                                   string="Meter Sales (KES)"
-                                   widget="monetary"/>
-                            <field name="total_reported_sales" readonly="1"
-                                   string="Attendant-Reported Sales"
+                                   string="Total Fuel Sales"
                                    widget="monetary"/>
                         </group>
-                        <group string="FC Cash Balance">
-                            <field name="fc_cash_balance" readonly="1"
-                                   string="FC Cash Balance"
+                        <group string="FC Cash Variance">
+                            <field name="fc_cash_balance_total" readonly="1"
+                                   string="FC Cash (must = 0)"
                                    widget="monetary"
-                                   decoration-danger="fc_cash_balance != 0"
-                                   decoration-success="fc_cash_balance == 0"/>
-
+                                   decoration-danger="fc_cash_balance_total != 0"
+                                   decoration-success="fc_cash_balance_total == 0"/>
                         </group>
                     </group>
 
@@ -121,65 +97,76 @@
                         <!-- ═══════════════════════════════════════════
                              TAB 1: Pump Meter Readings
                         ═══════════════════════════════════════════ -->
-                        <page string="Meter Readings" name="meters">
+                        <page string="Meters" name="meters">
                             <field name="meter_entry_ids"
-                                   readonly="state == 'closed'"
+                                   readonly="state in ('closed',)"
                                    context="{'default_shift_id': id}">
                                 <list editable="bottom" string="Pump Meter Readings">
                                     <field name="pump_id"/>
                                     <field name="nozzle_id"
                                            domain="[('pump_id','=',pump_id)]"/>
-                                    <field name="product_id" column_invisible="1"/>
+                                    <field name="product_id" optional="show"/>
                                     <field name="attendant_id"
                                            string="Attendant"
                                            domain="[('fms_is_attendant','=',True)]"/>
-
-                                    <!-- Opening (read-only, auto-fetched) -->
                                     <field name="opening_elec_cash"
                                            string="Open Cash" readonly="1"
                                            optional="hide"/>
                                     <field name="opening_elec_volume"
-                                           string="Open Elec (L)" readonly="1"
+                                           string="Open Vol (L)" readonly="1"
                                            optional="hide"/>
-
-                                    <!-- Closing (editable) -->
                                     <field name="closing_elec_cash"
                                            string="Close Cash"/>
                                     <field name="closing_elec_volume"
-                                           string="Close Elec (L)"/>
+                                           string="Close Vol (L)"/>
                                     <field name="closing_man_mech"
-                                           string="Close Manual (L)" optional="show"/>
-
-                                    <!-- RTT -->
+                                           string="Manual (L)" optional="show"/>
                                     <field name="rtt_volume"
                                            string="RTT (L)" optional="show"/>
-
-                                    <!-- Computed net -->
                                     <field name="elec_cash_sold" readonly="1"
-                                           string="Cash Sold" sum="Total Cash (KES)"/>
+                                           string="Cash Sold" sum="Total (KES)"/>
                                     <field name="qty_sold_elec" readonly="1"
-                                           string="Vol Sold (L)" sum="Total Litres"
+                                           string="Vol Sold (L)" sum="Litres"
                                            optional="show"/>
-                                    <field name="amount_elec" readonly="1"
-                                           string="Vol × Price" optional="hide"/>
                                     <field name="notes" optional="hide"/>
                                 </list>
                             </field>
-                            <group>
-                                <group string="Totals">
-                                    <field name="total_meter_sales" readonly="1"
-                                           string="Total Meter Sales (KES)"
-                                           widget="monetary"/>
-                                </group>
-                            </group>
+
+                            <!-- Subtotals: by product and by attendant -->
+                            <div class="o_horizontal_separator mt-3">By Product</div>
+                            <field name="product_sales_ids" readonly="1"
+                                   context="{'default_shift_id': id}">
+                                <list string="Meter — By Product"
+                                      create="false" delete="false" edit="false"
+                                      decoration-muted="meter_volume == 0">
+                                    <field name="product_id" string="Product"/>
+                                    <field name="meter_volume" string="Vol Sold (L)"
+                                           sum="Total Litres"/>
+                                    <field name="elec_cash_sold" string="Cash (KES)"
+                                           sum="Total Cash"/>
+                                    <field name="meter_revenue" string="Vol × Price"
+                                           optional="show" sum="Revenue"/>
+                                </list>
+                            </field>
+
+                            <div class="o_horizontal_separator mt-3">By Attendant</div>
+                            <field name="attendant_cash_ids" readonly="1"
+                                   context="{'default_shift_id': id}">
+                                <list string="Meter — By Attendant"
+                                      create="false" delete="false" edit="false">
+                                    <field name="attendant_id" string="Attendant"/>
+                                    <field name="reported_sales" string="Fuel Sales (KES)"
+                                           sum="Total"/>
+                                </list>
+                            </field>
                         </page>
 
                         <!-- ═══════════════════════════════════════════
                              TAB 2: Tank Dips
                         ═══════════════════════════════════════════ -->
-                        <page string="Tank Dips" name="dips">
+                        <page string="Dips" name="dips">
                             <field name="dip_entry_ids"
-                                   readonly="state == 'closed'"
+                                   readonly="state in ('closed',)"
                                    context="{'default_shift_id': id}">
                                 <list editable="bottom" string="Tank Dip Readings">
                                     <field name="location_id" string="Tank"
@@ -187,146 +174,143 @@
                                     <field name="product_id" readonly="1"
                                            string="Product"/>
                                     <field name="opening_volume" readonly="1"
-                                           string="Opening (L)" optional="show"/>
-                                    <field name="book_stock_open" readonly="1"
-                                           string="Book Stock (L)" optional="show"/>
+                                           string="Opening (L)"/>
+                                    <field name="delivery_qty"
+                                           string="Delivery (L)"/>
                                     <field name="closing_volume"
                                            string="Closing Dip (L)"/>
-                                    <field name="notes" optional="hide"/>
-                                </list>
-                            </field>
-                        </page>
-
-                        <!-- ═══════════════════════════════════════════
-                             TAB 3: Attendant Cash
-                             Each person: what they should have vs what they declared
-                        ═══════════════════════════════════════════ -->
-                        <page string="Attendant Cash" name="attendants">
-                            <field name="attendant_cash_ids"
-                                   readonly="state == 'closed'"
-                                   context="{'default_shift_id': id}">
-                                <list editable="bottom" string="Attendant Cash Reconciliation"
-                                      decoration-danger="balance != 0"
-                                      decoration-success="balance == 0">
-                                    <field name="attendant_id" string="Attendant"/>
-
-                                    <!-- IN: what they should account for -->
-                                    <field name="reported_sales" readonly="1"
-                                           string="Pump Sales (KES)"
-                                           sum="Pump Sales"/>
-                                    <field name="float_amount"
-                                           string="Float Given" optional="show"/>
-                                    <field name="customer_receipt_amount"
-                                           string="Receipts In" optional="show"/>
-                                    <field name="direct_sales_cash"
-                                           string="Cash Direct Sales" optional="hide"/>
-                                    <field name="cash_drop_amount"
-                                           string="Cash Drop (−)" optional="show"/>
-                                    <field name="total_in" readonly="1"
-                                           string="Total Accountable"
-                                           sum="Total In"/>
-
-                                    <!-- OUT: how they settled -->
-                                    <field name="cash_collected"
-                                           string="Cash Handover"/>
-                                    <field name="mpesa_amount"
-                                           string="MPesa" optional="show"/>
-                                    <field name="card_amount"
-                                           string="Card" optional="show"/>
-                                    <field name="ar_amount"
-                                           string="AR / Credit" optional="show"/>
-                                    <field name="expense_amount"
-                                           string="Expenses" readonly="1"
-                                           optional="show"/>
-                                    <field name="vendor_payment_amount"
-                                           string="Vendor Pmts" readonly="1"
-                                           optional="hide"/>
-                                    <field name="total_out" readonly="1"
-                                           string="Total Declared"
-                                           sum="Total Out"/>
-
-                                    <!-- Balance (must = 0) -->
-                                    <field name="balance" readonly="1"
-                                           string="Balance"
-                                           sum="FC Cash Balance"
-                                           decoration-danger="balance != 0"
-                                           decoration-success="balance == 0"/>
+                                    <field name="book_stock_open" readonly="1"
+                                           string="Book Stock (L)" optional="show"/>
+                                    <field name="notes" optional="show"/>
                                 </list>
                             </field>
 
-                            <group>
-                                <group string="Totals">
-                                    <field name="fc_cash_balance" readonly="1"
-                                           string="FC Cash Balance (must = 0)"
-                                           widget="monetary"
-                                           decoration-danger="fc_cash_balance != 0"
-                                           decoration-success="fc_cash_balance == 0"/>
-                                </group>
-                            </group>
-                        </page>
-
-                        <!-- ═══════════════════════════════════════════
-                             TAB 4: Sales Summary (read-only)
-                             Per-product meter vs POS reconciliation
-                        ═══════════════════════════════════════════ -->
-                        <page string="Sales Summary" name="sales_summary">
-                            <field name="product_sales_ids" readonly="1"
+                            <!-- Subtotals: by product -->
+                            <div class="o_horizontal_separator mt-3">Dip Summary by Product</div>
+                            <field name="dip_entry_ids" readonly="1"
                                    context="{'default_shift_id': id}">
-                                <list string="Product Sales Summary"
+                                <list string="Dips — Summary"
                                       create="false" delete="false" edit="false">
                                     <field name="product_id" string="Product"/>
-                                    <field name="elec_cash_sold" string="Cash Meter (KES)"
-                                           sum="Cash Meter"/>
-                                    <field name="meter_volume" string="Meter Vol (L)"
-                                           sum="Meter Volume"/>
-                                    <field name="meter_volume_man" string="Manual (L)"
-                                           optional="hide" sum="Manual"/>
-                                    <field name="price_at_close" string="Price /L"
-                                           optional="hide"/>
-                                    <field name="meter_revenue" string="Meter Revenue"
-                                           optional="show" sum="Meter Revenue"/>
-                                    <field name="accounted_volume" string="POS Vol (L)"
-                                           optional="show" sum="POS Volume"/>
-                                    <field name="volume_residual" string="Residual (L)"
-                                           optional="show" sum="Residual"
-                                           decoration-danger="volume_residual != 0"
-                                           decoration-success="volume_residual == 0"/>
-                                    <field name="allocated_volume" string="Allocated (L)"
-                                           optional="show" sum="Allocated"/>
+                                    <field name="opening_volume" string="Opening (L)"
+                                           sum="Total Opening"/>
+                                    <field name="delivery_qty" string="Delivery (L)"
+                                           sum="Total Delivery"/>
+                                    <field name="closing_volume" string="Closing (L)"
+                                           sum="Total Closing"/>
                                 </list>
                             </field>
-                            <p class="text-muted mt-2"
-                               invisible="state in ('open',)">
-                                Sales summary is computed on shift open and refreshed via
-                                <strong>Refresh Sales</strong>. Volume Residual = meter litres
-                                not matched by POS; these are auto-allocated on shift close.
-                            </p>
                         </page>
 
                         <!-- ═══════════════════════════════════════════
-                             TAB 5: Residual Allocations (read-only)
-                             Auto-calculated cross-product reallocation
+                             TAB 3: Non Fuel Sales
+                             Goods (lubes, filters) + Services (carwash, etc.)
                         ═══════════════════════════════════════════ -->
-                        <page string="Residual Allocations" name="residuals">
-                            <field name="residual_allocation_ids" readonly="1"
-                                   invisible="not residual_allocation_ids">
-                                <list string="Residual Allocations"
-                                      create="false" delete="false" edit="false">
-                                    <field name="source_product_id" string="From Product"/>
-                                    <field name="target_product_id" string="To Product"/>
-                                    <field name="qty_litres" string="Qty (L)" sum="Total L"/>
-                                    <field name="amount" string="Amount (KES)" sum="Total KES"/>
-                                    <field name="journal_entry_id" string="GL Entry"
-                                           optional="show"/>
-                                    <field name="notes" optional="hide"/>
+                        <page string="Non Fuel Sales" name="non_fuel">
+                            <field name="fc_line_ids"
+                                   readonly="state in ('closing', 'closed')"
+                                   context="{'default_shift_id': id}">
+                                <list editable="bottom" string="Non Fuel Sales Lines">
+                                    <field name="attendant_id" string="Attendant"
+                                           domain="[('fms_is_attendant','=',True)]"
+                                           options="{'no_create': True}"/>
+                                    <field name="product_id" string="Product / Service"
+                                           options="{'no_create': True}"/>
+                                    <field name="line_type" string="Type"
+                                           readonly="1" optional="show"/>
+                                    <!-- Goods columns -->
+                                    <field name="opening_qty" string="Opening"
+                                           readonly="1"
+                                           column_invisible="line_type == 'service'"/>
+                                    <field name="delivery_qty" string="Received"
+                                           column_invisible="line_type == 'service'"/>
+                                    <field name="closing_qty" string="Closing"
+                                           column_invisible="line_type == 'service'"/>
+                                    <field name="qty_sold" string="Qty Sold"
+                                           readonly="1"
+                                           column_invisible="line_type == 'service'"
+                                           sum="Qty Sold"/>
+                                    <field name="price_unit" string="Price"
+                                           column_invisible="line_type == 'service'"/>
+                                    <!-- Service + shared -->
+                                    <field name="amount" string="Amount"
+                                           column_invisible="line_type == 'goods'"/>
+                                    <field name="sales_amount" string="Sales Amount"
+                                           readonly="1" sum="Total Sales"/>
                                 </list>
                             </field>
-                            <p class="text-muted"
-                               invisible="residual_allocation_ids">
-                                No residual allocations. Either all products balanced perfectly
-                                or residual calculation has not been run yet
-                                (click <strong>Recalculate Residuals</strong>).
+
+                            <!-- Subtotals: by product -->
+                            <div class="o_horizontal_separator mt-3">By Product</div>
+                            <field name="fc_line_ids" readonly="1">
+                                <list string="Non Fuel — By Product"
+                                      create="false" delete="false" edit="false"
+                                      group_by="product_id">
+                                    <field name="product_id" string="Product"/>
+                                    <field name="line_type" string="Type" optional="show"/>
+                                    <field name="qty_sold" string="Qty Sold"
+                                           sum="Total Qty"/>
+                                    <field name="sales_amount" string="Amount"
+                                           sum="Total"/>
+                                </list>
+                            </field>
+
+                            <!-- Subtotals: by attendant -->
+                            <div class="o_horizontal_separator mt-3">By Attendant</div>
+                            <field name="fc_line_ids" readonly="1">
+                                <list string="Non Fuel — By Attendant"
+                                      create="false" delete="false" edit="false"
+                                      group_by="attendant_id">
+                                    <field name="attendant_id" string="Attendant"/>
+                                    <field name="sales_amount" string="Total Amount"
+                                           sum="Grand Total"/>
+                                </list>
+                            </field>
+                        </page>
+
+                        <!-- ═══════════════════════════════════════════
+                             TAB 4: Floats / Drops
+                             Cash floats issued + all cash drops in one view
+                        ═══════════════════════════════════════════ -->
+                        <page string="Floats / Drops" name="floats_drops">
+                            <p class="text-muted mb-2">
+                                <strong>Float:</strong> cash issued to attendant.
+                                <strong>Drop:</strong> cash collected from attendant (including float return).
+                                Both reduce/increase FC Cash per attendant.
                             </p>
+                            <field name="attendant_cash_ids" readonly="1">
+                                <list string="Floats and Drops by Attendant"
+                                      create="false" delete="false" edit="false"
+                                      decoration-danger="fc_variance != 0"
+                                      decoration-success="fc_variance == 0">
+                                    <field name="attendant_id" string="Attendant"/>
+                                    <field name="float_amount" string="Floats Issued"
+                                           sum="Total Floats"/>
+                                    <field name="cash_drop_amount" string="Cash Drops"
+                                           sum="Total Drops"/>
+                                    <field name="fc_variance" string="FC Variance"
+                                           readonly="1" sum="Net Variance"
+                                           decoration-danger="fc_variance != 0"
+                                           decoration-success="fc_variance == 0"/>
+                                </list>
+                            </field>
+
+                            <group class="mt-3">
+                                <group string="FC Cash Summary">
+                                    <field name="fc_cash_balance_total" readonly="1"
+                                           string="Total FC Variance (must = 0)"
+                                           widget="monetary"
+                                           decoration-danger="fc_cash_balance_total != 0"
+                                           decoration-success="fc_cash_balance_total == 0"/>
+                                </group>
+                            </group>
+
+                            <div class="alert alert-info mt-3" role="alert"
+                                 invisible="state != 'open'">
+                                To record a float or cash drop, go to
+                                <strong>Forecourt → Operations → Cash Movements</strong>
+                                and link the payment to this shift and attendant.
+                            </div>
                         </page>
 
                     </notebook>
