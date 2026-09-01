@@ -155,8 +155,11 @@ class FMSSitePreferences(models.Model):
             with self.env.cr.savepoint():
                 try:
                     prefs = self.sudo().create({'company_id': company.id})
-                except Exception:
-                    # Another transaction raced us — savepoint auto-rolls back the failed INSERT.
+                except Exception as e:
+                    # Retry only for UNIQUE constraint violations (concurrent INSERT race).
+                    # Any other DB error re-raises so the caller sees it.
+                    if 'unique' not in str(e).lower() and 'duplicate' not in str(e).lower():
+                        raise
                     prefs = self.search([('company_id', '=', company.id)], limit=1)
         return prefs
 

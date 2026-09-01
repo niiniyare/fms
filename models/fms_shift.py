@@ -1024,6 +1024,7 @@ class FMSShift(models.Model):
             tanks = self.env['stock.location'].search([
                 ('fms_is_fuel_tank', '=', True),
                 ('active', '=', True),
+                '|', ('company_id', '=', False), ('company_id', 'in', company_ids),
             ])
 
             # Batch: all quants for these tanks in one query
@@ -2244,10 +2245,11 @@ class FMSShift(models.Model):
         )
         cash_collected = sum(self.attendant_cash_ids.mapped('cash_collected'))
 
-        # Float = drops + cash held. Allow 1 KES rounding tolerance.
+        # Float = drops + cash held. Allow 1-unit rounding tolerance (smallest coin denomination).
+        _FLOAT_TOLERANCE = 1.0
         accounted = drop_total + cash_collected
         gap = abs(float_total - accounted)
-        if gap > 1.0:
+        if gap > _FLOAT_TOLERANCE:
             raise ValidationError(
                 f"G10 FAILED — Float reconciliation gap: {cur.name} {gap:,.2f}.\n"
                 f"  Floats issued:    {cur.name} {float_total:,.2f}\n"

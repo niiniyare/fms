@@ -160,8 +160,14 @@ class FMSDipLog(models.Model):
                 log.variance_pct = 0.0
 
     def write(self, vals):
-        # Delivery update context: allow closing_volume update before picking is validated
+        # Delivery update context: allow closing_volume update during offloading reconciliation.
+        # Only fms_accounting delivery confirm code sets this context — guard with supervisor group
+        # so arbitrary callers cannot bypass immutability by spoofing the context key.
         if self.env.context.get('fms_delivery_update'):
+            if not self.env.user.has_group('fms.group_fms_supervisor'):
+                raise ValidationError(
+                    "Only supervisors can update dip logs during delivery reconciliation."
+                )
             return super().write(vals)
         raise ValidationError(
             "Dip logs are immutable. Contact your supervisor to post a correction entry."
