@@ -714,6 +714,27 @@ class FMSShiftAttendantCash(models.Model):
         for shift_id, att_id, ctx, total in rows:
             agg[(shift_id, att_id, ctx)] = total
 
+        # Also aggregate hr.expense records posted via forecourt expense form
+        # (fms_accounting adds fms_shift_id + fms_attendant_id to hr.expense)
+        hr_exp_agg = {}
+        self.env.cr.execute("""
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'hr_expense' AND column_name = 'fms_shift_id' LIMIT 1
+        """)
+        if self.env.cr.fetchone():
+            self.env.cr.execute("""
+                SELECT e.fms_shift_id,
+                       COALESCE(e.fms_attendant_id, 0) AS attendant_id,
+                       COALESCE(SUM(e.total_amount), 0) AS total
+                FROM hr_expense e
+                JOIN hr_expense_sheet s ON s.id = e.sheet_id
+                WHERE e.fms_shift_id = ANY(%s)
+                  AND s.state IN ('post', 'done')
+                GROUP BY e.fms_shift_id, e.fms_attendant_id
+            """, (shift_ids,))
+            for shift_id, att_id, total in self.env.cr.fetchall():
+                hr_exp_agg[(shift_id, att_id)] = float(total)
+
         def _get(rec, ctx, attendant_scoped=True):
             att = rec.attendant_id.id if attendant_scoped else 0
             shift = rec.shift_id.id
@@ -735,8 +756,8 @@ class FMSShiftAttendantCash(models.Model):
             )
             # vendor_payment: outbound from shift cash
             rec.vendor_payment_amount = agg.get((shift, att, 'vendor_payment'), 0.0)
-            # expense: small expenses from shift cash
-            rec.expense_amount = agg.get((shift, att, 'expense'), 0.0)
+            # expense: account.payment context='expense' + posted hr.expense (if fms_accounting installed)
+            rec.expense_amount = agg.get((shift, att, 'expense'), 0.0) + hr_exp_agg.get((shift, att), 0.0)
 
     # ── Compute: Balance ─────────────────────────────────────────────────────
 
