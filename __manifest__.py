@@ -83,6 +83,8 @@ Reference: Complete specification in FMS_Complete_Specification_Technical_Guide.
 
         # Reports
         "reports/fms_shift_report.xml",
+        "reports/fms_fc_cash_recon_report.xml",
+        "reports/fms_sales_register_report.xml",
         "reports/fms_daily_station_report.xml",
         "reports/fms_attendant_shift_statement.xml",
         "reports/fms_meter_movement_report.xml",

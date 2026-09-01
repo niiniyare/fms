@@ -405,6 +405,189 @@ class FMSShift(models.Model):
         self.ensure_one()
         return self.env.ref('fms.action_report_fms_meter_movement').report_action(self)
 
+    def action_report_fc_cash_recon(self):
+        self.ensure_one()
+        return self.env.ref('fms.action_report_fms_fc_cash_recon').report_action(self)
+
+    def action_report_sales_register(self):
+        self.ensure_one()
+        return self.env.ref('fms.action_report_fms_sales_register').report_action(self)
+
+    def get_sales_register_data(self):
+        """
+        Return structured transaction data for the Sales Register report.
+        Four views: by_attendant, by_customer, by_payment_method, by_product.
+        Each transaction dict has:
+          ref, date, attendant, customer, product, payment_method, tx_type, amount
+        """
+        self.ensure_one()
+        cr = self.env.cr
+
+        # ── Check fms_accounting columns ────────────────────────────────
+        cr.execute("""
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'account_payment'
+              AND column_name IN ('fms_shift_id','fms_attendant_id','fms_payment_context')
+        """)
+        pay_cols = {r[0] for r in cr.fetchall()}
+        cr.execute("""
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'account_move'
+              AND column_name IN ('fms_shift_id','fms_attendant_id')
+        """)
+        move_cols = {r[0] for r in cr.fetchall()}
+        has_pay = len(pay_cols) == 3
+        has_move = len(move_cols) == 2
+
+        transactions = []  # list of dicts
+
+        # ── 1. Meter entries (fuel sold per nozzle per attendant) ────────
+        for me in self.meter_entry_ids:
+            if me.elec_cash_sold:
+                transactions.append({
+                    'ref':            me.nozzle_id.name or me.pump_id.name,
+                    'date':           str(self.date),
+                    'attendant':      me.attendant_id.name if me.attendant_id else '—',
+                    'customer':       'Forecourt Cash',
+                    'product':        me.product_id.name if me.product_id else '—',
+                    'payment_method': 'Cash (Meter)',
+                    'tx_type':        'Fuel Sale',
+                    'amount':         me.elec_cash_sold,
+                    'qty':            me.qty_sold_elec,
+                    'unit':           'L',
+                })
+
+        # ── 2. Non-fuel lines ────────────────────────────────────────────
+        for fc in self.fc_line_ids:
+            if fc.sales_amount:
+                transactions.append({
+                    'ref':            '—',
+                    'date':           str(self.date),
+                    'attendant':      fc.attendant_id.name if fc.attendant_id else '—',
+                    'customer':       'Forecourt Cash',
+                    'product':        fc.product_id.name if fc.product_id else '—',
+                    'payment_method': 'Cash (Non-Fuel)',
+                    'tx_type':        'Goods Sale' if fc.line_type == 'goods' else 'Service Sale',
+                    'amount':         fc.sales_amount,
+                    'qty':            fc.qty_sold if fc.line_type == 'goods' else None,
+                    'unit':           'units' if fc.line_type == 'goods' else None,
+                })
+
+        # ── 3. Posted invoices + receipts (account.move) ─────────────────
+        if has_move:
+            cr.execute("""
+                SELECT am.id, am.name,
+                       am.invoice_date, am.move_type, am.amount_total,
+                       COALESCE(rp.name, '') AS partner_name,
+                       COALESCE(he.name, '') AS attendant_name,
+                       aj.name AS journal_name,
+                       aj.type AS journal_type
+                FROM account_move am
+                LEFT JOIN res_partner rp ON rp.id = am.partner_id
+                LEFT JOIN hr_employee he ON he.id = am.fms_attendant_id
+                LEFT JOIN account_journal aj ON aj.id = am.journal_id
+                WHERE am.fms_shift_id = %s
+                  AND am.state = 'posted'
+                  AND am.move_type IN ('out_invoice', 'out_receipt')
+                ORDER BY am.invoice_date, am.name
+            """, (self.id,))
+            for row in cr.dictfetchall():
+                mtype = 'Credit Sale (AR Invoice)' if row['move_type'] == 'out_invoice' else 'Sales Receipt'
+                pay_method = self._classify_journal(self._safe_str(row['journal_name']), row['journal_type'])
+                transactions.append({
+                    'ref':            self._safe_str(row['name']),
+                    'date':           str(row['invoice_date'] or self.date),
+                    'attendant':      self._safe_str(row['attendant_name']) or '—',
+                    'customer':       self._safe_str(row['partner_name']) or 'Walk-in',
+                    'product':        '(see invoice lines)',
+                    'payment_method': pay_method,
+                    'tx_type':        mtype,
+                    'amount':         row['amount_total'],
+                    'qty':            None,
+                    'unit':           None,
+                })
+
+        # ── 4. Payments (account.payment) ────────────────────────────────
+        if has_pay:
+            cr.execute("""
+                SELECT ap.id, ap.name, ap.date, ap.amount, ap.payment_type,
+                       COALESCE(rp.name, '') AS partner_name,
+                       COALESCE(he.name, '') AS attendant_name,
+                       ap.fms_payment_context,
+                       aj.name AS journal_name,
+                       aj.type AS journal_type
+                FROM account_payment ap
+                LEFT JOIN res_partner rp ON rp.id = ap.partner_id
+                LEFT JOIN hr_employee he ON he.id = ap.fms_attendant_id
+                LEFT JOIN account_journal aj ON aj.id = ap.journal_id
+                WHERE ap.fms_shift_id = %s
+                  AND ap.state IN ('in_process', 'paid')
+                ORDER BY ap.date, ap.name
+            """, (self.id,))
+            for row in cr.dictfetchall():
+                ctx = row['fms_payment_context'] or ''
+                if ctx in ('cash_float', 'cash_drop'):
+                    tx_type = 'Float Issued' if ctx == 'cash_float' else 'Cash Drop'
+                    pay_method = 'Internal Cash Movement'
+                elif ctx == 'expense':
+                    tx_type = 'Expense Payment'
+                    pay_method = self._classify_journal(self._safe_str(row['journal_name']), row['journal_type'])
+                else:
+                    tx_type = 'Customer Payment'
+                    pay_method = self._classify_journal(self._safe_str(row['journal_name']), row['journal_type'])
+                transactions.append({
+                    'ref':            self._safe_str(row['name']),
+                    'date':           str(row['date'] or self.date),
+                    'attendant':      self._safe_str(row['attendant_name']) or '—',
+                    'customer':       self._safe_str(row['partner_name']) or '—',
+                    'product':        '—',
+                    'payment_method': pay_method,
+                    'tx_type':        tx_type,
+                    'amount':         row['amount'],
+                    'qty':            None,
+                    'unit':           None,
+                })
+
+        # ── Build the four views ─────────────────────────────────────────
+        def group_by(key):
+            result = {}
+            for tx in transactions:
+                k = tx[key] or '—'
+                result.setdefault(k, []).append(tx)
+            return dict(sorted(result.items()))
+
+        return {
+            'transactions':       transactions,
+            'by_attendant':       group_by('attendant'),
+            'by_customer':        group_by('customer'),
+            'by_payment_method':  group_by('payment_method'),
+            'by_product':         group_by('product'),
+        }
+
+    @staticmethod
+    def _safe_str(val):
+        """Extract string from varchar or JSONB-dict (Odoo 18 translated fields)."""
+        if not val:
+            return ''
+        if isinstance(val, dict):
+            return val.get('en_US') or next(iter(val.values()), '')
+        return str(val)
+
+    @staticmethod
+    def _classify_journal(journal_name, journal_type):
+        if isinstance(journal_name, dict):
+            journal_name = next(iter(journal_name.values()), '')
+        name = (journal_name or '').lower()
+        if 'mpesa' in name or 'm-pesa' in name:
+            return 'MPesa'
+        if 'card' in name or 'visa' in name or 'mastercard' in name or 'knet' in name:
+            return 'Card'
+        if journal_type == 'cash':
+            return 'Cash'
+        if journal_type == 'bank':
+            return 'Bank Transfer'
+        return journal_name or 'Other'
+
     def get_meter_attendant_summary(self):
         """
         Return a list of dicts grouping meter entry totals per attendant.

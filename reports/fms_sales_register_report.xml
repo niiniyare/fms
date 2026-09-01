@@ -1,0 +1,385 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="action_report_fms_sales_register" model="ir.actions.report">
+        <field name="name">Shift Sales Register — Reconciliation Detail</field>
+        <field name="model">fms.shift</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">fms.report_fms_sales_register</field>
+        <field name="report_file">fms.report_fms_sales_register</field>
+        <field name="binding_model_id" ref="model_fms_shift"/>
+        <field name="binding_type">report</field>
+        <field name="groups_id" eval="[(4, ref('fms.group_fms_supervisor'))]"/>
+    </record>
+
+    <template id="report_fms_sales_register">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="shift">
+                <t t-set="cur"  t-value="shift.company_id.currency_id.name"/>
+                <t t-set="data" t-value="shift.get_sales_register_data()"/>
+                <t t-set="all_tx" t-value="data['transactions']"/>
+
+                <t t-call="web.external_layout">
+                    <div class="page" style="font-family: Arial, sans-serif; font-size: 10.5px; color: #1a1a1a;">
+
+                        <style>
+                            .rpt-h1   { font-size:18px; font-weight:700; color:#003366; margin:0 0 2px; }
+                            .rpt-sub  { font-size:11px; color:#555; margin:0 0 4px; }
+                            .rpt-meta { font-size:9.5px; color:#888; }
+                            .sec-head {
+                                background:#003366; color:#fff;
+                                padding:4px 10px; font-size:11px; font-weight:700;
+                                margin:16px 0 4px; border-radius:2px;
+                                page-break-after: avoid;
+                            }
+                            .grp-head {
+                                background:#e8eef5; color:#003366;
+                                padding:3px 8px; font-size:10px; font-weight:700;
+                                border-left:3px solid #003366; margin:8px 0 2px;
+                                page-break-after: avoid;
+                            }
+                            .tbl { width:100%; border-collapse:collapse; font-size:10px; }
+                            .tbl th {
+                                background:#dde6f0; color:#003366; font-weight:700;
+                                border:1px solid #b8c8d8; padding:3px 5px;
+                            }
+                            .tbl td { border:1px solid #dde4ec; padding:2px 5px; vertical-align:top; }
+                            .tbl tr:nth-child(even) td { background:#f7f9fb; }
+                            .tbl tfoot td {
+                                background:#e8eef5; font-weight:700;
+                                border:1px solid #b8c8d8; padding:3px 5px;
+                            }
+                            .r  { text-align:right; }
+                            .muted { color:#888; font-style:italic; }
+                            .pill-blue   { background:#003366; color:#fff; border-radius:3px; padding:1px 5px; font-size:9px; }
+                            .pill-green  { background:#1a6b2f; color:#fff; border-radius:3px; padding:1px 5px; font-size:9px; }
+                            .pill-orange { background:#7a4000; color:#fff; border-radius:3px; padding:1px 5px; font-size:9px; }
+                            .summary-box {
+                                border:1px solid #c5d0dc; border-radius:3px;
+                                padding:6px 12px; margin-bottom:14px;
+                            }
+                            .summary-row { display:flex; justify-content:space-between; padding:2px 0; font-size:10.5px; }
+                            .summary-total { border-top:2px solid #003366; font-weight:700; padding-top:4px; margin-top:2px; }
+                        </style>
+
+                        <!-- ══ PAGE HEADER ═══════════════════════════════════════ -->
+                        <div class="row mb-2">
+                            <div class="col-8">
+                                <p class="rpt-h1">Shift Sales Register — Reconciliation Detail</p>
+                                <p class="rpt-sub">
+                                    <t t-out="shift.date"/> ·
+                                    <t t-out="dict(shift._fields['label'].selection).get(shift.label, shift.label)"/> Shift ·
+                                    <t t-out="shift.company_id.name"/>
+                                </p>
+                                <p class="rpt-meta">
+                                    Supervisor: <strong><t t-out="shift.supervisor_id.name or '—'"/></strong> ·
+                                    Status: <strong><t t-out="dict(shift._fields['state'].selection).get(shift.state,'').upper()"/></strong> ·
+                                    Printed: <t t-out="context_timestamp(datetime.datetime.now()).strftime('%d %b %Y %H:%M')"/>
+                                </p>
+                            </div>
+                            <div class="col-4">
+                                <div class="summary-box">
+                                    <div style="font-size:9.5px;font-weight:700;color:#003366;text-transform:uppercase;margin-bottom:4px">
+                                        Shift Totals
+                                    </div>
+                                    <div class="summary-row">
+                                        <span>Fuel Sales</span>
+                                        <span><t t-out="'{:,.2f}'.format(shift.total_meter_sales)"/></span>
+                                    </div>
+                                    <div class="summary-row">
+                                        <span>Non-Fuel Sales</span>
+                                        <span><t t-out="'{:,.2f}'.format(shift.total_fc_sales)"/></span>
+                                    </div>
+                                    <div class="summary-row summary-total">
+                                        <span>Total Sales</span>
+                                        <span><t t-out="cur"/> <t t-out="'{:,.2f}'.format(shift.total_all_sales)"/></span>
+                                    </div>
+                                    <div class="summary-row" style="margin-top:4px" t-attf-style="
+                                        color: #{'#1a6b2f' if abs(shift.fc_cash_balance_total) &lt; 0.01 else '#a0000a'};
+                                        font-weight:700
+                                    ">
+                                        <span>FC Cash Variance</span>
+                                        <span><t t-out="'{:,.2f}'.format(shift.fc_cash_balance_total)"/></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <hr style="border:1px solid #003366;margin:4px 0 10px"/>
+
+                        <!-- helper macro for a transaction table body -->
+
+                        <!-- ══════════════════════════════════════════════════════
+                             VIEW 1 — BY ATTENDANT
+                        ══════════════════════════════════════════════════════ -->
+                        <div class="sec-head">1. Transactions by Attendant</div>
+                        <t t-foreach="data['by_attendant'].items()" t-as="att_item">
+                            <t t-set="att_name"   t-value="att_item[0]"/>
+                            <t t-set="att_txs"    t-value="att_item[1]"/>
+                            <t t-set="att_total"  t-value="sum(t['amount'] for t in att_txs if t['tx_type'] not in ('Float Issued','Cash Drop','Expense Payment','Customer Payment'))"/>
+                            <div class="grp-head">
+                                <t t-out="att_name"/>
+                                <span style="float:right;font-weight:400">
+                                    <t t-out="len(att_txs)"/> lines ·
+                                    Sales: <t t-out="cur"/> <t t-out="'{:,.2f}'.format(att_total)"/>
+                                </span>
+                            </div>
+                            <table class="tbl">
+                                <thead>
+                                    <tr>
+                                        <th style="width:10%">Date</th>
+                                        <th style="width:14%">Reference</th>
+                                        <th style="width:16%">Type</th>
+                                        <th style="width:20%">Product</th>
+                                        <th style="width:16%">Customer</th>
+                                        <th style="width:13%">Method</th>
+                                        <th class="r" style="width:11%">Amount (<t t-out="cur"/>)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <t t-foreach="att_txs" t-as="tx">
+                                        <tr>
+                                            <td><t t-out="tx['date']"/></td>
+                                            <td><t t-out="tx['ref']"/></td>
+                                            <td>
+                                                <t t-if="tx['tx_type'] == 'Fuel Sale'"><span class="pill-blue">Fuel</span></t>
+                                                <t t-elif="tx['tx_type'] in ('Goods Sale','Service Sale')"><span class="pill-green">Non-Fuel</span></t>
+                                                <t t-elif="tx['tx_type'] == 'Credit Sale (AR Invoice)'"><span class="pill-orange">AR</span></t>
+                                                <t t-else=""><span class="muted"><t t-out="tx['tx_type']"/></span></t>
+                                            </td>
+                                            <td><t t-out="tx['product']"/></td>
+                                            <td><t t-out="tx['customer']"/></td>
+                                            <td><t t-out="tx['payment_method']"/></td>
+                                            <td class="r"><t t-out="'{:,.2f}'.format(tx['amount'])"/></td>
+                                        </tr>
+                                    </t>
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <td colspan="6"><t t-out="att_name"/> — Total</td>
+                                        <td class="r"><t t-out="'{:,.2f}'.format(sum(t['amount'] for t in att_txs))"/></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </t>
+
+                        <!-- ══════════════════════════════════════════════════════
+                             VIEW 2 — BY CUSTOMER
+                        ══════════════════════════════════════════════════════ -->
+                        <div class="sec-head">2. Transactions by Customer</div>
+                        <t t-foreach="data['by_customer'].items()" t-as="cust_item">
+                            <t t-set="cust_name"  t-value="cust_item[0]"/>
+                            <t t-set="cust_txs"   t-value="cust_item[1]"/>
+                            <div class="grp-head">
+                                <t t-out="cust_name"/>
+                                <span style="float:right;font-weight:400">
+                                    <t t-out="len(cust_txs)"/> lines ·
+                                    <t t-out="cur"/> <t t-out="'{:,.2f}'.format(sum(t['amount'] for t in cust_txs))"/>
+                                </span>
+                            </div>
+                            <table class="tbl">
+                                <thead>
+                                    <tr>
+                                        <th style="width:10%">Date</th>
+                                        <th style="width:14%">Reference</th>
+                                        <th style="width:16%">Type</th>
+                                        <th style="width:22%">Product</th>
+                                        <th style="width:16%">Attendant</th>
+                                        <th style="width:13%">Method</th>
+                                        <th class="r" style="width:9%">Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <t t-foreach="cust_txs" t-as="tx">
+                                        <tr>
+                                            <td><t t-out="tx['date']"/></td>
+                                            <td><t t-out="tx['ref']"/></td>
+                                            <td><t t-out="tx['tx_type']"/></td>
+                                            <td><t t-out="tx['product']"/></td>
+                                            <td><t t-out="tx['attendant']"/></td>
+                                            <td><t t-out="tx['payment_method']"/></td>
+                                            <td class="r"><t t-out="'{:,.2f}'.format(tx['amount'])"/></td>
+                                        </tr>
+                                    </t>
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <td colspan="6"><t t-out="cust_name"/> — Total</td>
+                                        <td class="r"><t t-out="'{:,.2f}'.format(sum(t['amount'] for t in cust_txs))"/></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </t>
+
+                        <!-- ══════════════════════════════════════════════════════
+                             VIEW 3 — BY PAYMENT METHOD
+                        ══════════════════════════════════════════════════════ -->
+                        <div class="sec-head">3. Transactions by Payment Method</div>
+                        <t t-foreach="data['by_payment_method'].items()" t-as="pm_item">
+                            <t t-set="pm_name"   t-value="pm_item[0]"/>
+                            <t t-set="pm_txs"    t-value="pm_item[1]"/>
+                            <div class="grp-head">
+                                <t t-out="pm_name"/>
+                                <span style="float:right;font-weight:400">
+                                    <t t-out="len(pm_txs)"/> lines ·
+                                    <t t-out="cur"/> <t t-out="'{:,.2f}'.format(sum(t['amount'] for t in pm_txs))"/>
+                                </span>
+                            </div>
+                            <table class="tbl">
+                                <thead>
+                                    <tr>
+                                        <th style="width:10%">Date</th>
+                                        <th style="width:14%">Reference</th>
+                                        <th style="width:16%">Type</th>
+                                        <th style="width:20%">Product</th>
+                                        <th style="width:18%">Customer</th>
+                                        <th style="width:14%">Attendant</th>
+                                        <th class="r" style="width:8%">Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <t t-foreach="pm_txs" t-as="tx">
+                                        <tr>
+                                            <td><t t-out="tx['date']"/></td>
+                                            <td><t t-out="tx['ref']"/></td>
+                                            <td><t t-out="tx['tx_type']"/></td>
+                                            <td><t t-out="tx['product']"/></td>
+                                            <td><t t-out="tx['customer']"/></td>
+                                            <td><t t-out="tx['attendant']"/></td>
+                                            <td class="r"><t t-out="'{:,.2f}'.format(tx['amount'])"/></td>
+                                        </tr>
+                                    </t>
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <td colspan="6"><t t-out="pm_name"/> — Total</td>
+                                        <td class="r"><t t-out="'{:,.2f}'.format(sum(t['amount'] for t in pm_txs))"/></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </t>
+
+                        <!-- Method comparison summary table -->
+                        <div style="margin-top:8px;border:1px solid #c5d0dc;border-radius:3px;padding:8px 12px">
+                            <div style="font-size:10px;font-weight:700;color:#003366;margin-bottom:4px;text-transform:uppercase">
+                                Payment Method Summary
+                            </div>
+                            <table class="tbl" style="font-size:10.5px">
+                                <thead>
+                                    <tr>
+                                        <th style="width:40%">Payment Method</th>
+                                        <th class="r">Transactions</th>
+                                        <th class="r">Total Amount (<t t-out="cur"/>)</th>
+                                        <th class="r">% of Sales</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <t t-foreach="data['by_payment_method'].items()" t-as="pm_item">
+                                        <t t-set="pm_total" t-value="sum(t['amount'] for t in pm_item[1])"/>
+                                        <t t-set="pct" t-value="(pm_total / shift.total_all_sales * 100) if shift.total_all_sales else 0"/>
+                                        <tr>
+                                            <td><t t-out="pm_item[0]"/></td>
+                                            <td class="r"><t t-out="len(pm_item[1])"/></td>
+                                            <td class="r"><t t-out="'{:,.2f}'.format(pm_total)"/></td>
+                                            <td class="r"><t t-out="'{:.1f}'.format(pct)"/>%</td>
+                                        </tr>
+                                    </t>
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <td>Total</td>
+                                        <td class="r"><t t-out="len(all_tx)"/></td>
+                                        <td class="r"><t t-out="cur"/> <t t-out="'{:,.2f}'.format(sum(t['amount'] for t in all_tx))"/></td>
+                                        <td class="r">100%</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+
+                        <!-- ══════════════════════════════════════════════════════
+                             VIEW 4 — BY PRODUCT
+                        ══════════════════════════════════════════════════════ -->
+                        <div class="sec-head">4. Transactions by Product</div>
+                        <t t-foreach="data['by_product'].items()" t-as="prod_item">
+                            <t t-set="prod_name"  t-value="prod_item[0]"/>
+                            <t t-set="prod_txs"   t-value="prod_item[1]"/>
+                            <div class="grp-head">
+                                <t t-out="prod_name"/>
+                                <span style="float:right;font-weight:400">
+                                    <t t-out="len(prod_txs)"/> lines ·
+                                    <t t-out="cur"/> <t t-out="'{:,.2f}'.format(sum(t['amount'] for t in prod_txs))"/>
+                                </span>
+                            </div>
+                            <table class="tbl">
+                                <thead>
+                                    <tr>
+                                        <th style="width:10%">Date</th>
+                                        <th style="width:14%">Reference</th>
+                                        <th style="width:14%">Type</th>
+                                        <th style="width:18%">Attendant</th>
+                                        <th style="width:16%">Customer</th>
+                                        <th style="width:13%">Method</th>
+                                        <th class="r" style="width:7%">Qty</th>
+                                        <th class="r" style="width:8%">Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <t t-foreach="prod_txs" t-as="tx">
+                                        <tr>
+                                            <td><t t-out="tx['date']"/></td>
+                                            <td><t t-out="tx['ref']"/></td>
+                                            <td><t t-out="tx['tx_type']"/></td>
+                                            <td><t t-out="tx['attendant']"/></td>
+                                            <td><t t-out="tx['customer']"/></td>
+                                            <td><t t-out="tx['payment_method']"/></td>
+                                            <td class="r">
+                                                <t t-if="tx['qty'] is not None">
+                                                    <t t-out="'{:,.2f}'.format(tx['qty'])"/>
+                                                    <span class="muted"> <t t-out="tx['unit'] or ''"/></span>
+                                                </t>
+                                                <t t-else="">—</t>
+                                            </td>
+                                            <td class="r"><t t-out="'{:,.2f}'.format(tx['amount'])"/></td>
+                                        </tr>
+                                    </t>
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <td colspan="6"><t t-out="prod_name"/> — Total</td>
+                                        <td class="r">
+                                            <t t-if="prod_txs[0]['unit']">
+                                                <t t-out="'{:,.3f}'.format(sum(t['qty'] for t in prod_txs if t['qty'] is not None))"/>
+                                                <t t-out="prod_txs[0]['unit']"/>
+                                            </t>
+                                        </td>
+                                        <td class="r"><t t-out="'{:,.2f}'.format(sum(t['amount'] for t in prod_txs))"/></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </t>
+
+                        <!-- ══ SIGNATURES ════════════════════════════════════════ -->
+                        <div class="row" style="margin-top:30px">
+                            <div class="col-4 text-center">
+                                <div style="border-top:1px solid #333;margin-top:45px;padding-top:4px;font-size:10px">
+                                    Supervisor Signature
+                                </div>
+                            </div>
+                            <div class="col-4 text-center">
+                                <div style="border-top:1px solid #333;margin-top:45px;padding-top:4px;font-size:10px">
+                                    Date
+                                </div>
+                            </div>
+                            <div class="col-4 text-center">
+                                <div style="border-top:1px solid #333;margin-top:45px;padding-top:4px;font-size:10px">
+                                    Station Manager Signature
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+
+</odoo>

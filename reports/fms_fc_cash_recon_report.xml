@@ -1,0 +1,523 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="action_report_fms_fc_cash_recon" model="ir.actions.report">
+        <field name="name">Forecourt Cash Reconciliation Statement</field>
+        <field name="model">fms.shift</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">fms.report_fms_fc_cash_recon</field>
+        <field name="report_file">fms.report_fms_fc_cash_recon</field>
+        <field name="binding_model_id" ref="model_fms_shift"/>
+        <field name="binding_type">report</field>
+        <field name="groups_id" eval="[(4, ref('fms.group_fms_supervisor'))]"/>
+    </record>
+
+    <template id="report_fms_fc_cash_recon">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="shift">
+                <t t-set="cur" t-value="shift.company_id.currency_id.name"/>
+                <t t-set="balanced" t-value="abs(shift.fc_cash_balance_total) &lt; 0.01"/>
+
+                <!-- aggregate fuel by product -->
+                <t t-set="fuel_map" t-value="{}"/>
+                <t t-foreach="shift.meter_entry_ids" t-as="me">
+                    <t t-set="k" t-value="me.product_id.id"/>
+                    <t t-if="k not in fuel_map"
+                       t-set="fuel_map" t-value="{**fuel_map, k: {'name': me.product_id.name, 'qty': 0.0, 'amt': 0.0}}"/>
+                    <t t-set="fuel_map" t-value="{**fuel_map, k: {
+                        'name': fuel_map[k]['name'],
+                        'qty':  fuel_map[k]['qty'] + me.qty_sold_elec,
+                        'amt':  fuel_map[k]['amt'] + me.elec_cash_sold,
+                    }}"/>
+                </t>
+
+                <!-- aggregate non-fuel by product -->
+                <t t-set="nf_map" t-value="{}"/>
+                <t t-foreach="shift.fc_line_ids" t-as="fc">
+                    <t t-set="k" t-value="fc.product_id.id"/>
+                    <t t-if="k not in nf_map"
+                       t-set="nf_map" t-value="{**nf_map, k: {'name': fc.product_id.name, 'type': fc.line_type, 'qty': 0.0, 'amt': 0.0}}"/>
+                    <t t-set="nf_map" t-value="{**nf_map, k: {
+                        'name': nf_map[k]['name'],
+                        'type': nf_map[k]['type'],
+                        'qty':  nf_map[k]['qty'] + fc.qty_sold,
+                        'amt':  nf_map[k]['amt'] + fc.sales_amount,
+                    }}"/>
+                </t>
+
+                <t t-call="web.external_layout">
+                    <div class="page" style="font-family: Arial, sans-serif; font-size: 11px; color: #1a1a1a;">
+
+                        <!-- ══ DOCUMENT HEADER ══════════════════════════════════ -->
+                        <style>
+                            .rpt-title { font-size: 20px; font-weight: 700; color: #003366; margin: 0 0 2px 0; }
+                            .rpt-subtitle { font-size: 12px; color: #555; margin: 0 0 6px 0; }
+                            .rpt-meta { font-size: 10px; color: #777; }
+                            .section-heading {
+                                background: #003366; color: #fff;
+                                padding: 4px 10px; font-size: 11px; font-weight: 700;
+                                margin: 14px 0 4px 0; border-radius: 2px;
+                            }
+                            .tbl { width: 100%; border-collapse: collapse; font-size: 10.5px; }
+                            .tbl th { background: #e8eef5; color: #003366; font-weight: 700;
+                                      border: 1px solid #c5d0dc; padding: 4px 6px; }
+                            .tbl td { border: 1px solid #dde4ec; padding: 3px 6px; }
+                            .tbl tfoot td { background: #e8eef5; font-weight: 700; border: 1px solid #c5d0dc; padding: 4px 6px; }
+                            .tbl .r { text-align: right; }
+                            .tbl tr:nth-child(even) td { background: #f7f9fb; }
+                            .variance-box {
+                                border: 2px solid; border-radius: 4px;
+                                padding: 8px 14px; text-align: right; min-width: 180px;
+                            }
+                            .att-block { border: 1px solid #c5d0dc; border-radius: 3px; margin-bottom: 10px; page-break-inside: avoid; }
+                            .att-header { padding: 5px 10px; font-weight: 700; font-size: 11px; border-bottom: 1px solid #c5d0dc; }
+                            .recon-tbl { width: 100%; border-collapse: collapse; font-size: 10.5px; }
+                            .recon-tbl td { padding: 3px 10px; }
+                            .recon-tbl .label { width: 55%; }
+                            .recon-tbl .amount { text-align: right; width: 45%; }
+                            .recon-subtotal { border-top: 1px solid #999; font-weight: 700; }
+                            .recon-total   { border-top: 2px solid #333; font-weight: 700; background: #f0f4f8; }
+                            .grand-row { background: #003366; color: #fff; font-weight: 700; font-size: 12px; }
+                            .grand-row td { padding: 6px 6px; border: 1px solid #002244; }
+                            .balanced-bg   { background: #e6f4ea; }
+                            .unresolved-bg { background: #fde8e8; }
+                            .balanced-text   { color: #1a6b2f; }
+                            .unresolved-text { color: #a0000a; }
+                            .status-pill-ok  { background: #1a6b2f; color: #fff; border-radius: 3px; padding: 1px 6px; font-size: 10px; }
+                            .status-pill-err { background: #a0000a; color: #fff; border-radius: 3px; padding: 1px 6px; font-size: 10px; }
+                        </style>
+
+                        <div class="row mb-2">
+                            <div class="col-8">
+                                <p class="rpt-title">Forecourt Cash Reconciliation Statement</p>
+                                <p class="rpt-subtitle">
+                                    <t t-out="shift.date"/> ·
+                                    <t t-out="dict(shift._fields['label'].selection).get(shift.label, shift.label)"/> Shift ·
+                                    <t t-out="shift.company_id.name"/>
+                                </p>
+                                <p class="rpt-meta">
+                                    Supervisor: <strong><t t-out="shift.supervisor_id.name or '—'"/></strong> ·
+                                    Status: <strong>
+                                        <t t-out="dict(shift._fields['state'].selection).get(shift.state,'').upper()"/>
+                                    </strong> ·
+                                    Printed: <t t-out="context_timestamp(datetime.datetime.now()).strftime('%d %b %Y %H:%M')"/>
+                                </p>
+                            </div>
+                            <div class="col-4 text-end">
+                                <div t-attf-class="variance-box #{
+                                    'balanced-bg balanced-text' if balanced else 'unresolved-bg unresolved-text'
+                                }">
+                                    <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">
+                                        Forecourt Cash Variance
+                                    </div>
+                                    <div style="font-size:18px;font-weight:700;margin:2px 0">
+                                        <t t-out="cur"/> <t t-out="'{:,.2f}'.format(abs(shift.fc_cash_balance_total))"/>
+                                    </div>
+                                    <div style="font-size:10px;font-weight:700">
+                                        <t t-if="balanced">BALANCED — SHIFT MAY CLOSE</t>
+                                        <t t-else="">UNRESOLVED — SHIFT BLOCKED</t>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr style="border:1px solid #003366;margin:6px 0 12px"/>
+
+                        <!-- ══ SECTION 1: SALES BY PRODUCT ══════════════════════ -->
+                        <div class="section-heading">1. Sales by Product</div>
+
+                        <p style="font-weight:700;margin:6px 0 3px;font-size:10px;text-transform:uppercase;letter-spacing:0.3px;color:#003366">
+                            1.1 Fuel Sales — Pump Meters
+                        </p>
+                        <table class="tbl">
+                            <thead>
+                                <tr>
+                                    <th style="width:50%">Product</th>
+                                    <th class="r">Volume Sold (L)</th>
+                                    <th class="r">Amount (<t t-out="cur"/>)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <t t-foreach="fuel_map.values()" t-as="row">
+                                    <tr>
+                                        <td><t t-out="row['name']"/></td>
+                                        <td class="r"><t t-out="'{:,.3f}'.format(row['qty'])"/></td>
+                                        <td class="r"><t t-out="'{:,.2f}'.format(row['amt'])"/></td>
+                                    </tr>
+                                </t>
+                                <t t-if="not fuel_map">
+                                    <tr><td colspan="3" style="text-align:center;color:#888">No meter entries recorded</td></tr>
+                                </t>
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td>Total Fuel Sales</td>
+                                    <td class="r"><t t-out="'{:,.3f}'.format(sum(r['qty'] for r in fuel_map.values()))"/> L</td>
+                                    <td class="r"><t t-out="cur"/> <t t-out="'{:,.2f}'.format(shift.total_meter_sales)"/></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+
+                        <p style="font-weight:700;margin:10px 0 3px;font-size:10px;text-transform:uppercase;letter-spacing:0.3px;color:#003366">
+                            1.2 Non-Fuel Sales
+                        </p>
+                        <table class="tbl">
+                            <thead>
+                                <tr>
+                                    <th style="width:48%">Product / Service</th>
+                                    <th>Category</th>
+                                    <th class="r">Qty</th>
+                                    <th class="r">Amount (<t t-out="cur"/>)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <t t-foreach="nf_map.values()" t-as="row">
+                                    <tr>
+                                        <td><t t-out="row['name']"/></td>
+                                        <td><t t-out="'Goods' if row['type'] == 'goods' else 'Service'"/></td>
+                                        <td class="r">
+                                            <t t-if="row['type'] == 'goods' and row['qty']">
+                                                <t t-out="'{:,.2f}'.format(row['qty'])"/>
+                                            </t>
+                                            <t t-else="">—</t>
+                                        </td>
+                                        <td class="r"><t t-out="'{:,.2f}'.format(row['amt'])"/></td>
+                                    </tr>
+                                </t>
+                                <t t-if="not nf_map">
+                                    <tr><td colspan="4" style="text-align:center;color:#888">No non-fuel lines recorded</td></tr>
+                                </t>
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="3">Total Non-Fuel Sales</td>
+                                    <td class="r"><t t-out="cur"/> <t t-out="'{:,.2f}'.format(shift.total_fc_sales)"/></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+
+                        <table class="tbl" style="margin-top:4px">
+                            <tr class="grand-row">
+                                <td style="width:75%">TOTAL SHIFT SALES (Fuel + Non-Fuel)</td>
+                                <td class="r"><t t-out="cur"/> <t t-out="'{:,.2f}'.format(shift.total_all_sales)"/></td>
+                            </tr>
+                        </table>
+
+                        <!-- ══ SECTION 2: SALES BY ATTENDANT ═══════════════════ -->
+                        <div class="section-heading">2. Sales by Attendant</div>
+                        <table class="tbl">
+                            <thead>
+                                <tr>
+                                    <th>Attendant</th>
+                                    <th class="r">Fuel Sales</th>
+                                    <th class="r">Non-Fuel Sales</th>
+                                    <th t-if="any(a.fc_float_amount for a in shift.attendant_cash_ids)" class="r">Floats Issued</th>
+                                    <th t-if="any(a.fc_cust_receipt for a in shift.attendant_cash_ids)" class="r">Customer Receipts</th>
+                                    <th class="r">Total Accountable</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <t t-foreach="shift.attendant_cash_ids" t-as="att">
+                                    <tr>
+                                        <td><t t-out="att.attendant_id.name"/></td>
+                                        <td class="r"><t t-out="'{:,.2f}'.format(att.fc_meter_sales)"/></td>
+                                        <td class="r"><t t-out="'{:,.2f}'.format(att.fc_nonfuel_sales)"/></td>
+                                        <td t-if="any(a.fc_float_amount for a in shift.attendant_cash_ids)" class="r">
+                                            <t t-out="'{:,.2f}'.format(att.fc_float_amount)"/>
+                                        </td>
+                                        <td t-if="any(a.fc_cust_receipt for a in shift.attendant_cash_ids)" class="r">
+                                            <t t-out="'{:,.2f}'.format(att.fc_cust_receipt)"/>
+                                        </td>
+                                        <td class="r" style="font-weight:700">
+                                            <t t-out="'{:,.2f}'.format(att.fc_captured)"/>
+                                        </td>
+                                    </tr>
+                                </t>
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td>Total</td>
+                                    <td class="r"><t t-out="'{:,.2f}'.format(sum(shift.attendant_cash_ids.mapped('fc_meter_sales')))"/></td>
+                                    <td class="r"><t t-out="'{:,.2f}'.format(sum(shift.attendant_cash_ids.mapped('fc_nonfuel_sales')))"/></td>
+                                    <td t-if="any(a.fc_float_amount for a in shift.attendant_cash_ids)" class="r">
+                                        <t t-out="'{:,.2f}'.format(sum(shift.attendant_cash_ids.mapped('fc_float_amount')))"/>
+                                    </td>
+                                    <td t-if="any(a.fc_cust_receipt for a in shift.attendant_cash_ids)" class="r">
+                                        <t t-out="'{:,.2f}'.format(sum(shift.attendant_cash_ids.mapped('fc_cust_receipt')))"/>
+                                    </td>
+                                    <td class="r"><t t-out="cur"/> <t t-out="'{:,.2f}'.format(sum(shift.attendant_cash_ids.mapped('fc_captured')))"/></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+
+                        <!-- ══ SECTION 3: CASHIER RECONCILIATION ════════════════ -->
+                        <div class="section-heading">3. Cashier Reconciliation — Cash Accountability per Attendant</div>
+
+                        <t t-foreach="shift.attendant_cash_ids" t-as="att">
+                            <t t-set="att_ok" t-value="abs(att.fc_variance) &lt; 0.01"/>
+                            <div class="att-block" style="page-break-inside: avoid;">
+
+                                <!-- attendant sub-header -->
+                                <div t-attf-class="att-header #{
+                                    'balanced-bg balanced-text' if att_ok else 'unresolved-bg unresolved-text'
+                                }">
+                                    <span style="font-size:12px"><t t-out="att.attendant_id.name"/></span>
+                                    <span style="float:right">
+                                        Net Variance:
+                                        <strong><t t-out="cur"/> <t t-out="'{:,.2f}'.format(att.fc_variance)"/></strong>
+                                        <span t-attf-class="#{
+                                            'status-pill-ok' if att_ok else 'status-pill-err'
+                                        }" style="margin-left:6px">
+                                            <t t-if="att_ok">BALANCED</t>
+                                            <t t-elif="att.fc_variance &gt; 0">SHORTFALL</t>
+                                            <t t-else="">SURPLUS</t>
+                                        </span>
+                                    </span>
+                                </div>
+
+                                <div style="padding: 8px 10px;">
+
+                                    <!-- EXPECTED (DR) -->
+                                    <p style="font-size:10px;font-weight:700;color:#003366;margin:0 0 3px;text-transform:uppercase;letter-spacing:0.4px">
+                                        Expected Cash-in-Hand (Sales &amp; Receipts)
+                                    </p>
+                                    <table class="recon-tbl" style="margin-bottom:8px">
+                                        <tr>
+                                            <td class="label">Fuel Sales (pump meter)</td>
+                                            <td class="amount"><t t-out="'{:,.2f}'.format(att.fc_meter_sales)"/></td>
+                                        </tr>
+                                        <tr>
+                                            <td class="label">Non-Fuel Sales</td>
+                                            <td class="amount"><t t-out="'{:,.2f}'.format(att.fc_nonfuel_sales)"/></td>
+                                        </tr>
+                                        <t t-if="att.fc_float_amount">
+                                            <tr>
+                                                <td class="label">Float Received from Station</td>
+                                                <td class="amount"><t t-out="'{:,.2f}'.format(att.fc_float_amount)"/></td>
+                                            </tr>
+                                        </t>
+                                        <t t-if="att.fc_cust_receipt">
+                                            <tr>
+                                                <td class="label">Customer Receipts (collected)</td>
+                                                <td class="amount"><t t-out="'{:,.2f}'.format(att.fc_cust_receipt)"/></td>
+                                            </tr>
+                                        </t>
+                                        <tr class="recon-total">
+                                            <td class="label">Total Expected</td>
+                                            <td class="amount"><t t-out="cur"/> <t t-out="'{:,.2f}'.format(att.fc_captured)"/></td>
+                                        </tr>
+                                    </table>
+
+                                    <!-- ACCOUNTED (CR) -->
+                                    <p style="font-size:10px;font-weight:700;color:#003366;margin:0 0 3px;text-transform:uppercase;letter-spacing:0.4px">
+                                        Accounted Payments (Submitted &amp; Posted)
+                                    </p>
+                                    <table class="recon-tbl" style="margin-bottom:8px">
+                                        <t t-if="att.fc_invoice_amount">
+                                            <tr>
+                                                <td class="label">Credit Sales — Customer Invoices (AR)</td>
+                                                <td class="amount"><t t-out="'{:,.2f}'.format(att.fc_invoice_amount)"/></td>
+                                            </tr>
+                                        </t>
+                                        <t t-if="att.fc_receipt_amount">
+                                            <tr>
+                                                <td class="label">Sales Receipts (Cash / MPesa / Card)</td>
+                                                <td class="amount"><t t-out="'{:,.2f}'.format(att.fc_receipt_amount)"/></td>
+                                            </tr>
+                                        </t>
+                                        <t t-if="att.fc_drop_amount">
+                                            <tr>
+                                                <td class="label">Cash Drops to Safe</td>
+                                                <td class="amount"><t t-out="'{:,.2f}'.format(att.fc_drop_amount)"/></td>
+                                            </tr>
+                                        </t>
+                                        <t t-if="att.fc_expense_amount">
+                                            <tr>
+                                                <td class="label">Authorised Expenses</td>
+                                                <td class="amount"><t t-out="'{:,.2f}'.format(att.fc_expense_amount)"/></td>
+                                            </tr>
+                                        </t>
+                                        <t t-if="not att.fc_invoice_amount and not att.fc_receipt_amount and not att.fc_drop_amount and not att.fc_expense_amount">
+                                            <tr><td colspan="2" style="color:#888;font-style:italic">No accounted payments on record</td></tr>
+                                        </t>
+                                        <tr class="recon-total">
+                                            <td class="label">Total Accounted</td>
+                                            <td class="amount"><t t-out="cur"/> <t t-out="'{:,.2f}'.format(att.fc_collected)"/></td>
+                                        </tr>
+                                    </table>
+
+                                    <!-- Variance conclusion -->
+                                    <div t-attf-style="
+                                        padding: 5px 10px; border-radius: 2px; font-size: 10.5px; font-weight: 700;
+                                        background: #{'#e6f4ea' if att_ok else '#fde8e8'};
+                                        color: #{'#1a6b2f' if att_ok else '#a0000a'};
+                                        border-left: 3px solid #{'#1a6b2f' if att_ok else '#a0000a'};
+                                    ">
+                                        Variance = Expected − Accounted =
+                                        <t t-out="cur"/> <t t-out="'{:,.2f}'.format(att.fc_variance)"/>
+                                        <t t-if="att_ok"> — No outstanding amount.</t>
+                                        <t t-elif="att.fc_variance &gt; 0">
+                                            — Attendant has not submitted <t t-out="cur"/> <t t-out="'{:,.2f}'.format(att.fc_variance)"/>. Resolution required before shift close.
+                                        </t>
+                                        <t t-else="">
+                                            — Station owes attendant <t t-out="cur"/> <t t-out="'{:,.2f}'.format(abs(att.fc_variance))"/>. Likely over-drop or duplicate receipt.
+                                        </t>
+                                    </div>
+
+                                </div>
+                            </div>
+                        </t>
+
+                        <!-- ══ SECTION 4: FLOATS AND CASH DROPS ═════════════════ -->
+                        <t t-if="shift.cash_movement_ids">
+                            <div class="section-heading">4. Floats and Cash Drops — Detail</div>
+                            <table class="tbl">
+                                <thead>
+                                    <tr>
+                                        <th>Attendant</th>
+                                        <th>Movement Type</th>
+                                        <th class="r">Amount (<t t-out="cur"/>)</th>
+                                        <th>Date</th>
+                                        <th>Payment Reference</th>
+                                        <th>Note</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <t t-foreach="shift.cash_movement_ids" t-as="mv">
+                                        <tr>
+                                            <td><t t-out="mv.attendant_id.name"/></td>
+                                            <td>
+                                                <t t-if="mv.float_amount">Float Issued</t>
+                                                <t t-else="">Cash Drop</t>
+                                            </td>
+                                            <td class="r"><t t-out="'{:,.2f}'.format(mv.float_amount or mv.drop_amount)"/></td>
+                                            <td><t t-out="mv.date"/></td>
+                                            <td><t t-out="mv.payment_id.name or '—'"/></td>
+                                            <td><t t-out="mv.note or '—'"/></td>
+                                        </tr>
+                                    </t>
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <td colspan="2">Totals</td>
+                                        <td colspan="4">
+                                            Floats Issued: <t t-out="'{:,.2f}'.format(sum(m.float_amount for m in shift.cash_movement_ids))"/>
+                                            &amp;nbsp;&amp;nbsp;|&amp;nbsp;&amp;nbsp;
+                                            Cash Drops: <t t-out="'{:,.2f}'.format(sum(m.drop_amount for m in shift.cash_movement_ids))"/>
+                                        </td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </t>
+
+                        <!-- ══ SECTION 5: RESIDUAL ALLOCATIONS ══════════════════ -->
+                        <t t-if="shift.residual_allocation_ids">
+                            <div class="section-heading">5. Residual Stock Allocations</div>
+                            <table class="tbl">
+                                <thead>
+                                    <tr>
+                                        <th>From Product (Over-reported)</th>
+                                        <th>To Product (Under-reported)</th>
+                                        <th class="r">Volume (L)</th>
+                                        <th class="r">Amount (<t t-out="cur"/>)</th>
+                                        <th>GL Reference</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <t t-foreach="shift.residual_allocation_ids" t-as="alloc">
+                                        <tr>
+                                            <td><t t-out="alloc.source_product_id.name"/></td>
+                                            <td><t t-out="alloc.target_product_id.name"/></td>
+                                            <td class="r"><t t-out="'{:,.3f}'.format(alloc.qty_litres)"/></td>
+                                            <td class="r"><t t-out="'{:,.2f}'.format(alloc.amount)"/></td>
+                                            <td><t t-out="alloc.journal_entry_id.name or '—'"/></td>
+                                        </tr>
+                                    </t>
+                                </tbody>
+                            </table>
+                            <p style="font-size:9.5px;color:#666;font-style:italic;margin-top:2px">
+                                Residual allocations are inventory / COGS adjustments only and do not affect the Forecourt Cash Variance above.
+                            </p>
+                        </t>
+
+                        <!-- ══ SECTION 6: RECONCILIATION SUMMARY ════════════════ -->
+                        <div class="section-heading">6. Reconciliation Summary — Gate Status</div>
+                        <table class="tbl">
+                            <thead>
+                                <tr>
+                                    <th>Attendant</th>
+                                    <th class="r">Total Expected (<t t-out="cur"/>)</th>
+                                    <th class="r">Total Accounted (<t t-out="cur"/>)</th>
+                                    <th class="r">Variance (<t t-out="cur"/>)</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <t t-foreach="shift.attendant_cash_ids" t-as="att">
+                                    <t t-set="ok" t-value="abs(att.fc_variance) &lt; 0.01"/>
+                                    <tr t-attf-class="#{'balanced-bg' if ok else 'unresolved-bg'}">
+                                        <td><t t-out="att.attendant_id.name"/></td>
+                                        <td class="r"><t t-out="'{:,.2f}'.format(att.fc_captured)"/></td>
+                                        <td class="r"><t t-out="'{:,.2f}'.format(att.fc_collected)"/></td>
+                                        <td t-attf-class="r #{'balanced-text' if ok else 'unresolved-text'}" style="font-weight:700">
+                                            <t t-out="'{:,.2f}'.format(att.fc_variance)"/>
+                                        </td>
+                                        <td>
+                                            <span t-attf-class="#{'status-pill-ok' if ok else 'status-pill-err'}">
+                                                <t t-if="ok">Balanced</t>
+                                                <t t-elif="att.fc_variance &gt; 0">Shortfall</t>
+                                                <t t-else="">Surplus</t>
+                                            </span>
+                                        </td>
+                                    </tr>
+                                </t>
+                            </tbody>
+                            <tfoot>
+                                <tr t-attf-class="#{'balanced-bg balanced-text' if balanced else 'unresolved-bg unresolved-text'}"
+                                    style="font-weight:700;font-size:12px">
+                                    <td>NET FORECOURT CASH VARIANCE</td>
+                                    <td class="r">
+                                        <t t-out="'{:,.2f}'.format(sum(shift.attendant_cash_ids.mapped('fc_captured')))"/>
+                                    </td>
+                                    <td class="r">
+                                        <t t-out="'{:,.2f}'.format(sum(shift.attendant_cash_ids.mapped('fc_collected')))"/>
+                                    </td>
+                                    <td class="r">
+                                        <t t-out="cur"/> <t t-out="'{:,.2f}'.format(shift.fc_cash_balance_total)"/>
+                                    </td>
+                                    <td>
+                                        <span t-attf-class="#{'status-pill-ok' if balanced else 'status-pill-err'}">
+                                            <t t-if="balanced">GATE CLEAR</t>
+                                            <t t-else="">GATE BLOCKED</t>
+                                        </span>
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
+
+                        <!-- ══ SIGNATURES ════════════════════════════════════════ -->
+                        <div class="row" style="margin-top:40px">
+                            <div class="col-4 text-center">
+                                <div style="border-top:1px solid #333;margin-top:50px;padding-top:4px;font-size:10px">
+                                    Supervisor Signature
+                                </div>
+                            </div>
+                            <div class="col-4 text-center">
+                                <div style="border-top:1px solid #333;margin-top:50px;padding-top:4px;font-size:10px">
+                                    Date
+                                </div>
+                            </div>
+                            <div class="col-4 text-center">
+                                <div style="border-top:1px solid #333;margin-top:50px;padding-top:4px;font-size:10px">
+                                    Station Manager Signature
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+
+</odoo>

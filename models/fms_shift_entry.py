@@ -406,20 +406,25 @@ class FMSShiftAttendantCash(models.Model):
     # fc_variance  = fc_captured - fc_collected → must be 0 to close
 
     fc_captured = fields.Float(
-        'FC Captured', digits=(16, 2), store=False,
-        compute='_compute_fc_variance',
-        help="Total sales captured: meter + non-fuel products + services + floats + customer receipts.",
+        'FC Captured', digits=(16, 2), store=False, compute='_compute_fc_variance',
     )
     fc_collected = fields.Float(
-        'FC Collected', digits=(16, 2), store=False,
-        compute='_compute_fc_variance',
-        help="Total accounted for: posted invoices + receipts + drops + expenses.",
+        'FC Collected', digits=(16, 2), store=False, compute='_compute_fc_variance',
     )
     fc_variance = fields.Float(
-        'FC Variance', digits=(16, 2), store=False,
-        compute='_compute_fc_variance',
+        'FC Variance', digits=(16, 2), store=False, compute='_compute_fc_variance',
         help="fc_captured - fc_collected. Must be 0.00 before shift can close.",
     )
+    # Breakdown — DR side
+    fc_meter_sales = fields.Float('Fuel (Meter)', digits=(16, 2), store=False, compute='_compute_fc_variance')
+    fc_nonfuel_sales = fields.Float('Non Fuel Sales', digits=(16, 2), store=False, compute='_compute_fc_variance')
+    fc_float_amount = fields.Float('Floats Issued', digits=(16, 2), store=False, compute='_compute_fc_variance')
+    fc_cust_receipt = fields.Float('FC Cust Receipts', digits=(16, 2), store=False, compute='_compute_fc_variance')
+    # Breakdown — CR side
+    fc_invoice_amount = fields.Float('FC Invoices', digits=(16, 2), store=False, compute='_compute_fc_variance')
+    fc_receipt_amount = fields.Float('FC Sales Receipts', digits=(16, 2), store=False, compute='_compute_fc_variance')
+    fc_drop_amount = fields.Float('FC Cash Drops', digits=(16, 2), store=False, compute='_compute_fc_variance')
+    fc_expense_amount = fields.Float('FC Expenses', digits=(16, 2), store=False, compute='_compute_fc_variance')
 
     # ── Compute: FC Cash variance (new reconciliation system) ────────────────
 
@@ -447,78 +452,87 @@ class FMSShiftAttendantCash(models.Model):
 
         for rec in self:
             if not rec.shift_id or not rec.attendant_id:
-                rec.fc_captured = 0.0
-                rec.fc_collected = 0.0
-                rec.fc_variance = 0.0
+                for f in ('fc_captured','fc_collected','fc_variance','fc_meter_sales',
+                          'fc_nonfuel_sales','fc_float_amount','fc_cust_receipt',
+                          'fc_invoice_amount','fc_receipt_amount','fc_drop_amount','fc_expense_amount'):
+                    rec[f] = 0.0
                 continue
 
             shift = rec.shift_id
             att_id = rec.attendant_id.id
 
             # ── DR: Captured ──────────────────────────────────────────────────
-
-            # Source 1: Meter fuel sales (elec_cash_sold per attendant)
             meter_sales = sum(
-                e.elec_cash_sold
-                for e in shift.meter_entry_ids
-                if e.attendant_id.id == att_id
+                e.elec_cash_sold for e in shift.meter_entry_ids if e.attendant_id.id == att_id
             )
-
-            # Sources 2+3: FC-lines (goods + services)
             fc_sales = sum(
-                l.sales_amount
-                for l in shift.fc_line_ids
-                if l.attendant_id.id == att_id
+                l.sales_amount for l in shift.fc_line_ids if l.attendant_id.id == att_id
             )
 
-            # Sources 4+5: Floats issued + customer payments via this attendant
-            floats_and_cust = 0.0
+            float_amt = cust_receipt = 0.0
             if has_payment_fms:
                 self.env.cr.execute("""
-                    SELECT COALESCE(SUM(amount), 0)
+                    SELECT fms_payment_context, COALESCE(SUM(amount), 0)
                     FROM account_payment
-                    WHERE fms_shift_id = %s
-                      AND fms_attendant_id = %s
+                    WHERE fms_shift_id = %s AND fms_attendant_id = %s
                       AND state IN ('in_process', 'paid')
                       AND fms_payment_context IN ('cash_float', 'customer_receipt')
+                    GROUP BY fms_payment_context
                 """, (shift.id, att_id))
-                floats_and_cust = self.env.cr.fetchone()[0] or 0.0
+                for ctx, amt in self.env.cr.fetchall():
+                    if ctx == 'cash_float':
+                        float_amt = float(amt)
+                    else:
+                        cust_receipt = float(amt)
 
-            captured = meter_sales + fc_sales + floats_and_cust
+            captured = meter_sales + fc_sales + float_amt + cust_receipt
 
             # ── CR: Collected ─────────────────────────────────────────────────
-
-            # Sources 6+7: Posted invoices + out_receipts
-            invoice_receipt_total = 0.0
+            invoice_amt = receipt_amt = 0.0
             if has_move_fms:
                 self.env.cr.execute("""
-                    SELECT COALESCE(SUM(amount_total), 0)
+                    SELECT move_type, COALESCE(SUM(amount_total), 0)
                     FROM account_move
-                    WHERE fms_shift_id = %s
-                      AND fms_attendant_id = %s
+                    WHERE fms_shift_id = %s AND fms_attendant_id = %s
                       AND move_type IN ('out_invoice', 'out_receipt')
                       AND state = 'posted'
+                    GROUP BY move_type
                 """, (shift.id, att_id))
-                invoice_receipt_total = self.env.cr.fetchone()[0] or 0.0
+                for mtype, amt in self.env.cr.fetchall():
+                    if mtype == 'out_invoice':
+                        invoice_amt = float(amt)
+                    else:
+                        receipt_amt = float(amt)
 
-            # Sources 8+9: Cash drops + expenses
-            drops_and_expenses = 0.0
+            drop_amt = expense_amt = 0.0
             if has_payment_fms:
                 self.env.cr.execute("""
-                    SELECT COALESCE(SUM(amount), 0)
+                    SELECT fms_payment_context, COALESCE(SUM(amount), 0)
                     FROM account_payment
-                    WHERE fms_shift_id = %s
-                      AND fms_attendant_id = %s
+                    WHERE fms_shift_id = %s AND fms_attendant_id = %s
                       AND state IN ('in_process', 'paid')
                       AND fms_payment_context IN ('cash_drop', 'expense')
+                    GROUP BY fms_payment_context
                 """, (shift.id, att_id))
-                drops_and_expenses = self.env.cr.fetchone()[0] or 0.0
+                for ctx, amt in self.env.cr.fetchall():
+                    if ctx == 'cash_drop':
+                        drop_amt = float(amt)
+                    else:
+                        expense_amt = float(amt)
 
-            collected = invoice_receipt_total + drops_and_expenses
+            collected = invoice_amt + receipt_amt + drop_amt + expense_amt
 
-            rec.fc_captured = captured
-            rec.fc_collected = collected
-            rec.fc_variance = captured - collected
+            rec.fc_meter_sales   = meter_sales
+            rec.fc_nonfuel_sales = fc_sales
+            rec.fc_float_amount  = float_amt
+            rec.fc_cust_receipt  = cust_receipt
+            rec.fc_invoice_amount = invoice_amt
+            rec.fc_receipt_amount = receipt_amt
+            rec.fc_drop_amount   = drop_amt
+            rec.fc_expense_amount = expense_amt
+            rec.fc_captured      = captured
+            rec.fc_collected     = collected
+            rec.fc_variance      = captured - collected
 
     # ── Compute: Meter-based reported sales ──────────────────────────────────
 
@@ -689,7 +703,7 @@ class FMSShiftAttendantCash(models.Model):
                 COALESCE(SUM(amount), 0) AS total
             FROM account_payment
             WHERE fms_shift_id = ANY(%s)
-              AND state = 'posted'
+              AND state IN ('in_process', 'paid')
               AND fms_payment_context IS NOT NULL
             GROUP BY fms_shift_id, fms_attendant_id, fms_payment_context
         """, (shift_ids,))

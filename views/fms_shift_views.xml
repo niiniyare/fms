@@ -39,6 +39,18 @@
                             class="btn-secondary"
                             groups="fms.group_fms_supervisor"
                             invisible="state == 'draft'"/>
+                    <button name="action_report_fc_cash_recon"
+                            string="FC Cash Recon Report"
+                            type="object"
+                            class="btn-secondary"
+                            groups="fms.group_fms_supervisor"
+                            invisible="state == 'draft'"/>
+                    <button name="action_report_sales_register"
+                            string="Sales Register"
+                            type="object"
+                            class="btn-secondary"
+                            groups="fms.group_fms_supervisor"
+                            invisible="state == 'draft'"/>
                     <field name="state" widget="statusbar"
                            statusbar_visible="draft,open,closing,closed"/>
                 </header>
@@ -250,6 +262,50 @@
                                            widget="monetary"/>
                                 </group>
                             </group>
+                        </page>
+
+                        <!-- ═══════════════════════════════════════════
+                             TAB 5: FC Cash Reconciliation
+                             Per-attendant captured vs collected breakdown
+                        ═══════════════════════════════════════════ -->
+                        <page string="FC Cash Recon" name="fc_cash_recon"
+                              invisible="state == 'draft'">
+                            <field name="attendant_cash_ids" readonly="1"
+                                   context="{'default_shift_id': id}">
+                                <list string="FC Cash Reconciliation"
+                                      create="false" delete="false" edit="false"
+                                      decoration-danger="fc_variance != 0"
+                                      decoration-success="fc_variance == 0">
+                                    <field name="attendant_id" string="Attendant"/>
+
+                                    <!-- DR: Captured -->
+                                    <field name="fc_meter_sales" string="Fuel Sales"
+                                           sum="Fuel Sales"/>
+                                    <field name="fc_nonfuel_sales" string="Non Fuel"
+                                           sum="Non Fuel"/>
+                                    <field name="fc_float_amount" string="Floats Issued"
+                                           optional="show" sum="Floats"/>
+                                    <field name="fc_cust_receipt" string="Cust Receipts"
+                                           optional="show" sum="Cust Rcpts"/>
+                                    <field name="fc_captured" string="Total Captured"
+                                           sum="Total Captured"/>
+
+                                    <!-- CR: Collected -->
+                                    <field name="fc_invoice_amount" string="Invoices"
+                                           optional="show" sum="Invoices"/>
+                                    <field name="fc_receipt_amount" string="Receipts"
+                                           optional="show" sum="Receipts"/>
+                                    <field name="fc_drop_amount" string="Cash Drops"
+                                           optional="show" sum="Drops"/>
+                                    <field name="fc_expense_amount" string="Expenses"
+                                           optional="show" sum="Expenses"/>
+                                    <field name="fc_collected" string="Total Collected"
+                                           sum="Total Collected"/>
+
+                                    <field name="fc_variance" string="Variance"
+                                           sum="Total Variance"/>
+                                </list>
+                            </field>
                         </page>
 
                         <!-- ═══════════════════════════════════════════
