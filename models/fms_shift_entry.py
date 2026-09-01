@@ -457,7 +457,8 @@ class FMSShiftAttendantCash(models.Model):
         has_hr_expense_fms = bool(self.env.cr.fetchone())
 
         for rec in self:
-            if not rec.shift_id or not rec.attendant_id:
+            _null = not rec.shift_id or not rec.attendant_id or not isinstance(rec.shift_id.id, int)
+            if _null:
                 for f in ('fc_captured','fc_collected','fc_variance','fc_meter_sales',
                           'fc_nonfuel_sales','fc_float_amount','fc_cust_receipt',
                           'fc_invoice_amount','fc_receipt_amount','fc_drop_amount','fc_expense_amount'):
@@ -683,7 +684,7 @@ class FMSShiftAttendantCash(models.Model):
 
     @api.depends('shift_id', 'attendant_id')
     def _compute_from_payments(self):
-        records_with_shift = self.filtered(lambda r: r.shift_id and r.attendant_id)
+        records_with_shift = self.filtered(lambda r: r.shift_id and r.attendant_id and isinstance(r.shift_id.id, int))
         records_without = self - records_with_shift
 
         for rec in records_without:
