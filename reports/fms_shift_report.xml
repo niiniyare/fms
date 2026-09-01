@@ -4,7 +4,7 @@
     <!-- ================================================================
          Shift Reconciliation Report — action + paper format
          Accessible via the "Print Report" button on fms.shift form.
-         Ref: Spec Section 10 (Reporting)
+         Ref: Spec Section 10 (Reporting) | Design: docs/pdf.md
     ================================================================ -->
 
     <record id="action_report_fms_shift" model="ir.actions.report">
@@ -25,336 +25,486 @@
                 <t t-call="web.external_layout">
                     <div class="page fms-report">
 
-                        <!-- ── Header ── -->
-                        <div class="row mb-4">
-                            <div class="col-8">
-                                <h2>Shift Reconciliation Report</h2>
-                                <h4>
-                                    <t t-out="shift.date"/>
-                                    —
-                                    <t t-out="dict(shift._fields['label'].selection).get(shift.label, shift.label)"/>
-                                </h4>
+                        <!-- ══════════════════════════════════════════
+                             HEADER BAND
+                        ══════════════════════════════════════════ -->
+                        <div class="fms-report-header">
+                            <div class="header-left">
+                                <img t-att-src="'/web/binary/company_logo?company=%s' % shift.company_id.id"
+                                     alt="Logo"/>
+                                <div class="company-name">
+                                    <t t-out="shift.company_id.name"/>
+                                </div>
                             </div>
-                            <div class="col-4 text-end">
-                                <span t-attf-class="badge #{
-                                    'bg-secondary' if shift.state == 'draft' else
-                                    'bg-success' if shift.state == 'open' else
-                                    'bg-warning' if shift.state == 'closing' else
-                                    'bg-dark'
-                                } fs-6">
+                            <div class="header-right">
+                                <h1>Shift Reconciliation Report</h1>
+                                <div class="report-sub">
+                                    <t t-out="shift.name"/> &#160;·&#160;
+                                    <t t-out="dict(shift._fields['label'].selection).get(shift.label, shift.label).upper()"/> SHIFT
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ══════════════════════════════════════════
+                             META ROW
+                        ══════════════════════════════════════════ -->
+                        <div class="fms-meta-row">
+                            <span><b>Date:</b> <t t-out="shift.date"/></span>
+                            <span class="fms-meta-sep">│</span>
+                            <span><b>Ref:</b> <t t-out="shift.name"/></span>
+                            <span class="fms-meta-sep">│</span>
+                            <span><b>Station:</b> <t t-out="shift.company_id.name"/></span>
+                            <span class="fms-meta-sep">│</span>
+                            <span><b>Supervisor:</b> <t t-out="shift.supervisor_id.name or '—'"/></span>
+                            <span class="fms-meta-sep">│</span>
+                            <span>
+                                <b>Status:</b>
+                                <span t-attf-class="fms-badge #{
+                                    'ok'   if shift.state == 'closed'  else
+                                    'warn' if shift.state == 'open'    else
+                                    'fail' if shift.state == 'closing' else 'fail'
+                                }">
                                     <t t-out="dict(shift._fields['state'].selection).get(shift.state, shift.state).upper()"/>
+                                </span>
+                            </span>
+                        </div>
+
+                        <!-- body padding -->
+                        <div style="margin-top:16px;">
+
+                        <!-- ══════════════════════════════════════════
+                             KPI TILES
+                        ══════════════════════════════════════════ -->
+                        <div class="fms-kpi-row">
+                            <div class="fms-kpi-tile">
+                                <span class="fms-kpi-label">Total Meter Sales</span>
+                                <span class="fms-kpi-value">
+                                    <t t-out="shift.company_id.currency_id.symbol"/>
+                                    <t t-out="'{:,.2f}'.format(shift.total_meter_sales)"/>
+                                </span>
+                                <span class="fms-kpi-sub">
+                                    <t t-out="len(shift.meter_entry_ids)"/> nozzle entries
+                                </span>
+                            </div>
+                            <div class="fms-kpi-tile">
+                                <span class="fms-kpi-label">Total Reported Sales</span>
+                                <span class="fms-kpi-value">
+                                    <t t-out="shift.company_id.currency_id.symbol"/>
+                                    <t t-out="'{:,.2f}'.format(shift.total_reported_sales)"/>
+                                </span>
+                                <span class="fms-kpi-sub">
+                                    <t t-out="len(shift.attendant_cash_ids)"/> attendants
+                                </span>
+                            </div>
+                            <div t-attf-class="fms-kpi-tile #{'ok' if abs(shift.fc_cash_balance) &lt; 0.01 else 'fail'}">
+                                <span class="fms-kpi-label">FC Cash Balance</span>
+                                <span class="fms-kpi-value">
+                                    <t t-out="shift.company_id.currency_id.symbol"/>
+                                    <t t-out="'{:,.2f}'.format(shift.fc_cash_balance)"/>
+                                </span>
+                                <span class="fms-kpi-sub">
+                                    <t t-if="abs(shift.fc_cash_balance) &lt; 0.01">Gate 1: PASSED</t>
+                                    <t t-else="">Gate 1: FAILED</t>
                                 </span>
                             </div>
                         </div>
 
-                        <!-- ── Shift Info ── -->
-                        <div class="row mb-3">
-                            <div class="col-6">
-                                <table class="table table-sm table-borderless">
-                                    <tr>
-                                        <td class="fw-bold" style="width:40%">Supervisor</td>
-                                        <td><t t-out="shift.supervisor_id.name"/></td>
-                                    </tr>
-                                    <tr>
-                                        <td class="fw-bold">Company</td>
-                                        <td><t t-out="shift.company_id.name"/></td>
-                                    </tr>
-                                    <tr>
-                                        <td class="fw-bold">Opened At</td>
-                                        <td><t t-out="shift.opening_meter_date or '—'"/></td>
-                                    </tr>
-                                    <tr>
-                                        <td class="fw-bold">Closed At</td>
-                                        <td><t t-out="shift.closing_meter_date or '—'"/></td>
-                                    </tr>
-                                </table>
+                        <!-- ══════════════════════════════════════════
+                             SHIFT INFO GRID
+                        ══════════════════════════════════════════ -->
+                        <div class="fms-info-grid">
+                            <div class="fms-info-col">
+                                <div class="fms-info-item">
+                                    <span class="fms-info-label">Opened At</span>
+                                    <span class="fms-info-value"><t t-out="shift.opening_meter_date or '—'"/></span>
+                                </div>
+                                <div class="fms-info-item">
+                                    <span class="fms-info-label">Closed At</span>
+                                    <span class="fms-info-value"><t t-out="shift.closing_meter_date or '—'"/></span>
+                                </div>
+                                <div class="fms-info-item">
+                                    <span class="fms-info-label">Shift Period</span>
+                                    <span class="fms-info-value">
+                                        <t t-out="dict(shift._fields['label'].selection).get(shift.label, shift.label)"/>
+                                    </span>
+                                </div>
                             </div>
-                            <div class="col-6">
-                                <table class="table table-sm table-borderless">
-                                    <tr>
-                                        <td class="fw-bold" style="width:50%">Total Meter Sales</td>
-                                        <td class="text-end">
-                                            <t t-out="shift.company_id.currency_id.name"/> <t t-out="'{:,.2f}'.format(shift.total_meter_sales)"/>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td class="fw-bold">Total Reported Sales</td>
-                                        <td class="text-end">
-                                            <t t-out="shift.company_id.currency_id.name"/> <t t-out="'{:,.2f}'.format(shift.total_reported_sales)"/>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td class="fw-bold">FC Cash Balance</td>
-                                        <td t-attf-class="text-end fw-bold #{
-                                            'text-success' if abs(shift.fc_cash_balance) &lt; 0.01 else 'text-danger'
-                                        }">
-                                            <t t-out="shift.company_id.currency_id.name"/> <t t-out="'{:,.2f}'.format(shift.fc_cash_balance)"/>
-                                        </td>
-                                    </tr>
-                                    <t t-if="shift.sales_journal_entry_id">
-                                        <tr>
-                                            <td class="fw-bold">Sales GL Entry</td>
-                                            <td class="text-end">
-                                                <t t-out="shift.sales_journal_entry_id.name"/>
-                                            </td>
-                                        </tr>
-                                    </t>
-                                </table>
+                            <div class="fms-info-col">
+                                <div class="fms-info-item">
+                                    <span class="fms-info-label">Sales GL Entry</span>
+                                    <span class="fms-info-value">
+                                        <t t-out="shift.sales_journal_entry_id.name or '—'"/>
+                                    </span>
+                                </div>
+                                <div class="fms-info-item">
+                                    <span class="fms-info-label">Company</span>
+                                    <span class="fms-info-value"><t t-out="shift.company_id.name"/></span>
+                                </div>
                             </div>
                         </div>
 
-                        <!-- ── Meter Readings ── -->
+                        <!-- ══════════════════════════════════════════
+                             SECTION 1: PUMP METER READINGS
+                        ══════════════════════════════════════════ -->
                         <t t-if="shift.meter_entry_ids">
-                            <h5 class="mt-3">Pump Meter Readings</h5>
-                            <table class="table table-sm table-bordered">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>Pump</th>
-                                        <th>Nozzle</th>
-                                        <th>Product</th>
-                                        <th class="text-end">Opening (L)</th>
-                                        <th class="text-end">Closing (L)</th>
-                                        <th class="text-end">Qty Sold (L)</th>
-                                        <th class="text-end">Amount</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <t t-foreach="shift.meter_entry_ids" t-as="entry">
+                            <div class="fms-section">
+                                <div class="fms-section-header">
+                                    <span class="fms-section-title">Pump Meter Readings</span>
+                                    <span class="fms-section-badge">
+                                        <t t-out="len(shift.meter_entry_ids)"/> entries
+                                    </span>
+                                </div>
+                                <table class="fms-table">
+                                    <thead>
                                         <tr>
-                                            <td><t t-out="entry.pump_id.name"/></td>
-                                            <td><t t-out="entry.nozzle_id.name"/></td>
-                                            <td><t t-out="entry.product_id.name"/></td>
-                                            <td class="text-end"><t t-out="'{:,.2f}'.format(entry.opening_elec_volume)"/></td>
-                                            <td class="text-end"><t t-out="'{:,.2f}'.format(entry.closing_elec_volume)"/></td>
-                                            <td class="text-end"><t t-out="'{:,.2f}'.format(entry.qty_sold_elec)"/></td>
-                                            <td class="text-end"><t t-out="'{:,.2f}'.format(entry.amount_elec)"/></td>
+                                            <th>Pump</th>
+                                            <th>Nozzle</th>
+                                            <th>Product</th>
+                                            <th class="text-right">Opening (L)</th>
+                                            <th class="text-right">Closing (L)</th>
+                                            <th class="text-right">Qty Sold (L)</th>
+                                            <th class="text-right">Amount</th>
                                         </tr>
-                                    </t>
-                                </tbody>
-                                <tfoot class="table-light fw-bold">
-                                    <tr>
-                                        <td colspan="5">Total</td>
-                                        <td class="text-end">
-                                            <t t-out="'{:,.2f}'.format(sum(shift.meter_entry_ids.mapped('qty_sold_elec')))"/>
-                                        </td>
-                                        <td class="text-end">
-                                            <t t-out="shift.company_id.currency_id.name"/> <t t-out="'{:,.2f}'.format(shift.total_meter_sales)"/>
-                                        </td>
-                                    </tr>
-                                </tfoot>
-                            </table>
+                                    </thead>
+                                    <tbody>
+                                        <t t-foreach="shift.meter_entry_ids" t-as="entry">
+                                            <tr t-attf-class="{{ 'row-even' if entry_index % 2 == 0 else 'row-odd' }}">
+                                                <td><t t-out="entry.pump_id.name"/></td>
+                                                <td><t t-out="entry.nozzle_id.name"/></td>
+                                                <td><t t-out="entry.product_id.name"/></td>
+                                                <td class="text-right num"><t t-out="'{:,.3f}'.format(entry.opening_elec_volume)"/></td>
+                                                <td class="text-right num"><t t-out="'{:,.3f}'.format(entry.closing_elec_volume)"/></td>
+                                                <td class="text-right num"><t t-out="'{:,.3f}'.format(entry.qty_sold_elec)"/></td>
+                                                <td class="text-right num">
+                                                    <t t-out="shift.company_id.currency_id.symbol"/>
+                                                    <t t-out="'{:,.2f}'.format(entry.amount_elec)"/>
+                                                </td>
+                                            </tr>
+                                        </t>
+                                    </tbody>
+                                    <tfoot>
+                                        <tr>
+                                            <td colspan="5"><b>Total</b></td>
+                                            <td class="text-right num">
+                                                <t t-out="'{:,.3f}'.format(sum(shift.meter_entry_ids.mapped('qty_sold_elec')))"/>
+                                            </td>
+                                            <td class="text-right num">
+                                                <t t-out="shift.company_id.currency_id.symbol"/>
+                                                <t t-out="'{:,.2f}'.format(shift.total_meter_sales)"/>
+                                            </td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
                         </t>
 
-                        <!-- ── Tank Dips ── -->
+                        <!-- ══════════════════════════════════════════
+                             SECTION 2: TANK DIP READINGS
+                        ══════════════════════════════════════════ -->
                         <t t-if="shift.dip_entry_ids">
-                            <h5 class="mt-3">Tank Dip Readings</h5>
-                            <table class="table table-sm table-bordered">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>Tank</th>
-                                        <th>Product</th>
-                                        <th class="text-end">Opening (L)</th>
-                                        <th class="text-end">Book Stock (L)</th>
-                                        <th class="text-end">Closing Dip (L)</th>
-                                        <th class="text-end">Change (L)</th>
-                                        <th>Notes</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <t t-foreach="shift.dip_entry_ids" t-as="dip">
+                            <div class="fms-section">
+                                <div class="fms-section-header">
+                                    <span class="fms-section-title">Tank Dip &amp; Stock Variance</span>
+                                    <span class="fms-section-badge">
+                                        <t t-out="len(shift.dip_entry_ids)"/> tanks
+                                    </span>
+                                </div>
+                                <table class="fms-table">
+                                    <thead>
                                         <tr>
-                                            <td><t t-out="dip.location_id.name"/></td>
-                                            <td><t t-out="dip.product_id.name or '—'"/></td>
-                                            <td class="text-end"><t t-out="'{:,.2f}'.format(dip.opening_volume)"/></td>
-                                            <td class="text-end"><t t-out="'{:,.2f}'.format(dip.book_stock_open)"/></td>
-                                            <td class="text-end"><t t-out="'{:,.2f}'.format(dip.closing_volume)"/></td>
-                                            <td class="text-end"><t t-out="'{:,.2f}'.format(dip.closing_volume - dip.opening_volume)"/></td>
-                                            <td><t t-out="dip.notes or ''"/></td>
+                                            <th>Tank</th>
+                                            <th>Product</th>
+                                            <th class="text-right">Opening (L)</th>
+                                            <th class="text-right">Book Stock (L)</th>
+                                            <th class="text-right">Closing Dip (L)</th>
+                                            <th class="text-right">Change (L)</th>
+                                            <th>Notes</th>
                                         </tr>
-                                    </t>
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody>
+                                        <t t-foreach="shift.dip_entry_ids" t-as="dip">
+                                            <tr t-attf-class="{{ 'row-even' if dip_index % 2 == 0 else 'row-odd' }}">
+                                                <td><t t-out="dip.location_id.name"/></td>
+                                                <td><t t-out="dip.product_id.name or '—'"/></td>
+                                                <td class="text-right num"><t t-out="'{:,.3f}'.format(dip.opening_volume)"/></td>
+                                                <td class="text-right num"><t t-out="'{:,.3f}'.format(dip.book_stock_open)"/></td>
+                                                <td class="text-right num"><t t-out="'{:,.3f}'.format(dip.closing_volume)"/></td>
+                                                <t t-set="dip_change" t-value="dip.closing_volume - dip.opening_volume"/>
+                                                <td t-attf-class="text-right num #{ 'var-ok' if abs(dip_change) &lt; 50 else 'var-warn' if abs(dip_change) &lt; 200 else 'var-fail' }">
+                                                    <t t-out="'{:+,.3f}'.format(dip_change)"/>
+                                                </td>
+                                                <td style="font-size:7.5pt;color:#9999AA;">
+                                                    <t t-out="dip.notes or ''"/>
+                                                </td>
+                                            </tr>
+                                        </t>
+                                    </tbody>
+                                </table>
+                            </div>
                         </t>
 
-                        <!-- ── Attendant Cash ── -->
+                        <!-- ══════════════════════════════════════════
+                             SECTION 3: ATTENDANT CASH RECONCILIATION
+                        ══════════════════════════════════════════ -->
                         <t t-if="shift.attendant_cash_ids">
-                            <h5 class="mt-3">Attendant Cash Reconciliation</h5>
-                            <table class="table table-sm table-bordered">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>Attendant</th>
-                                        <th class="text-end">Pump Sales</th>
-                                        <th class="text-end">MPesa</th>
-                                        <th class="text-end">Card</th>
-                                        <th class="text-end">AR</th>
-                                        <th class="text-end">Expenses</th>
-                                        <th class="text-end">Cash Dropped</th>
-                                        <th class="text-end">Balance</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <t t-foreach="shift.attendant_cash_ids" t-as="cash">
+                            <div class="fms-section">
+                                <div class="fms-section-header">
+                                    <span class="fms-section-title">Attendant Cash Reconciliation</span>
+                                    <span class="fms-section-badge">
+                                        <t t-out="len(shift.attendant_cash_ids)"/> attendants
+                                    </span>
+                                </div>
+                                <table class="fms-table">
+                                    <thead>
                                         <tr>
-                                            <td><t t-out="cash.attendant_id.name"/></td>
-                                            <td class="text-end"><t t-out="'{:,.2f}'.format(cash.reported_sales)"/></td>
-                                            <td class="text-end"><t t-out="'{:,.2f}'.format(cash.mpesa_amount)"/></td>
-                                            <td class="text-end"><t t-out="'{:,.2f}'.format(cash.card_amount)"/></td>
-                                            <td class="text-end"><t t-out="'{:,.2f}'.format(cash.ar_amount)"/></td>
-                                            <td class="text-end"><t t-out="'{:,.2f}'.format(cash.expense_amount)"/></td>
-                                            <td class="text-end"><t t-out="'{:,.2f}'.format(cash.cash_collected)"/></td>
-                                            <td t-attf-class="text-end fw-bold #{
-                                                'text-success' if abs(cash.balance) &lt; 0.01 else 'text-danger'
-                                            }">
-                                                <t t-out="'{:,.2f}'.format(cash.balance)"/>
+                                            <th>Attendant</th>
+                                            <th class="text-right">Pump Sales</th>
+                                            <th class="text-right">MPesa</th>
+                                            <th class="text-right">Card</th>
+                                            <th class="text-right">A/R</th>
+                                            <th class="text-right">Expenses</th>
+                                            <th class="text-right">Cash Drop</th>
+                                            <th class="text-right">Balance</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <t t-foreach="shift.attendant_cash_ids" t-as="cash">
+                                            <tr t-attf-class="{{ 'row-even' if cash_index % 2 == 0 else 'row-odd' }}">
+                                                <td><t t-out="cash.attendant_id.name"/></td>
+                                                <td class="text-right num"><t t-out="'{:,.2f}'.format(cash.reported_sales)"/></td>
+                                                <td class="text-right num"><t t-out="'{:,.2f}'.format(cash.mpesa_amount)"/></td>
+                                                <td class="text-right num"><t t-out="'{:,.2f}'.format(cash.card_amount)"/></td>
+                                                <td class="text-right num"><t t-out="'{:,.2f}'.format(cash.ar_amount)"/></td>
+                                                <td class="text-right num"><t t-out="'{:,.2f}'.format(cash.expense_amount)"/></td>
+                                                <td class="text-right num"><t t-out="'{:,.2f}'.format(cash.cash_collected)"/></td>
+                                                <td t-attf-class="text-right num #{ 'var-ok' if abs(cash.balance) &lt; 0.01 else 'var-fail' }">
+                                                    <t t-out="'{:,.2f}'.format(cash.balance)"/>
+                                                </td>
+                                            </tr>
+                                        </t>
+                                    </tbody>
+                                    <tfoot>
+                                        <tr>
+                                            <td><b>Total</b></td>
+                                            <td class="text-right num">
+                                                <t t-out="'{:,.2f}'.format(sum(shift.attendant_cash_ids.mapped('reported_sales')))"/>
+                                            </td>
+                                            <td class="text-right num">
+                                                <t t-out="'{:,.2f}'.format(sum(shift.attendant_cash_ids.mapped('mpesa_amount')))"/>
+                                            </td>
+                                            <td class="text-right num">
+                                                <t t-out="'{:,.2f}'.format(sum(shift.attendant_cash_ids.mapped('card_amount')))"/>
+                                            </td>
+                                            <td class="text-right num">
+                                                <t t-out="'{:,.2f}'.format(sum(shift.attendant_cash_ids.mapped('ar_amount')))"/>
+                                            </td>
+                                            <td class="text-right num">
+                                                <t t-out="'{:,.2f}'.format(sum(shift.attendant_cash_ids.mapped('expense_amount')))"/>
+                                            </td>
+                                            <td class="text-right num">
+                                                <t t-out="'{:,.2f}'.format(sum(shift.attendant_cash_ids.mapped('cash_collected')))"/>
+                                            </td>
+                                            <td t-attf-class="text-right num #{ 'var-ok' if abs(shift.fc_cash_balance) &lt; 0.01 else 'var-fail' }">
+                                                <t t-out="'{:,.2f}'.format(shift.fc_cash_balance)"/>
                                             </td>
                                         </tr>
-                                    </t>
-                                </tbody>
-                            </table>
+                                    </tfoot>
+                                </table>
+                            </div>
                         </t>
 
-                        <!-- ── Sales Summary ── -->
+                        <!-- ══════════════════════════════════════════
+                             SECTION 4: PRODUCT SALES SUMMARY
+                        ══════════════════════════════════════════ -->
                         <t t-if="shift.product_sales_ids">
-                            <h5 class="mt-3">Product Sales Summary</h5>
-                            <table class="table table-sm table-bordered">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>Product</th>
-                                        <th class="text-end">Meter Qty (L)</th>
-                                        <th class="text-end">Meter Amount</th>
-                                        <th class="text-end">Residual Qty (L)</th>
-                                        <th class="text-end">Residual Amt</th>
-                                        <th>Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <t t-foreach="shift.product_sales_ids" t-as="ps">
+                            <div class="fms-section">
+                                <div class="fms-section-header">
+                                    <span class="fms-section-title">Product Sales Summary</span>
+                                </div>
+                                <table class="fms-table">
+                                    <thead>
                                         <tr>
-                                            <td><t t-out="ps.product_id.name"/></td>
-                                            <td class="text-end"><t t-out="'{:,.2f}'.format(ps.qty_sold_elec)"/></td>
-                                            <td class="text-end"><t t-out="'{:,.2f}'.format(ps.amount_elec)"/></td>
-                                            <td class="text-end"><t t-out="'{:,.2f}'.format(ps.residual_qty)"/></td>
-                                            <td t-attf-class="text-end #{
-                                                'text-success' if abs(ps.residual_amount) &lt; 0.01 else
-                                                'text-warning' if ps.residual_amount &gt; 0 else 'text-danger'
-                                            }">
-                                                <t t-out="'{:,.2f}'.format(ps.residual_amount)"/>
-                                            </td>
-                                            <td t-attf-class="#{
-                                                'text-success' if ps.residual_type == 'none' else
-                                                'text-warning' if ps.residual_type == 'under' else 'text-danger'
-                                            }">
-                                                <t t-out="dict([
-                                                    ('none','Balanced'),
-                                                    ('over','Over-reported'),
-                                                    ('under','Under-reported'),
-                                                ]).get(ps.residual_type, ps.residual_type)"/>
-                                            </td>
+                                            <th>Product</th>
+                                            <th class="text-right">Meter Qty (L)</th>
+                                            <th class="text-right">Meter Amount</th>
+                                            <th class="text-right">Residual Qty (L)</th>
+                                            <th class="text-right">Residual Amt</th>
+                                            <th class="text-center">Status</th>
                                         </tr>
-                                    </t>
-                                </tbody>
-                                <tfoot class="table-light fw-bold">
-                                    <tr>
-                                        <td>Total</td>
-                                        <td class="text-end">
-                                            <t t-out="'{:,.2f}'.format(sum(shift.product_sales_ids.mapped('qty_sold_elec')))"/>
-                                        </td>
-                                        <td class="text-end">
-                                            <t t-out="shift.company_id.currency_id.name"/> <t t-out="'{:,.2f}'.format(shift.total_meter_sales)"/>
-                                        </td>
-                                        <td colspan="3"></td>
-                                    </tr>
-                                </tfoot>
-                            </table>
+                                    </thead>
+                                    <tbody>
+                                        <t t-foreach="shift.product_sales_ids" t-as="ps">
+                                            <tr t-attf-class="{{ 'row-even' if ps_index % 2 == 0 else 'row-odd' }}">
+                                                <td><t t-out="ps.product_id.name"/></td>
+                                                <td class="text-right num"><t t-out="'{:,.3f}'.format(ps.qty_sold_elec)"/></td>
+                                                <td class="text-right num">
+                                                    <t t-out="shift.company_id.currency_id.symbol"/>
+                                                    <t t-out="'{:,.2f}'.format(ps.amount_elec)"/>
+                                                </td>
+                                                <td class="text-right num"><t t-out="'{:,.3f}'.format(ps.residual_qty)"/></td>
+                                                <td t-attf-class="text-right num #{ 'var-ok' if abs(ps.residual_amount) &lt; 0.01 else 'var-warn' if ps.residual_amount &gt; 0 else 'var-fail' }">
+                                                    <t t-out="shift.company_id.currency_id.symbol"/>
+                                                    <t t-out="'{:,.2f}'.format(ps.residual_amount)"/>
+                                                </td>
+                                                <td class="text-center">
+                                                    <span t-attf-class="fms-badge #{ 'ok' if ps.residual_type == 'none' else 'warn' if ps.residual_type == 'under' else 'fail' }">
+                                                        <t t-out="dict([
+                                                            ('none','Balanced'),
+                                                            ('over','Over-reported'),
+                                                            ('under','Under-reported'),
+                                                        ]).get(ps.residual_type, ps.residual_type)"/>
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        </t>
+                                    </tbody>
+                                    <tfoot>
+                                        <tr>
+                                            <td><b>Total</b></td>
+                                            <td class="text-right num">
+                                                <t t-out="'{:,.3f}'.format(sum(shift.product_sales_ids.mapped('qty_sold_elec')))"/>
+                                            </td>
+                                            <td class="text-right num">
+                                                <t t-out="shift.company_id.currency_id.symbol"/>
+                                                <t t-out="'{:,.2f}'.format(shift.total_meter_sales)"/>
+                                            </td>
+                                            <td colspan="3"/>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
                         </t>
 
-                        <!-- ── Residual Allocations ── -->
+                        <!-- ══════════════════════════════════════════
+                             SECTION 5: RESIDUAL ALLOCATIONS
+                        ══════════════════════════════════════════ -->
                         <t t-if="shift.residual_allocation_ids">
-                            <h5 class="mt-3">Residual Allocations</h5>
-                            <table class="table table-sm table-bordered">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>From (Over-reported)</th>
-                                        <th>To (Under-reported)</th>
-                                        <th class="text-end">Qty (L)</th>
-                                        <th class="text-end">Amount</th>
-                                        <th>GL Entry</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <t t-foreach="shift.residual_allocation_ids" t-as="alloc">
+                            <div class="fms-section">
+                                <div class="fms-section-header">
+                                    <span class="fms-section-title">Residual Allocations</span>
+                                    <span class="fms-section-badge">
+                                        <t t-out="len(shift.residual_allocation_ids)"/> allocations
+                                    </span>
+                                </div>
+                                <table class="fms-table">
+                                    <thead>
                                         <tr>
-                                            <td><t t-out="alloc.source_product_id.name"/></td>
-                                            <td><t t-out="alloc.target_product_id.name"/></td>
-                                            <td class="text-end"><t t-out="'{:,.2f}'.format(alloc.qty_litres)"/></td>
-                                            <td class="text-end"><t t-out="'{:,.2f}'.format(alloc.amount)"/></td>
-                                            <td><t t-out="alloc.journal_entry_id.name or '—'"/></td>
+                                            <th>From (Over-reported)</th>
+                                            <th>To (Under-reported)</th>
+                                            <th class="text-right">Qty (L)</th>
+                                            <th class="text-right">Amount</th>
+                                            <th>GL Entry</th>
                                         </tr>
-                                    </t>
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody>
+                                        <t t-foreach="shift.residual_allocation_ids" t-as="alloc">
+                                            <tr t-attf-class="{{ 'row-even' if alloc_index % 2 == 0 else 'row-odd' }}">
+                                                <td><t t-out="alloc.source_product_id.name"/></td>
+                                                <td><t t-out="alloc.target_product_id.name"/></td>
+                                                <td class="text-right num"><t t-out="'{:,.3f}'.format(alloc.qty_litres)"/></td>
+                                                <td class="text-right num">
+                                                    <t t-out="shift.company_id.currency_id.symbol"/>
+                                                    <t t-out="'{:,.2f}'.format(alloc.amount)"/>
+                                                </td>
+                                                <td style="font-size:7.5pt;">
+                                                    <t t-out="alloc.journal_entry_id.name or '—'"/>
+                                                </td>
+                                            </tr>
+                                        </t>
+                                    </tbody>
+                                </table>
+                            </div>
                         </t>
 
-                        <!-- ── Gate Status ── -->
-                        <div class="mt-4 p-3 border rounded">
-                            <h5>Hard Gate Summary</h5>
-                            <table class="table table-sm table-borderless mb-0">
-                                <tr>
-                                    <td style="width:5%">
-                                        <t t-if="abs(shift.fc_cash_balance) &lt; 0.01">✓</t>
-                                        <t t-else="">✗</t>
-                                    </td>
-                                    <td><strong>GATE 1 — FC Cash Balance</strong></td>
-                                    <td t-attf-class="text-end #{
-                                        'text-success' if abs(shift.fc_cash_balance) &lt; 0.01 else 'text-danger'
-                                    }">
-                                        <t t-out="shift.company_id.currency_id.name"/> <t t-out="'{:,.2f}'.format(shift.fc_cash_balance)"/>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td>
-                                        <t t-if="all(abs(c.balance) &lt; 0.01 for c in shift.attendant_cash_ids)">✓</t>
-                                        <t t-else="">✗</t>
-                                    </td>
-                                    <td><strong>GATE 2 — All Attendants Clear</strong></td>
-                                    <td class="text-end">
-                                        <t t-out="len([c for c in shift.attendant_cash_ids if abs(c.balance) &gt;= 0.01])"/> unresolved
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td>
-                                        <t t-if="shift.state == 'closed'">✓</t>
-                                        <t t-else="">—</t>
-                                    </td>
-                                    <td><strong>GATE 3 — Tank Dip Variance (±1,000 L meniscus)</strong></td>
-                                    <td class="text-end text-muted">
-                                        <t t-if="shift.state == 'closed'">Passed at close</t>
-                                        <t t-else="">Checked on shift close</t>
-                                    </td>
-                                </tr>
-                            </table>
+                        <!-- ══════════════════════════════════════════
+                             SECTION 6: HARD GATE SUMMARY
+                        ══════════════════════════════════════════ -->
+                        <div class="fms-gate-block no-break">
+                            <h3>Hard Gate Summary</h3>
+
+                            <!-- Gate 1 -->
+                            <div class="fms-gate-row">
+                                <div class="fms-gate-icon">
+                                    <t t-if="abs(shift.fc_cash_balance) &lt; 0.01">
+                                        <span style="color:#1A7F4B;font-weight:700;">✓</span>
+                                    </t>
+                                    <t t-else="">
+                                        <span style="color:#B91C1C;font-weight:700;">✗</span>
+                                    </t>
+                                </div>
+                                <div class="fms-gate-label">GATE 1 — FC Cash Balance = 0</div>
+                                <div t-attf-class="fms-gate-value #{ 'var-ok' if abs(shift.fc_cash_balance) &lt; 0.01 else 'var-fail' }">
+                                    <t t-out="shift.company_id.currency_id.symbol"/>
+                                    <t t-out="'{:,.2f}'.format(shift.fc_cash_balance)"/>
+                                </div>
+                            </div>
+
+                            <!-- Gate 2 -->
+                            <t t-set="unresolved" t-value="len([c for c in shift.attendant_cash_ids if abs(c.balance) &gt;= 0.01])"/>
+                            <div class="fms-gate-row">
+                                <div class="fms-gate-icon">
+                                    <t t-if="unresolved == 0">
+                                        <span style="color:#1A7F4B;font-weight:700;">✓</span>
+                                    </t>
+                                    <t t-else="">
+                                        <span style="color:#B91C1C;font-weight:700;">✗</span>
+                                    </t>
+                                </div>
+                                <div class="fms-gate-label">GATE 2 — All Attendants Clear</div>
+                                <div t-attf-class="fms-gate-value #{ 'var-ok' if unresolved == 0 else 'var-fail' }">
+                                    <t t-if="unresolved == 0">All clear</t>
+                                    <t t-else=""><t t-out="unresolved"/> unresolved</t>
+                                </div>
+                            </div>
+
+                            <!-- Gate 3 -->
+                            <div class="fms-gate-row">
+                                <div class="fms-gate-icon">
+                                    <t t-if="shift.state == 'closed'">
+                                        <span style="color:#1A7F4B;font-weight:700;">✓</span>
+                                    </t>
+                                    <t t-else="">
+                                        <span style="color:#9999AA;">—</span>
+                                    </t>
+                                </div>
+                                <div class="fms-gate-label">GATE 3 — Tank Dip Variance (±meniscus)</div>
+                                <div class="fms-gate-value" style="color:#9999AA;">
+                                    <t t-if="shift.state == 'closed'">Passed at close</t>
+                                    <t t-else="">Checked on shift close</t>
+                                </div>
+                            </div>
                         </div>
 
-                        <!-- ── Signature block ── -->
-                        <div class="row mt-5">
-                            <div class="col-4 text-center">
-                                <div style="border-top:1px solid #000;margin-top:40px;padding-top:4px">
-                                    Supervisor Signature
-                                </div>
+                        <!-- ══════════════════════════════════════════
+                             SIGNATURE BLOCK
+                        ══════════════════════════════════════════ -->
+                        <div class="fms-signature-row no-break">
+                            <div class="fms-sig-box">
+                                <div class="fms-sig-line"/>
+                                <span class="fms-sig-name">
+                                    <t t-out="shift.supervisor_id.name or '________________________'"/>
+                                </span>
+                                <span class="fms-sig-role">Supervisor</span>
                             </div>
-                            <div class="col-4 text-center">
-                                <div style="border-top:1px solid #000;margin-top:40px;padding-top:4px">
-                                    Date
-                                </div>
+                            <div class="fms-sig-box">
+                                <div class="fms-sig-line"/>
+                                <span class="fms-sig-name">________________________</span>
+                                <span class="fms-sig-role">Station Manager</span>
                             </div>
-                            <div class="col-4 text-center">
-                                <div style="border-top:1px solid #000;margin-top:40px;padding-top:4px">
-                                    Station Manager
-                                </div>
+                            <div class="fms-sig-box">
+                                <div class="fms-sig-line"/>
+                                <span class="fms-sig-name">________________________</span>
+                                <span class="fms-sig-role">Date</span>
                             </div>
                         </div>
 
-                    </div>
+                        </div><!-- end body padding -->
+
+                        <!-- ══════════════════════════════════════════
+                             FOOTER (injected by wkhtmltopdf via CSS)
+                        ══════════════════════════════════════════ -->
+
+                    </div><!-- end .page -->
                 </t>
             </t>
         </t>
