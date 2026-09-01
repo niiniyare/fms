@@ -125,7 +125,7 @@ class FmsShiftCashMovement(models.Model):
         for rec in self:
             vals = rec._build_payment_vals()
             if rec.payment_id:
-                if rec.payment_id.state == 'posted':
+                if rec.payment_id.state in ('in_process', 'paid'):
                     # Already posted — cancel and recreate (amount/type changed)
                     try:
                         rec.payment_id.action_cancel()
@@ -159,7 +159,7 @@ class FmsShiftCashMovement(models.Model):
         for rec in self:
             if rec.shift_id.state == 'closed':
                 raise ValidationError("Cannot delete movements on a closed shift.")
-            if rec.payment_id and rec.payment_id.state == 'posted':
+            if rec.payment_id and rec.payment_id.state in ('in_process', 'paid'):
                 raise ValidationError(
                     f"Posted payment exists for {rec.attendant_id.name}. "
                     "Reverse the payment before deleting this line."

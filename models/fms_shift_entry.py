@@ -680,7 +680,7 @@ class FMSShiftAttendantCash(models.Model):
         shift_ids = records_with_shift.mapped('shift_id').ids
 
         # Single SQL query — aggregate by shift, attendant, context
-        # Only 'posted' payments count (state='posted' in account.payment)
+        # Only confirmed payments count (Odoo 18: state IN ('in_process','paid'))
         self.env.cr.execute("""
             SELECT
                 fms_shift_id,
