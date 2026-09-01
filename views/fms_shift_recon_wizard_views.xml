@@ -17,7 +17,7 @@
 
                     <field name="line_ids">
                         <list editable="bottom" string="Attendant Variances"
-                              decoration-danger="fc_variance > 0.01 or fc_variance < -0.01">
+                              decoration-danger="fc_variance > 0.01 or fc_variance &lt; -0.01">
                             <field name="attendant_id" readonly="1"/>
                             <field name="fc_captured" string="Captured" readonly="1"/>
                             <field name="fc_collected" string="Collected" readonly="1"/>
