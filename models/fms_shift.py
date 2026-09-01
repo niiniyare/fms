@@ -196,6 +196,10 @@ class FMSShift(models.Model):
         help="Sum of fc_variance across all attendant cash lines (new FC Cash system). "
              "Must be 0.00 before shift can move to closing.",
     )
+    total_fc_sales = fields.Float(
+        'Total Non Fuel Sales', compute='_compute_total_fc_sales', store=False,
+        digits=(16, 2),
+    )
 
     @api.depends(
         'meter_entry_ids.elec_cash_sold',
@@ -214,6 +218,11 @@ class FMSShift(models.Model):
             shift.fc_cash_balance_total = sum(
                 shift.attendant_cash_ids.mapped('fc_variance')
             )
+
+    @api.depends('fc_line_ids.sales_amount')
+    def _compute_total_fc_sales(self):
+        for shift in self:
+            shift.total_fc_sales = sum(shift.fc_line_ids.mapped('sales_amount'))
 
     # ------------------------------------------------------------------
     # Full commercial reconciliation summary (Spec §8 + §11)
@@ -354,6 +363,28 @@ class FMSShift(models.Model):
     # ------------------------------------------------------------------
     # Product sales rollup
     # ------------------------------------------------------------------
+
+    def action_open_float_payment(self):
+        """Open account.payment new form pre-filled for float/drop linked to this shift."""
+        self.ensure_one()
+        cash_journal = self.env['account.journal'].search([
+            ('type', '=', 'cash'),
+            ('company_id', '=', self.company_id.id),
+        ], limit=1)
+        return {
+            'type': 'ir.actions.act_window',
+            'name': 'Record Float / Drop',
+            'res_model': 'account.payment',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {
+                'default_fms_shift_id': self.id,
+                'default_journal_id': cash_journal.id if cash_journal else False,
+                'default_fms_payment_context': 'cash_float',
+                'default_payment_type': 'outbound',
+                'default_company_id': self.company_id.id,
+            },
+        }
 
     def action_report_fms_shift(self):
         """Open the Shift Reconciliation PDF report for this shift."""

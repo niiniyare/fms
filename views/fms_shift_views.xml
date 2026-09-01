@@ -231,32 +231,13 @@
                                 </list>
                             </field>
 
-                            <!-- Subtotals: by product -->
-                            <div class="o_horizontal_separator mt-3">By Product</div>
-                            <field name="fc_line_ids" readonly="1">
-                                <list string="Non Fuel — By Product"
-                                      create="false" delete="false" edit="false"
-                                      group_by="product_id">
-                                    <field name="product_id" string="Product"/>
-                                    <field name="line_type" string="Type" optional="show"/>
-                                    <field name="qty_sold" string="Qty Sold"
-                                           sum="Total Qty"/>
-                                    <field name="sales_amount" string="Amount"
-                                           sum="Total"/>
-                                </list>
-                            </field>
-
-                            <!-- Subtotals: by attendant -->
-                            <div class="o_horizontal_separator mt-3">By Attendant</div>
-                            <field name="fc_line_ids" readonly="1">
-                                <list string="Non Fuel — By Attendant"
-                                      create="false" delete="false" edit="false"
-                                      group_by="attendant_id">
-                                    <field name="attendant_id" string="Attendant"/>
-                                    <field name="sales_amount" string="Total Amount"
-                                           sum="Grand Total"/>
-                                </list>
-                            </field>
+                            <group class="mt-3">
+                                <group string="Non Fuel Totals">
+                                    <field name="total_fc_sales" readonly="1"
+                                           string="Total Non Fuel Sales"
+                                           widget="monetary"/>
+                                </group>
+                            </group>
                         </page>
 
                         <!-- ═══════════════════════════════════════════
@@ -296,11 +277,13 @@
                                 </group>
                             </group>
 
-                            <div class="alert alert-info mt-3" role="alert"
-                                 invisible="state != 'open'">
-                                To record a float or cash drop, go to
-                                <strong>Forecourt → Operations → Cash Movements</strong>
-                                and link the payment to this shift and attendant.
+                            <div class="mt-3" invisible="state not in ('open', 'closing')">
+                                <button name="action_open_float_payment"
+                                        string="Record Float / Drop"
+                                        type="object"
+                                        class="btn-secondary"
+                                        groups="fms.group_fms_supervisor"
+                                        title="Open a new Cash Float or Cash Drop payment linked to this shift"/>
                             </div>
                         </page>
 
