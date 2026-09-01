@@ -247,30 +247,28 @@
                              Cash floats issued + all cash drops in one view
                         ═══════════════════════════════════════════ -->
                         <page string="Floats / Drops" name="floats_drops">
-                            <p class="text-muted mb-2">
-                                <strong>Float:</strong> cash issued to attendant.
-                                <strong>Drop:</strong> cash collected from attendant (including float return).
-                                Both reduce/increase FC Cash per attendant.
-                            </p>
-                            <field name="attendant_cash_ids" readonly="1">
-                                <list string="Floats and Drops by Attendant"
-                                      create="false" delete="false" edit="false"
-                                      decoration-danger="fc_variance != 0"
-                                      decoration-success="fc_variance == 0">
-                                    <field name="attendant_id" string="Attendant"/>
-                                    <field name="float_amount" string="Floats Issued"
+                            <field name="cash_movement_ids"
+                                   readonly="state in ('closed',)"
+                                   context="{'default_shift_id': id}">
+                                <list editable="bottom" string="Floats and Drops"
+                                      decoration-info="float_amount &gt; 0"
+                                      decoration-warning="drop_amount &gt; 0">
+                                    <field name="attendant_id" string="Attendant"
+                                           domain="[('fms_is_attendant','=',True)]"
+                                           options="{'no_create': True}"/>
+                                    <field name="float_amount" string="Float"
                                            sum="Total Floats"/>
-                                    <field name="cash_drop_amount" string="Cash Drops"
+                                    <field name="drop_amount" string="Drop"
                                            sum="Total Drops"/>
-                                    <field name="fc_variance" string="FC Variance"
-                                           readonly="1" sum="Net Variance"
-                                           decoration-danger="fc_variance != 0"
-                                           decoration-success="fc_variance == 0"/>
+                                    <field name="date" string="Dropped At"/>
+                                    <field name="note" string="Note" optional="show"/>
+                                    <field name="payment_id" string="Payment"
+                                           readonly="1" optional="show"/>
                                 </list>
                             </field>
 
                             <group class="mt-3">
-                                <group string="FC Cash Summary">
+                                <group string="FC Cash Variance by Attendant">
                                     <field name="fc_cash_balance_total" readonly="1"
                                            string="Total FC Variance (must = 0)"
                                            widget="monetary"
@@ -278,15 +276,6 @@
                                            decoration-success="fc_cash_balance_total == 0"/>
                                 </group>
                             </group>
-
-                            <div class="mt-3" invisible="state not in ('open', 'closing')">
-                                <button name="action_open_float_payment"
-                                        string="Record Float / Drop"
-                                        type="object"
-                                        class="btn-secondary"
-                                        groups="fms.group_fms_supervisor"
-                                        title="Open a new Cash Float or Cash Drop payment linked to this shift"/>
-                            </div>
                         </page>
 
                     </notebook>

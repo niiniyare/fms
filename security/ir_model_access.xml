@@ -667,6 +667,17 @@
         <field name="perm_unlink" eval="1"/>
     </record>
 
+    <!-- ── fms.shift.cash.movement ─────────────────────────────────────── -->
+    <record id="access_fms_shift_cash_movement_supervisor" model="ir.model.access">
+        <field name="name">fms.shift.cash.movement supervisor full</field>
+        <field name="model_id" ref="model_fms_shift_cash_movement"/>
+        <field name="group_id" ref="group_fms_supervisor"/>
+        <field name="perm_read"   eval="1"/>
+        <field name="perm_write"  eval="1"/>
+        <field name="perm_create" eval="1"/>
+        <field name="perm_unlink" eval="1"/>
+    </record>
+
     <!-- ── fms.shift.recon.wizard (transient) ──────────────────────────── -->
     <record id="access_fms_shift_recon_wizard_supervisor" model="ir.model.access">
         <field name="name">fms.shift.recon.wizard supervisor full</field>

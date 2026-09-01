@@ -152,6 +152,10 @@ class FMSShift(models.Model):
 
     meter_entry_ids = fields.One2many('fms.shift.meter.entry', 'shift_id', 'Meter Entries')
     dip_entry_ids = fields.One2many('fms.shift.dip.entry', 'shift_id', 'Dip Entries')
+    cash_movement_ids = fields.One2many(
+        'fms.shift.cash.movement', 'shift_id', 'Floats / Drops',
+        help="Cash floats issued to and drops collected from attendants during this shift.",
+    )
     fc_line_ids = fields.One2many(
         'fms.shift.fc.line', 'shift_id', 'Non Fuel Sales',
         help="Non-fuel products (lubes, filters) and services (carwash) sold during this shift.",
