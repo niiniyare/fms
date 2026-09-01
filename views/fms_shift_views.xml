@@ -58,6 +58,12 @@
                             class="btn-secondary"
                             groups="fms.group_fms_supervisor"
                             invisible="state == 'draft'"/>
+                    <button name="action_report_fms_attendant_statement"
+                            string="Attendant Statements"
+                            type="object"
+                            class="btn-secondary"
+                            groups="fms.group_fms_supervisor"
+                            invisible="state == 'draft'"/>
                     <field name="state" widget="statusbar"
                            statusbar_visible="draft,open,closing,closed"/>
                 </header>

@@ -228,8 +228,8 @@ class FMSShift(models.Model):
             shift.total_reported_sales = sum(shift.attendant_cash_ids.mapped('total_in'))
             shift.fc_cash_balance      = sum(shift.attendant_cash_ids.mapped('balance'))
 
+    @api.depends('attendant_cash_ids.fc_variance', 'fc_variance_writeoff')
     def _compute_fc_balance_total(self):
-        """Sum fc_variance across all attendant lines minus any supervisor write-off."""
         for shift in self:
             raw = sum(shift.attendant_cash_ids.mapped('fc_variance'))
             shift.fc_cash_balance_total = raw - shift.fc_variance_writeoff
@@ -488,6 +488,10 @@ class FMSShift(models.Model):
     def action_report_sales_register(self):
         self.ensure_one()
         return self.env.ref('fms.action_report_fms_sales_register').report_action(self)
+
+    def action_report_fms_attendant_statement(self):
+        self.ensure_one()
+        return self.env.ref('fms.action_report_fms_attendant_statement').report_action(self)
 
     def get_sales_register_data(self):
         """

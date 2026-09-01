@@ -1523,7 +1523,7 @@ class FMSReportMeterReconciliation(models.Model):
     elec_open       = fields.Float('Elec Opening (L)',   readonly=True, digits=(16, 3))
     elec_close      = fields.Float('Elec Closing (L)',   readonly=True, digits=(16, 3))
     elec_sold       = fields.Float('Elec Sold (L)',      readonly=True, digits=(16, 3))
-    elec_cash_sold  = fields.Float('Elec Cash (KES)',    readonly=True, digits=(16, 2))
+    elec_cash_sold  = fields.Float('Elec Cash',          readonly=True, digits=(16, 2))
 
     # ── Manual mechanical meter ───────────────────────────────────────────────
     man_open        = fields.Float('Manual Opening (L)', readonly=True, digits=(16, 3))
