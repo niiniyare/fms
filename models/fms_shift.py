@@ -200,6 +200,19 @@ class FMSShift(models.Model):
         help="Sum of fc_variance across all attendant cash lines (new FC Cash system). "
              "Must be 0.00 before shift can move to closing.",
     )
+    fc_variance_writeoff = fields.Float(
+        'FC Write-off', digits=(16, 2), default=0.0,
+        help="Amount written off by supervisor to zero FC Cash variance. "
+             "Positive = station absorbed shortage. Negative = station absorbed surplus.",
+    )
+    fc_writeoff_move_id = fields.Many2one(
+        'account.move', 'Write-off Journal Entry', readonly=True,
+    )
+    fc_writeoff_account_id = fields.Many2one(
+        'account.account', 'Write-off Account',
+        domain="[('deprecated','=',False)]",
+        help="Account to post FC Cash variance write-off against (e.g. Cash Over/Short).",
+    )
     total_fc_sales = fields.Float(
         'Total Non Fuel Sales', compute='_compute_total_fc_sales', store=False,
         digits=(16, 2),
@@ -221,11 +234,10 @@ class FMSShift(models.Model):
             shift.fc_cash_balance      = sum(shift.attendant_cash_ids.mapped('balance'))
 
     def _compute_fc_balance_total(self):
-        """Sum fc_variance across all attendant lines. store=False — always recomputed live."""
+        """Sum fc_variance across all attendant lines minus any supervisor write-off."""
         for shift in self:
-            shift.fc_cash_balance_total = sum(
-                shift.attendant_cash_ids.mapped('fc_variance')
-            )
+            raw = sum(shift.attendant_cash_ids.mapped('fc_variance'))
+            shift.fc_cash_balance_total = raw - shift.fc_variance_writeoff
 
     @api.depends('fc_line_ids.sales_amount', 'meter_entry_ids.elec_cash_sold')
     def _compute_total_fc_sales(self):
@@ -404,6 +416,71 @@ class FMSShift(models.Model):
         """Open the Meter Movement PDF report for this shift."""
         self.ensure_one()
         return self.env.ref('fms.action_report_fms_meter_movement').report_action(self)
+
+    def action_writeoff_fc_variance(self):
+        """Supervisor write-off: post a JE to zero out remaining FC Cash variance."""
+        self.ensure_one()
+        self.attendant_cash_ids.invalidate_recordset(['fc_variance', 'fc_captured', 'fc_collected'])
+        net = sum(self.attendant_cash_ids.mapped('fc_variance')) - self.fc_variance_writeoff
+        if abs(net) <= 0.01:
+            raise ValidationError("FC Cash is already zero — nothing to write off.")
+        if not self.fc_writeoff_account_id:
+            raise ValidationError(
+                "Set a Write-off Account on this shift before writing off the variance.\n"
+                "Use an account such as 'Cash Over/Short' or 'Miscellaneous Expense'."
+            )
+        # Idempotent: reverse previous write-off move if exists
+        if self.fc_writeoff_move_id and self.fc_writeoff_move_id.state == 'posted':
+            self.fc_writeoff_move_id.button_draft()
+            self.fc_writeoff_move_id.button_cancel()
+
+        journal = self.env['account.journal'].search(
+            [('type', '=', 'general'), ('company_id', '=', self.company_id.id)], limit=1
+        )
+        cur = self.company_id.currency_id
+        # net > 0: station short (attendants owe) → DR Write-off expense, CR Clearing
+        # net < 0: station surplus (attendants over-deposited) → DR Clearing, CR Write-off income
+        writeoff_account = self.fc_writeoff_account_id
+        clearing_account = journal.default_account_id or writeoff_account
+
+        if net > 0:
+            debit_account, credit_account = writeoff_account, clearing_account
+        else:
+            debit_account, credit_account = clearing_account, writeoff_account
+
+        move = self.env['account.move'].create({
+            'move_type': 'entry',
+            'journal_id': journal.id,
+            'date': self.date,
+            'company_id': self.company_id.id,
+            'ref': f"FC Cash Write-off — {self.label} {self.date}",
+            'line_ids': [
+                (0, 0, {
+                    'account_id': debit_account.id,
+                    'debit': abs(net),
+                    'credit': 0.0,
+                    'name': f'FC Cash variance write-off {self.label}',
+                }),
+                (0, 0, {
+                    'account_id': credit_account.id,
+                    'debit': 0.0,
+                    'credit': abs(net),
+                    'name': f'FC Cash variance write-off {self.label}',
+                }),
+            ],
+        })
+        move.action_post()
+        self.fc_variance_writeoff = net
+        self.fc_writeoff_move_id = move
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': 'FC Cash Written Off',
+                'message': f'{cur.name} {abs(net):,.2f} written off. Journal entry: {move.name}',
+                'type': 'success',
+            },
+        }
 
     def action_report_fc_cash_recon(self):
         self.ensure_one()
@@ -1622,40 +1699,44 @@ class FMSShift(models.Model):
         return prefs.meniscus_pct if prefs.meniscus_pct > 0 else self._MENISCUS_PCT
 
     def _gate_check_fc_cash(self):
-        """GATE 4 (FC Cash): sum of fc_variance across all attendants must be exactly zero."""
+        """GATE 4 (FC Cash): net FC Cash (after write-off) must be exactly zero."""
         self.ensure_one()
-        # Force recompute — fc_variance is store=False but ORM may cache a stale 0.0
         self.attendant_cash_ids.invalidate_recordset(['fc_variance', 'fc_captured', 'fc_collected'])
-        failing = []
-        for cash in self.attendant_cash_ids:
-            if abs(cash.fc_variance) > 0.01:
-                cur = self.company_id.currency_id.name
-                failing.append(
-                    f"  • {cash.attendant_id.name}: {cur} {cash.fc_variance:,.2f}"
-                )
-        if failing:
-            lines = "\n".join(failing)
+        net = sum(self.attendant_cash_ids.mapped('fc_variance')) - self.fc_variance_writeoff
+        if abs(net) > 0.01:
+            cur = self.company_id.currency_id.name
+            lines = "\n".join(
+                f"  • {c.attendant_id.name}: {cur} {c.fc_variance:,.2f}"
+                for c in self.attendant_cash_ids if abs(c.fc_variance) > 0.01
+            )
             raise ValidationError(
-                f"GATE 4 FAILED (FC Cash) — {len(failing)} attendant(s) have unresolved FC Cash variance:\n"
+                f"GATE 4 FAILED (FC Cash) — net variance {cur} {net:,.2f} after write-off.\n"
                 f"{lines}\n\n"
-                "Post or write off all variances before closing the shift."
+                "Use 'Write Off FC Variance' button or post/clear individual variances."
             )
 
     def _gate_check_attendant_balances(self):
         """
-        GATE 3 (Attendants): Every individual attendant's balance must be zero.
+        GATE 3 (Attendants): Every individual attendant's fc_variance must be zero.
 
-        Even if the FC total nets to zero, individual discrepancies must
-        be resolved one-by-one.  The error lists every failing attendant.
+        When POS sessions are linked, `balance` (mpesa/card/ar from pos.payment) is used.
+        When no POS sessions (FMS-only workflow), use fc_variance which already captures
+        all invoices, receipts, drops and expenses via account.move/account.payment.
+        Gate 4 checks the net sum; Gate 3 checks each attendant individually.
         """
         self.ensure_one()
+        # No POS sessions → fc_variance system is the single source of truth.
+        # Net FC Cash (after write-off) is enforced by Gate 4. Gate 3 defers
+        # to that check so per-attendant variance absorbed by a shift-level
+        # write-off is not double-counted here.
+        if not self.pos_session_ids:
+            return
         self.attendant_cash_ids.invalidate_recordset(['balance', 'total_in', 'total_out'])
-        failing = []
-        for cash in self.attendant_cash_ids:
-            if abs(cash.balance) > 0.01:
-                failing.append(
-                    f"  • {cash.attendant_id.name}: {self.company_id.currency_id.name} {cash.balance:,.2f}"
-                )
+        failing = [
+            f"  • {c.attendant_id.name}: {self.company_id.currency_id.name} {c.balance:,.2f}"
+            for c in self.attendant_cash_ids
+            if abs(c.balance) > 0.01
+        ]
         if failing:
             lines = "\n".join(failing)
             raise ValidationError(
@@ -1795,6 +1876,12 @@ class FMSShift(models.Model):
         Skipped if fms_accounting is not installed (no account.move.fms_shift_id field).
         Skipped if no invoices/receipts are linked to this shift.
         """
+        # Gate 6 is only meaningful for POS workflows where ALL sales flow through
+        # invoices/receipts. For non-POS stations, cash sales are never invoiced —
+        # comparing meter to invoices always shows a gap equal to cash sales volume.
+        if not self.pos_session_ids:
+            return
+
         # Check if fms_accounting fields exist on account.move
         AccountMove = self.env['account.move']
         if 'fms_shift_id' not in AccountMove._fields:
@@ -2511,6 +2598,7 @@ class FMSShift(models.Model):
             'journal_id': journal.id,
             'date': self.date,
             'ref': f'FMS Shift: {self.display_name}',
+            'company_id': self.company_id.id,
             'line_ids': move_lines,
         })
         move.action_post()
@@ -2552,6 +2640,7 @@ class FMSShift(models.Model):
                 'move_type': 'entry',
                 'journal_id': journal.id,
                 'date': self.date,
+                'company_id': self.company_id.id,
                 'ref': (
                     f'FMS Residual: {alloc.source_product_id.name}'
                     f' → {alloc.target_product_id.name}'

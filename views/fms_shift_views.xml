@@ -39,6 +39,13 @@
                             class="btn-secondary"
                             groups="fms.group_fms_supervisor"
                             invisible="state == 'draft'"/>
+                    <button name="action_writeoff_fc_variance"
+                            string="Write Off FC Variance"
+                            type="object"
+                            class="btn-warning"
+                            groups="fms.group_fms_supervisor"
+                            invisible="state == 'draft' or state == 'closed'"
+                            confirm="This will post a journal entry to zero out the FC Cash variance. Continue?"/>
                     <button name="action_report_fc_cash_recon"
                             string="FC Cash Recon Report"
                             type="object"
@@ -113,6 +120,17 @@
                                    widget="monetary"
                                    decoration-danger="fc_cash_balance_total != 0"
                                    decoration-success="fc_cash_balance_total == 0"/>
+                            <field name="fc_writeoff_account_id"
+                                   string="Write-off Account"
+                                   invisible="fc_cash_balance_total == 0 and not fc_variance_writeoff"
+                                   placeholder="Cash Over/Short account…"/>
+                            <field name="fc_variance_writeoff" readonly="1"
+                                   string="Written Off"
+                                   widget="monetary"
+                                   invisible="fc_variance_writeoff == 0"/>
+                            <field name="fc_writeoff_move_id" readonly="1"
+                                   string="Write-off JE"
+                                   invisible="not fc_writeoff_move_id"/>
                         </group>
                     </group>
 

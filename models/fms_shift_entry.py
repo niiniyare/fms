@@ -450,6 +450,12 @@ class FMSShiftAttendantCash(models.Model):
         """)
         has_move_fms = bool(self.env.cr.fetchone())
 
+        self.env.cr.execute("""
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'hr_expense' AND column_name = 'fms_shift_id' LIMIT 1
+        """)
+        has_hr_expense_fms = bool(self.env.cr.fetchone())
+
         for rec in self:
             if not rec.shift_id or not rec.attendant_id:
                 for f in ('fc_captured','fc_collected','fc_variance','fc_meter_sales',
@@ -519,6 +525,20 @@ class FMSShiftAttendantCash(models.Model):
                         drop_amt = float(amt)
                     else:
                         expense_amt = float(amt)
+
+            # Also count hr.expense records posted via forecourt expense form
+            if has_hr_expense_fms:
+                self.env.cr.execute("""
+                    SELECT COALESCE(SUM(e.total_amount), 0)
+                    FROM hr_expense e
+                    JOIN hr_expense_sheet s ON s.id = e.sheet_id
+                    WHERE e.fms_shift_id = %s
+                      AND e.fms_attendant_id = %s
+                      AND s.state IN ('post', 'done')
+                """, (shift.id, att_id))
+                row = self.env.cr.fetchone()
+                if row:
+                    expense_amt += float(row[0])
 
             collected = invoice_amt + receipt_amt + drop_amt + expense_amt
 
