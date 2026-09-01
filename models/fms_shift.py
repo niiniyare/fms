@@ -811,8 +811,6 @@ class FMSShift(models.Model):
         prefs = self.env['fms.site.preferences'].get_for_company(self.company_id)
         if prefs.auto_sync_attendants:
             self._sync_attendant_cash_lines()
-        # Auto-calculate residuals on transition to closing
-        self._calculate_residuals()
 
     def action_mark_disputed(self):
         """
@@ -1128,7 +1126,8 @@ class FMSShift(models.Model):
             self._write_dip_logs()
             self._sync_stock_quant_from_dips()
             sales_move = self._post_sales_journal()
-            self._post_residual_allocation_journals()
+            # Residual allocation journals removed — FC-line multi-product entries
+            # handle the money side. Dip stock variance gate (Gate 5) unchanged.
             self._post_stock_consumption()
             vals = {'state': 'closed'}
             if sales_move:
@@ -1206,7 +1205,6 @@ class FMSShift(models.Model):
             self._write_dip_logs()
             self._sync_stock_quant_from_dips()
             sales_move = self._post_sales_journal()
-            self._post_residual_allocation_journals()
             self._post_stock_consumption()
             vals = {'state': 'closed'}
             if sales_move:

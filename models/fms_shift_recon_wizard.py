@@ -140,7 +140,6 @@ class FmsShiftReconWizard(models.TransientModel):
             'closing_meter_date': fields.Datetime.now(),
             'closing_meter_user_id': self.env.user.id,
         })
-        shift._calculate_residuals()
         return {'type': 'ir.actions.act_window_close'}
 
 
