@@ -214,23 +214,18 @@
                                            options="{'no_create': True}"/>
                                     <field name="line_type" string="Type"
                                            readonly="1" optional="show"/>
-                                    <!-- Goods columns -->
                                     <field name="opening_qty" string="Opening"
-                                           readonly="1"
-                                           column_invisible="line_type == 'service'"/>
+                                           readonly="1" optional="show"/>
                                     <field name="delivery_qty" string="Received"
-                                           column_invisible="line_type == 'service'"/>
+                                           optional="show"/>
                                     <field name="closing_qty" string="Closing"
-                                           column_invisible="line_type == 'service'"/>
+                                           optional="show"/>
                                     <field name="qty_sold" string="Qty Sold"
-                                           readonly="1"
-                                           column_invisible="line_type == 'service'"
-                                           sum="Qty Sold"/>
+                                           readonly="1" optional="show" sum="Qty Sold"/>
                                     <field name="price_unit" string="Price"
-                                           column_invisible="line_type == 'service'"/>
-                                    <!-- Service + shared -->
-                                    <field name="amount" string="Amount"
-                                           column_invisible="line_type == 'goods'"/>
+                                           optional="show"/>
+                                    <field name="amount" string="Svc Amount"
+                                           optional="show"/>
                                     <field name="sales_amount" string="Sales Amount"
                                            readonly="1" sum="Total Sales"/>
                                 </list>
