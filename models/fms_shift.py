@@ -291,6 +291,7 @@ class FMSShift(models.Model):
         'product_sales_ids.elec_cash_sold',
         'product_sales_ids.allocated_amount',
         'product_sales_ids.is_fuel',
+        'fc_line_ids.sales_amount',
         'attendant_cash_ids.cash_collected',
         'attendant_cash_ids.float_amount',
         'attendant_cash_ids.cash_drop_amount',
@@ -306,6 +307,10 @@ class FMSShift(models.Model):
                     fuel_sales += ps.elec_cash_sold
                 else:
                     nonfuel_sales += ps.allocated_amount or 0.0
+            # Service lines have no product_sales entry — add directly
+            nonfuel_sales += sum(
+                l.sales_amount for l in shift.fc_line_ids if l.line_type == 'service'
+            )
 
             # Cash vs digital breakdown — requires fms_accounting (account.payment extension)
             cash_recv = 0.0
