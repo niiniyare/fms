@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_fms_shift_correction_wizard_form" model="ir.ui.view">
+        <field name="name">fms.shift.correction.wizard.form</field>
+        <field name="model">fms.shift.correction.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Post Shift Correction">
+                <group>
+                    <field name="shift_id" readonly="1"/>
+                    <field name="correction_type" widget="radio"/>
+                    <field name="currency_id" invisible="1"/>
+                </group>
+
+                <!-- Expense fields -->
+                <group string="Missed Expense" invisible="correction_type != 'expense'">
+                    <field name="attendant_id"/>
+                    <field name="expense_amount"/>
+                    <field name="expense_account_id"/>
+                    <field name="cash_account_id" string="Cash / Clearing Account"/>
+                </group>
+
+                <!-- RTT fields -->
+                <group string="Return to Tank (RTT)" invisible="correction_type != 'rtt'">
+                    <field name="meter_log_id" domain="[('shift_id', '=', shift_id)]"/>
+                    <field name="rtt_volume"/>
+                    <field name="rtt_price_unit"/>
+                    <field name="rtt_amount" readonly="1"/>
+                    <field name="rtt_revenue_account_id"/>
+                    <field name="rtt_clearing_account_id" string="Clearing Account"/>
+                </group>
+
+                <!-- Common -->
+                <group string="Posting">
+                    <field name="journal_id"/>
+                    <field name="reason" placeholder="e.g. Peter petrol expense omitted — confirmed by supervisor"/>
+                </group>
+
+                <footer>
+                    <button name="action_post_correction"
+                            string="Post Correction"
+                            type="object"
+                            class="btn-primary"
+                            confirm="This will post an irreversible journal entry. Continue?"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_fms_shift_correction_wizard" model="ir.actions.act_window">
+        <field name="name">Post Correction</field>
+        <field name="res_model">fms.shift.correction.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+        <field name="context">{'default_shift_id': active_id}</field>
+    </record>
+
+</odoo>

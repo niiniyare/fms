@@ -64,6 +64,12 @@
                             class="btn-secondary"
                             groups="fms.group_fms_supervisor"
                             invisible="state == 'draft'"/>
+                    <button name="%(fms.action_fms_shift_correction_wizard)d"
+                            string="Post Correction"
+                            type="action"
+                            class="btn-secondary"
+                            groups="fms.group_fms_supervisor"
+                            invisible="state != 'closed'"/>
                     <field name="state" widget="statusbar"
                            statusbar_visible="draft,open,closing,closed"/>
                 </header>

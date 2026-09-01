@@ -588,6 +588,17 @@
         <field name="perm_unlink" eval="1"/>
     </record>
 
+    <!-- fms.shift.correction.wizard: TransientModel, supervisor only -->
+    <record id="access_fms_shift_correction_wizard_supervisor" model="ir.model.access">
+        <field name="name">fms.shift.correction.wizard supervisor</field>
+        <field name="model_id" ref="model_fms_shift_correction_wizard"/>
+        <field name="group_id" ref="fms.group_fms_supervisor"/>
+        <field name="perm_read"   eval="1"/>
+        <field name="perm_write"  eval="1"/>
+        <field name="perm_create" eval="1"/>
+        <field name="perm_unlink" eval="1"/>
+    </record>
+
     <!-- fms.shift.override.log: immutable audit log, accountant read -->
     <record id="access_fms_shift_override_log_accountant" model="ir.model.access">
         <field name="name">fms.shift.override.log accountant</field>
