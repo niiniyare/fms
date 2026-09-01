@@ -251,6 +251,16 @@ Time: [1h 30m]
 - Updated: 2026-08-04 16:03
 - Notes: Started at 16:03
 
+
+### FMS-007: IN_PROGRESS
+- Updated: 2026-09-01 12:57
+- Notes: Started at 12:57
+
+
+### FMS-008: IN_PROGRESS
+- Updated: 2026-09-01 13:29
+- Notes: Started at 13:29
+
 ## Next Steps
 
 1. Start FMS-001: Core Models
