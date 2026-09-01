@@ -399,6 +399,127 @@ class FMSShiftAttendantCash(models.Model):
 
     notes = fields.Char('Notes')
 
+    # ── FC Cash fields (new reconciliation system) ───────────────────────────
+    # These replace the old balance field as the shift-close gate.
+    # fc_captured = all captured sales (meter + fc_lines + floats + customer receipts)
+    # fc_collected = all postings that drain FC Cash (invoices + receipts + drops + expenses)
+    # fc_variance  = fc_captured - fc_collected → must be 0 to close
+
+    fc_captured = fields.Float(
+        'FC Captured', digits=(16, 2), store=False,
+        compute='_compute_fc_variance',
+        help="Total sales captured: meter + non-fuel products + services + floats + customer receipts.",
+    )
+    fc_collected = fields.Float(
+        'FC Collected', digits=(16, 2), store=False,
+        compute='_compute_fc_variance',
+        help="Total accounted for: posted invoices + receipts + drops + expenses.",
+    )
+    fc_variance = fields.Float(
+        'FC Variance', digits=(16, 2), store=False,
+        compute='_compute_fc_variance',
+        help="fc_captured - fc_collected. Must be 0.00 before shift can close.",
+    )
+
+    # ── Compute: FC Cash variance (new reconciliation system) ────────────────
+
+    @api.depends(
+        'shift_id', 'attendant_id',
+        'shift_id.meter_entry_ids.attendant_id',
+        'shift_id.meter_entry_ids.elec_cash_sold',
+        'shift_id.fc_line_ids.attendant_id',
+        'shift_id.fc_line_ids.sales_amount',
+        'shift_id.fc_line_ids.line_type',
+    )
+    def _compute_fc_variance(self):
+        # Check fms_accounting columns exist before querying
+        self.env.cr.execute("""
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'account_payment' AND column_name = 'fms_shift_id' LIMIT 1
+        """)
+        has_payment_fms = bool(self.env.cr.fetchone())
+
+        self.env.cr.execute("""
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'account_move' AND column_name = 'fms_shift_id' LIMIT 1
+        """)
+        has_move_fms = bool(self.env.cr.fetchone())
+
+        for rec in self:
+            if not rec.shift_id or not rec.attendant_id:
+                rec.fc_captured = 0.0
+                rec.fc_collected = 0.0
+                rec.fc_variance = 0.0
+                continue
+
+            shift = rec.shift_id
+            att_id = rec.attendant_id.id
+
+            # ── DR: Captured ──────────────────────────────────────────────────
+
+            # Source 1: Meter fuel sales (elec_cash_sold per attendant)
+            meter_sales = sum(
+                e.elec_cash_sold
+                for e in shift.meter_entry_ids
+                if e.attendant_id.id == att_id
+            )
+
+            # Sources 2+3: FC-lines (goods + services)
+            fc_sales = sum(
+                l.sales_amount
+                for l in shift.fc_line_ids
+                if l.attendant_id.id == att_id
+            )
+
+            # Sources 4+5: Floats issued + customer payments via this attendant
+            floats_and_cust = 0.0
+            if has_payment_fms:
+                self.env.cr.execute("""
+                    SELECT COALESCE(SUM(amount), 0)
+                    FROM account_payment
+                    WHERE fms_shift_id = %s
+                      AND fms_attendant_id = %s
+                      AND state = 'posted'
+                      AND fms_payment_context IN ('cash_float', 'customer_receipt')
+                """, (shift.id, att_id))
+                floats_and_cust = self.env.cr.fetchone()[0] or 0.0
+
+            captured = meter_sales + fc_sales + floats_and_cust
+
+            # ── CR: Collected ─────────────────────────────────────────────────
+
+            # Sources 6+7: Posted invoices + out_receipts
+            invoice_receipt_total = 0.0
+            if has_move_fms:
+                self.env.cr.execute("""
+                    SELECT COALESCE(SUM(amount_total), 0)
+                    FROM account_move
+                    WHERE fms_shift_id = %s
+                      AND fms_attendant_id = %s
+                      AND move_type IN ('out_invoice', 'out_receipt')
+                      AND state = 'posted'
+                """, (shift.id, att_id))
+                invoice_receipt_total = self.env.cr.fetchone()[0] or 0.0
+
+            # Sources 8+9: Cash drops + expenses
+            drops_and_expenses = 0.0
+            if has_payment_fms:
+                self.env.cr.execute("""
+                    SELECT COALESCE(SUM(amount), 0)
+                    FROM account_payment
+                    WHERE fms_shift_id = %s
+                      AND fms_attendant_id = %s
+                      AND state = 'posted'
+                      AND fms_payment_context IN ('cash_drop', 'expense')
+                """, (shift.id, att_id))
+                drops_and_expenses = self.env.cr.fetchone()[0] or 0.0
+
+            collected = invoice_receipt_total + drops_and_expenses
+
+            rec.fc_captured = captured
+            rec.fc_collected = collected
+            rec.fc_variance = captured - collected
+
     # ── Compute: Meter-based reported sales ──────────────────────────────────
 
     @api.depends(

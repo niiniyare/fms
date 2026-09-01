@@ -190,6 +190,12 @@ class FMSShift(models.Model):
         'FC Cash Balance', compute='_compute_totals', store=True, digits=(16, 2),
         help="Net balance across all attendants (total_in − total_out). Must be 0 to close.",
     )
+    fc_cash_balance_total = fields.Float(
+        'FC Cash Variance', compute='_compute_fc_balance_total', store=False,
+        digits=(16, 2),
+        help="Sum of fc_variance across all attendant cash lines (new FC Cash system). "
+             "Must be 0.00 before shift can move to closing.",
+    )
 
     @api.depends(
         'meter_entry_ids.elec_cash_sold',
@@ -201,6 +207,13 @@ class FMSShift(models.Model):
             shift.total_meter_sales    = sum(shift.meter_entry_ids.mapped('elec_cash_sold'))
             shift.total_reported_sales = sum(shift.attendant_cash_ids.mapped('total_in'))
             shift.fc_cash_balance      = sum(shift.attendant_cash_ids.mapped('balance'))
+
+    def _compute_fc_balance_total(self):
+        """Sum fc_variance across all attendant lines. store=False — always recomputed live."""
+        for shift in self:
+            shift.fc_cash_balance_total = sum(
+                shift.attendant_cash_ids.mapped('fc_variance')
+            )
 
     # ------------------------------------------------------------------
     # Full commercial reconciliation summary (Spec §8 + §11)
