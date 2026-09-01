@@ -246,7 +246,7 @@
                         ═══════════════════════════════════════════ -->
                         <page string="Non Fuel Sales" name="non_fuel">
                             <field name="fc_line_ids"
-                                   readonly="state in ('closing', 'closed')"
+                                   readonly="state == 'closed'"
                                    context="{'default_shift_id': id}">
                                 <list editable="bottom" string="Non Fuel Sales Lines">
                                     <field name="attendant_id" string="Attendant"

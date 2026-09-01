@@ -115,24 +115,14 @@ class FmsShiftFcLine(models.Model):
     # ── Price helper ──────────────────────────────────────────────────────────
 
     def _get_fc_price(self, product, shift):
-        """Pricelist price effective on shift.date. Falls back to list_price."""
-        if not product or not shift:
-            return product.list_price if product else 0.0
-        pricelist = shift.company_id.property_product_pricelist
-        if pricelist:
-            try:
-                price = pricelist._get_product_price(product, 1.0, date=shift.date)
-                if price:
-                    return price
-            except Exception:
-                pass
-        return product.list_price or 0.0
+        """Return product list price. Pricelist lookup removed (not in Odoo 18 CE)."""
+        return product.list_price if product else 0.0
 
     # ── Immutability: block edits when shift is closing/closed ────────────────
 
     def write(self, vals):
         for line in self:
-            if line.shift_id.state in ('closing', 'closed'):
+            if line.shift_id.state == 'closed':
                 raise UserError(
                     f"Shift '{line.shift_id.display_name}' is {line.shift_id.state}. "
                     "Non Fuel Sales lines cannot be modified."
@@ -141,7 +131,7 @@ class FmsShiftFcLine(models.Model):
 
     def unlink(self):
         for line in self:
-            if line.shift_id.state in ('closing', 'closed'):
+            if line.shift_id.state == 'closed':
                 raise UserError(
                     f"Shift '{line.shift_id.display_name}' is {line.shift_id.state}. "
                     "Cannot delete Non Fuel Sales lines."
