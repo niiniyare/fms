@@ -62,6 +62,9 @@ Reference: Complete specification in FMS_Complete_Specification_Technical_Guide.
 
         # Menu structure first — all view files and menus depend on root/section menus
         "views/fms_menu_structure.xml",
+        # Wizard actions must load before any view that references them
+        "wizards/fms_emergency_override_wizard_views.xml",
+        "wizards/fms_shift_correction_wizard_views.xml",
         # Views — actions defined before anything that references them
         "views/fms_shift_list_views.xml",
         "views/fms_pump_views.xml",
@@ -76,8 +79,6 @@ Reference: Complete specification in FMS_Complete_Specification_Technical_Guide.
         "views/fms_setup_check_views.xml",
         "views/fms_config_settings_views.xml",
         "views/fms_shift_recon_wizard_views.xml",
-        "wizards/fms_emergency_override_wizard_views.xml",
-        "wizards/fms_shift_correction_wizard_views.xml",
         # These two must load last — they reference actions from all files above
         "views/fms_overview_views.xml",
         "views/fms_menus.xml",
