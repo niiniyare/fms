@@ -119,7 +119,7 @@ class FmsShiftReconWizard(models.TransientModel):
                         'name': label,
                         'debit': variance if variance > 0 else 0.0,
                         'credit': -variance if variance < 0 else 0.0,
-                        'partner_id': line.attendant_id.address_home_id.id if line.attendant_id.address_home_id else False,
+                        'partner_id': line.attendant_id.work_contact_id.id if line.attendant_id.work_contact_id else False,
                     }),
                     (0, 0, {
                         'account_id': clearing_account.id,

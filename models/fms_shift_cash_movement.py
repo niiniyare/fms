@@ -113,7 +113,7 @@ class FmsShiftCashMovement(models.Model):
             'amount': amount,
             'payment_type': payment_type,
             'partner_type': 'customer',
-            'partner_id': self.attendant_id.address_home_id.id if self.attendant_id.address_home_id else False,
+            'partner_id': self.attendant_id.work_contact_id.id if self.attendant_id.work_contact_id else False,
             'memo': self.note or (('Float' if is_float else 'Drop') + f' — {self.attendant_id.name} — {self.shift_id.display_name}'),
             'fms_shift_id': self.shift_id.id,
             'fms_attendant_id': self.attendant_id.id,
