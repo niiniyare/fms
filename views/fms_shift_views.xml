@@ -175,8 +175,6 @@
                                            string="Product"/>
                                     <field name="opening_volume" readonly="1"
                                            string="Opening (L)"/>
-                                    <field name="delivery_qty"
-                                           string="Delivery (L)"/>
                                     <field name="closing_volume"
                                            string="Closing Dip (L)"/>
                                     <field name="book_stock_open" readonly="1"
@@ -194,8 +192,6 @@
                                     <field name="product_id" string="Product"/>
                                     <field name="opening_volume" string="Opening (L)"
                                            sum="Total Opening"/>
-                                    <field name="delivery_qty" string="Delivery (L)"
-                                           sum="Total Delivery"/>
                                     <field name="closing_volume" string="Closing (L)"
                                            sum="Total Closing"/>
                                 </list>
