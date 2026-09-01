@@ -784,13 +784,27 @@ class FMSShift(models.Model):
         return len(to_create)
 
     def action_start_closing(self):
-        """
-        Move Open → Closing and auto-run residual allocation algorithm.
-        """
+        """Move Open → Closing. FC Cash variance must be zero before transition."""
         self.ensure_one()
         if self.state != 'open':
             raise ValidationError(
                 f"Cannot start closing a shift that is '{self.state}'."
+            )
+        # FC Cash gate: block transition to 'closing' if any attendant has unresolved variance.
+        # This mirrors the hard gate in action_close_shift but surfaces the problem earlier.
+        self.attendant_cash_ids.invalidate_recordset(['fc_variance', 'fc_captured', 'fc_collected'])
+        failing = [
+            f"  • {c.attendant_id.name}: {self.company_id.currency_id.name} {c.fc_variance:,.2f}"
+            for c in self.attendant_cash_ids
+            if abs(c.fc_variance) > 0.01
+        ]
+        if failing:
+            lines = "\n".join(failing)
+            raise ValidationError(
+                "Cannot move to Closing — FC Cash variance is not zero for:\n"
+                f"{lines}\n\n"
+                "Resolve all attendant variances (post invoices, record drops, or write off) "
+                "before starting the closing process."
             )
         self.write({
             'state': 'closing',
@@ -1391,24 +1405,23 @@ class FMSShift(models.Model):
         return prefs.meniscus_pct if prefs.meniscus_pct > 0 else self._MENISCUS_PCT
 
     def _gate_check_fc_cash(self):
-        """
-        GATE 4 (FC Cash): Forecourt cash balance must be exactly zero.
-
-        fc_cash_balance = sum of all attendant balances.
-        If it is non-zero the supervisor has not resolved a discrepancy —
-        they must post a correction before the shift can close.
-        """
+        """GATE 4 (FC Cash): sum of fc_variance across all attendants must be exactly zero."""
         self.ensure_one()
-        # Invalidate ORM cache so stored computed fields reflect latest DB state.
-        # Without this, a stale cached balance of 0.0 can silently pass the gate
-        # even when the attendant line was changed after the shift record was loaded.
-        self.attendant_cash_ids.invalidate_recordset(['balance', 'total_in', 'total_out'])
-        balance = sum(c.balance for c in self.attendant_cash_ids)
-        if abs(balance) > 0.01:
+        # Force recompute — fc_variance is store=False but ORM may cache a stale 0.0
+        self.attendant_cash_ids.invalidate_recordset(['fc_variance', 'fc_captured', 'fc_collected'])
+        failing = []
+        for cash in self.attendant_cash_ids:
+            if abs(cash.fc_variance) > 0.01:
+                cur = self.company_id.currency_id.name
+                failing.append(
+                    f"  • {cash.attendant_id.name}: {cur} {cash.fc_variance:,.2f}"
+                )
+        if failing:
+            lines = "\n".join(failing)
             raise ValidationError(
-                f"GATE 4 FAILED (FC Cash) — Forecourt Cash Balance is {self.company_id.currency_id.name} {balance:,.2f} "
-                "(must be exactly 0).\n"
-                "Resolve all attendant discrepancies before closing the shift."
+                f"GATE 4 FAILED (FC Cash) — {len(failing)} attendant(s) have unresolved FC Cash variance:\n"
+                f"{lines}\n\n"
+                "Post or write off all variances before closing the shift."
             )
 
     def _gate_check_attendant_balances(self):
