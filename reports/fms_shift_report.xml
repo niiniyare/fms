@@ -39,7 +39,7 @@
                             <div class="header-right">
                                 <h1>Shift Reconciliation Report</h1>
                                 <div class="report-sub">
-                                    <t t-out="shift.name"/> &#160;·&#160;
+                                    <t t-out="shift.display_name"/> &#160;·&#160;
                                     <t t-out="dict(shift._fields['label'].selection).get(shift.label, shift.label).upper()"/> SHIFT
                                 </div>
                             </div>
@@ -51,7 +51,7 @@
                         <div class="fms-meta-row">
                             <span><b>Date:</b> <t t-out="shift.date"/></span>
                             <span class="fms-meta-sep">│</span>
-                            <span><b>Ref:</b> <t t-out="shift.name"/></span>
+                            <span><b>Ref:</b> <t t-out="shift.display_name"/></span>
                             <span class="fms-meta-sep">│</span>
                             <span><b>Station:</b> <t t-out="shift.company_id.name"/></span>
                             <span class="fms-meta-sep">│</span>

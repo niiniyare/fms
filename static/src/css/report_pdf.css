@@ -1,0 +1,410 @@
+/* ================================================================
+   FMS PDF Report Base Styles
+   Applies to: all fms qweb-pdf reports via web.assets_print bundle
+   Renderer: wkhtmltopdf 0.12.6
+================================================================ */
+
+/* ── Fonts (bundled locally — wkhtmltopdf has no network access) ── */
+body {
+    font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+    font-size: 9pt;
+    color: #444455;
+    line-height: 1.45;
+    margin: 0;
+    padding: 0;
+}
+
+/* ── Brand Tokens ── */
+:root {
+    --brand-primary:  #D01F26;
+    --brand-dark:     #1A1A2E;
+    --brand-mid:      #3A3A5C;
+    --gray-100:       #F7F7F8;
+    --gray-200:       #E8E8EE;
+    --gray-400:       #9999AA;
+    --gray-700:       #444455;
+    --white:          #FFFFFF;
+    --status-ok:      #1A7F4B;
+    --status-warn:    #B45309;
+    --status-fail:    #B91C1C;
+    --status-ok-bg:   #ECFDF5;
+    --status-warn-bg: #FFFBEB;
+    --status-fail-bg: #FEF2F2;
+}
+
+/* ── Page Setup ── */
+@page {
+    size: A4 portrait;
+    margin: 14mm 14mm 20mm 14mm;
+}
+
+@page :first {
+    margin-top: 0;
+}
+
+/* ── Report Header Band ── */
+.fms-report-header {
+    background: #D01F26;
+    color: #FFFFFF;
+    padding: 14px 14mm;
+    margin: 0 -14mm;
+    display: table;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.fms-report-header .header-left,
+.fms-report-header .header-right {
+    display: table-cell;
+    vertical-align: middle;
+}
+
+.fms-report-header .header-right {
+    text-align: right;
+}
+
+.fms-report-header img {
+    height: 34px;
+    filter: brightness(0) invert(1);
+    vertical-align: middle;
+}
+
+.fms-report-header .company-name {
+    font-size: 8.5pt;
+    font-weight: 500;
+    opacity: 0.85;
+    margin-top: 3px;
+}
+
+.fms-report-header h1 {
+    font-size: 17pt;
+    font-weight: 700;
+    margin: 0;
+    letter-spacing: -0.3px;
+    color: #FFFFFF;
+}
+
+.fms-report-header .report-sub {
+    font-size: 9pt;
+    opacity: 0.78;
+    margin: 4px 0 0;
+}
+
+/* ── Meta Row ── */
+.fms-meta-row {
+    background: #F7F7F8;
+    border-bottom: 1px solid #E8E8EE;
+    padding: 6px 0;
+    font-size: 8pt;
+    color: #444455;
+}
+
+.fms-meta-row span {
+    margin-right: 10px;
+}
+
+.fms-meta-row b {
+    color: #1A1A2E;
+}
+
+.fms-meta-sep {
+    color: #9999AA;
+    margin: 0 4px;
+}
+
+/* ── KPI Tiles ── */
+.fms-kpi-row {
+    display: table;
+    width: 100%;
+    margin: 16px 0 20px;
+    border-collapse: separate;
+    border-spacing: 10px 0;
+}
+
+.fms-kpi-tile {
+    display: table-cell;
+    width: 33%;
+    background: #F7F7F8;
+    border: 1px solid #E8E8EE;
+    border-left: 4px solid #D01F26;
+    padding: 11px 13px;
+    vertical-align: top;
+}
+
+.fms-kpi-tile.ok   { border-left-color: #1A7F4B; background: #ECFDF5; }
+.fms-kpi-tile.warn { border-left-color: #B45309; background: #FFFBEB; }
+.fms-kpi-tile.fail { border-left-color: #B91C1C; background: #FEF2F2; }
+
+.fms-kpi-label {
+    display: block;
+    font-size: 7pt;
+    font-weight: 600;
+    color: #9999AA;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.fms-kpi-value {
+    display: block;
+    font-size: 15pt;
+    font-weight: 700;
+    color: #1A1A2E;
+    margin: 4px 0 2px;
+    line-height: 1.1;
+}
+
+.fms-kpi-sub {
+    display: block;
+    font-size: 7.5pt;
+    color: #9999AA;
+}
+
+/* ── Section Block ── */
+.fms-section {
+    margin-bottom: 22px;
+    page-break-inside: avoid;
+}
+
+.fms-section-header {
+    display: table;
+    width: 100%;
+    border-bottom: 2px solid #D01F26;
+    padding-bottom: 4px;
+    margin-bottom: 9px;
+}
+
+.fms-section-title {
+    display: table-cell;
+    font-size: 10pt;
+    font-weight: 600;
+    color: #1A1A2E;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    vertical-align: bottom;
+}
+
+.fms-section-badge {
+    display: table-cell;
+    text-align: right;
+    font-size: 7.5pt;
+    font-weight: 600;
+    color: #3A3A5C;
+    vertical-align: bottom;
+}
+
+/* ── Info Grid ── */
+.fms-info-grid {
+    display: table;
+    width: 100%;
+    margin-bottom: 18px;
+}
+
+.fms-info-col {
+    display: table-cell;
+    width: 50%;
+    vertical-align: top;
+    padding-right: 20px;
+}
+
+.fms-info-item {
+    margin-bottom: 7px;
+}
+
+.fms-info-label {
+    display: block;
+    font-size: 7pt;
+    font-weight: 600;
+    color: #9999AA;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 1px;
+}
+
+.fms-info-value {
+    display: block;
+    font-size: 9pt;
+    font-weight: 500;
+    color: #1A1A2E;
+}
+
+/* ── Data Tables ── */
+.fms-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 8.5pt;
+    margin-bottom: 0;
+}
+
+.fms-table thead tr {
+    background: #1A1A2E;
+    color: #FFFFFF;
+}
+
+.fms-table thead th {
+    padding: 7px 8px;
+    font-size: 7.5pt;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    border: none;
+    white-space: nowrap;
+    color: #FFFFFF;
+}
+
+.fms-table tbody tr.row-even { background: #FFFFFF; }
+.fms-table tbody tr.row-odd  { background: #F7F7F8; }
+
+.fms-table tbody td {
+    padding: 6px 8px;
+    border-bottom: 1px solid #E8E8EE;
+    color: #444455;
+    vertical-align: middle;
+}
+
+.fms-table tfoot tr {
+    background: #F7F7F8;
+    border-top: 2px solid #1A1A2E;
+}
+
+.fms-table tfoot td {
+    padding: 7px 8px;
+    font-size: 8.5pt;
+    font-weight: 600;
+    color: #1A1A2E;
+}
+
+.fms-table thead { display: table-header-group; }
+.fms-table tfoot { display: table-footer-group; }
+.fms-table tbody tr { page-break-inside: avoid; }
+
+/* ── Alignment & Numerics ── */
+.text-right  { text-align: right !important; }
+.text-center { text-align: center !important; }
+.text-left   { text-align: left !important; }
+.num         { font-variant-numeric: tabular-nums; font-weight: 500; color: #1A1A2E; }
+
+/* ── Status Badges ── */
+.fms-badge {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 10px;
+    font-size: 7pt;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+.fms-badge.ok, .fms-badge.closed, .fms-badge.passed {
+    background: #ECFDF5;
+    color: #1A7F4B;
+}
+
+.fms-badge.warn, .fms-badge.open, .fms-badge.pending {
+    background: #FFFBEB;
+    color: #B45309;
+}
+
+.fms-badge.fail, .fms-badge.draft, .fms-badge.failed {
+    background: #FEF2F2;
+    color: #B91C1C;
+}
+
+/* ── Variance coloring ── */
+.var-ok   { color: #1A7F4B; font-weight: 600; }
+.var-warn { color: #B45309; font-weight: 600; }
+.var-fail { color: #B91C1C; font-weight: 700; }
+
+/* ── Gate Summary Block ── */
+.fms-gate-block {
+    border: 1px solid #E8E8EE;
+    border-radius: 4px;
+    padding: 14px 16px;
+    margin-bottom: 22px;
+    background: #F7F7F8;
+    page-break-inside: avoid;
+}
+
+.fms-gate-block h3 {
+    font-size: 10pt;
+    font-weight: 600;
+    color: #1A1A2E;
+    margin: 0 0 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+.fms-gate-row {
+    display: table;
+    width: 100%;
+    margin-bottom: 6px;
+}
+
+.fms-gate-icon,
+.fms-gate-label,
+.fms-gate-value {
+    display: table-cell;
+    vertical-align: middle;
+}
+
+.fms-gate-icon  { width: 22px; font-size: 11pt; }
+.fms-gate-label { font-size: 8.5pt; font-weight: 600; color: #1A1A2E; }
+.fms-gate-value { text-align: right; font-size: 8.5pt; font-weight: 500; }
+
+/* ── Signature Block ── */
+.fms-signature-row {
+    display: table;
+    width: 100%;
+    margin-top: 36px;
+    page-break-inside: avoid;
+}
+
+.fms-sig-box {
+    display: table-cell;
+    width: 33%;
+    text-align: center;
+    padding: 0 12px;
+}
+
+.fms-sig-line {
+    border-bottom: 1px solid #1A1A2E;
+    height: 40px;
+    margin-bottom: 6px;
+}
+
+.fms-sig-name {
+    display: block;
+    font-size: 8.5pt;
+    font-weight: 600;
+    color: #1A1A2E;
+}
+
+.fms-sig-role {
+    display: block;
+    font-size: 7.5pt;
+    color: #9999AA;
+    margin-top: 2px;
+}
+
+/* ── Footer ── */
+.fms-report-footer {
+    border-top: 1px solid #E8E8EE;
+    padding-top: 5px;
+    display: table;
+    width: 100%;
+    font-size: 7.5pt;
+    color: #9999AA;
+}
+
+.fms-footer-left,
+.fms-footer-center,
+.fms-footer-right {
+    display: table-cell;
+    vertical-align: top;
+}
+
+.fms-footer-center { text-align: center; }
+.fms-footer-right  { text-align: right; font-size: 7pt; font-weight: 700; letter-spacing: 0.8px; }
+
+/* ── Page break utilities ── */
+.page-break-before { page-break-before: always; }
+.no-break          { page-break-inside: avoid; }

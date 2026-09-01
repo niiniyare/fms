@@ -103,5 +103,8 @@ Reference: Complete specification in FMS_Complete_Specification_Technical_Guide.
         "web.assets_backend": [
             "fms/static/src/css/fms_responsive.css",
         ],
+        "web.assets_print": [
+            "fms/static/src/css/report_pdf.css",
+        ],
     },
 }
