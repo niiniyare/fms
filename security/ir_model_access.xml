@@ -646,4 +646,25 @@
     <!-- fms.shift.product.sales: is_fuel field added — ensure attendant can read -->
     <!-- (access already exists via existing ACL for this model) -->
 
+    <!-- ── fms.shift.fc.line ─────────────────────────────────────────── -->
+    <record id="access_fms_shift_fc_line_attendant" model="ir.model.access">
+        <field name="name">fms.shift.fc.line attendant RC</field>
+        <field name="model_id" ref="model_fms_shift_fc_line"/>
+        <field name="group_id" ref="group_fms_attendant"/>
+        <field name="perm_read"   eval="1"/>
+        <field name="perm_write"  eval="1"/>
+        <field name="perm_create" eval="1"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <record id="access_fms_shift_fc_line_supervisor" model="ir.model.access">
+        <field name="name">fms.shift.fc.line supervisor full</field>
+        <field name="model_id" ref="model_fms_shift_fc_line"/>
+        <field name="group_id" ref="group_fms_supervisor"/>
+        <field name="perm_read"   eval="1"/>
+        <field name="perm_write"  eval="1"/>
+        <field name="perm_create" eval="1"/>
+        <field name="perm_unlink" eval="1"/>
+    </record>
+
 </odoo>

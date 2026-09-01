@@ -23,6 +23,11 @@ class StockLocationFMS(models.Model):
     _inherit = 'stock.location'
 
     fms_is_fuel_tank    = fields.Boolean('Is Fuel Tank', default=False)
+    fms_is_forecourt    = fields.Boolean(
+        'Is Forecourt Holding Location', default=False,
+        help="Stock held here (lubes, filters, accessories) is tracked per shift "
+             "via the Non Fuel Sales tab. One forecourt location per company.",
+    )
     fms_fuel_product_id = fields.Many2one(
         'product.product', 'Fuel Product in Tank',
         domain=[('fms_is_fuel', '=', True)],
@@ -147,6 +152,10 @@ class FMSShift(models.Model):
 
     meter_entry_ids = fields.One2many('fms.shift.meter.entry', 'shift_id', 'Meter Entries')
     dip_entry_ids = fields.One2many('fms.shift.dip.entry', 'shift_id', 'Dip Entries')
+    fc_line_ids = fields.One2many(
+        'fms.shift.fc.line', 'shift_id', 'Non Fuel Sales',
+        help="Non-fuel products (lubes, filters) and services (carwash) sold during this shift.",
+    )
     attendant_cash_ids = fields.One2many(
         'fms.shift.attendant.cash', 'shift_id', 'Attendant Cash',
     )

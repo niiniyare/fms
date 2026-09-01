@@ -180,6 +180,7 @@
             <list string="Fuel Tanks" editable="top">
                 <field name="name" string="Tank Name"/>
                 <field name="fms_is_fuel_tank" string="Is Fuel Tank" widget="boolean_toggle"/>
+                <field name="fms_is_forecourt" string="Forecourt Holding" widget="boolean_toggle" optional="show"/>
                 <field name="fms_fuel_product_id" string="Product"
                        domain="[('fms_is_fuel','=',True)]"
                        options="{'no_create': True}"/>
@@ -200,6 +201,9 @@
                         <field name="name" string="Tank Name"/>
                         <field name="complete_name" string="Full Location Path" readonly="1"/>
                         <field name="fms_is_fuel_tank" string="Is Fuel Tank" widget="boolean_toggle"/>
+                        <field name="fms_is_forecourt" string="Forecourt Holding Location"
+                               widget="boolean_toggle"
+                               help="Non-fuel products (lubes, filters, accessories) held here are tracked via the Non Fuel Sales tab on each shift."/>
                     </group>
                     <group string="Fuel Configuration">
                         <field name="fms_fuel_product_id" string="Fuel Product"
