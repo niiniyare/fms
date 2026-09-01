@@ -29,7 +29,7 @@
                                    widget="radio"/>
                             <field name="writeoff_account_id"
                                    string="Write-Off Account"
-                                   column_invisible="not allow_writeoff"
+                                   invisible="not allow_writeoff"
                                    optional="show"/>
                         </list>
                     </field>
