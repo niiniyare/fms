@@ -497,7 +497,7 @@ class FMSShiftAttendantCash(models.Model):
                     WHERE fms_shift_id = %s
                       AND fms_attendant_id = %s
                       AND move_type IN ('out_invoice', 'out_receipt')
-                      AND state IN ('in_process', 'paid')
+                      AND state = 'posted'
                 """, (shift.id, att_id))
                 invoice_receipt_total = self.env.cr.fetchone()[0] or 0.0
 
