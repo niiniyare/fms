@@ -109,7 +109,7 @@ class FmsShiftFcLine(models.Model):
             if not line.product_id:
                 continue
             p = line.product_id
-            line.line_type = 'service' if p.detailed_type == 'service' else 'goods'
+            line.line_type = 'service' if p.type == 'service' else 'goods'
             line.price_unit = self._get_fc_price(p, line.shift_id)
 
     # ── Price helper ──────────────────────────────────────────────────────────
