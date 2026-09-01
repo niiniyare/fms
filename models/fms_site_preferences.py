@@ -117,6 +117,30 @@ class FMSSitePreferences(models.Model):
              "(e.g., using an external PTS system or manual entry only).",
     )
 
+    # ── Variance Resolution ─────────────────────────────────────────────────
+    staff_advance_account_id = fields.Many2one(
+        'account.account', 'Staff Advances Account',
+        company_dependent=True,
+        help="Account debited when posting attendant FC Cash variance as a staff advance "
+             "(e.g. 115130 Staff Advances). Required when Variance Resolution is in use.",
+    )
+    allow_variance_writeoff = fields.Boolean(
+        'Allow Variance Write-Off', default=False,
+        help="When enabled, supervisors may write off small FC Cash variances "
+             "to a dedicated account instead of posting to employee advance.",
+    )
+    variance_writeoff_account_id = fields.Many2one(
+        'account.account', 'Variance Write-Off Account',
+        company_dependent=True,
+        help="Account debited (or credited for negative variance) when writing off "
+             "attendant FC Cash discrepancies. Visible only when Allow Write-Off is on.",
+    )
+    max_writeoff_amount = fields.Float(
+        'Write-Off Threshold (±)', default=200.0,
+        help="Maximum absolute variance that may be written off per attendant per shift. "
+             "Variances above this threshold must be posted to employee advance.",
+    )
+
     _sql_constraints = [
         ('company_unique', 'UNIQUE(company_id)',
          'Only one set of site preferences is allowed per company.'),

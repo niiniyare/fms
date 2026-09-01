@@ -667,4 +667,25 @@
         <field name="perm_unlink" eval="1"/>
     </record>
 
+    <!-- ── fms.shift.recon.wizard (transient) ──────────────────────────── -->
+    <record id="access_fms_shift_recon_wizard_supervisor" model="ir.model.access">
+        <field name="name">fms.shift.recon.wizard supervisor full</field>
+        <field name="model_id" ref="model_fms_shift_recon_wizard"/>
+        <field name="group_id" ref="group_fms_supervisor"/>
+        <field name="perm_read"   eval="1"/>
+        <field name="perm_write"  eval="1"/>
+        <field name="perm_create" eval="1"/>
+        <field name="perm_unlink" eval="1"/>
+    </record>
+
+    <record id="access_fms_shift_recon_wizard_line_supervisor" model="ir.model.access">
+        <field name="name">fms.shift.recon.wizard.line supervisor full</field>
+        <field name="model_id" ref="model_fms_shift_recon_wizard_line"/>
+        <field name="group_id" ref="group_fms_supervisor"/>
+        <field name="perm_read"   eval="1"/>
+        <field name="perm_write"  eval="1"/>
+        <field name="perm_create" eval="1"/>
+        <field name="perm_unlink" eval="1"/>
+    </record>
+
 </odoo>

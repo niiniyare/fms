@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_fms_shift_recon_wizard_form" model="ir.ui.view">
+        <field name="name">fms.shift.recon.wizard.form</field>
+        <field name="model">fms.shift.recon.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Resolve FC Cash Variances">
+                <sheet>
+                    <div class="alert alert-warning" role="alert">
+                        The following attendants have unresolved FC Cash variance.
+                        Choose a resolution for each, then click <strong>Post &amp; Move to Closing</strong>.
+                    </div>
+
+                    <field name="allow_variance_writeoff" invisible="1"/>
+                    <field name="max_writeoff_amount" invisible="1"/>
+
+                    <field name="line_ids">
+                        <list editable="bottom" string="Attendant Variances"
+                              decoration-danger="abs(fc_variance) > 0.01">
+                            <field name="attendant_id" readonly="1"/>
+                            <field name="fc_captured" string="Captured" readonly="1"/>
+                            <field name="fc_collected" string="Collected" readonly="1"/>
+                            <field name="fc_variance" string="Variance" readonly="1"
+                                   decoration-danger="fc_variance != 0"
+                                   decoration-success="fc_variance == 0"/>
+                            <field name="allow_writeoff" column_invisible="1"/>
+                            <field name="resolution" string="Resolution"
+                                   widget="radio"/>
+                            <field name="writeoff_account_id"
+                                   string="Write-Off Account"
+                                   column_invisible="not allow_writeoff"
+                                   optional="show"/>
+                        </list>
+                    </field>
+
+                    <group invisible="not allow_variance_writeoff">
+                        <field name="max_writeoff_amount" readonly="1"
+                               string="Write-Off Threshold (±)"/>
+                    </group>
+                </sheet>
+
+                <footer>
+                    <button name="action_post_resolution"
+                            string="Post &amp; Move to Closing"
+                            type="object" class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary"
+                            special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_fms_shift_recon_wizard" model="ir.actions.act_window">
+        <field name="name">Resolve FC Cash Variances</field>
+        <field name="res_model">fms.shift.recon.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="view_id" ref="view_fms_shift_recon_wizard_form"/>
+        <field name="target">new</field>
+        <field name="context">{'default_shift_id': active_id}</field>
+    </record>
+
+</odoo>

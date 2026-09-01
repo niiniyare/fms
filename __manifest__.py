@@ -75,6 +75,7 @@ Reference: Complete specification in FMS_Complete_Specification_Technical_Guide.
         "views/fms_report_views2.xml",
         "views/fms_setup_check_views.xml",
         "views/fms_config_settings_views.xml",
+        "views/fms_shift_recon_wizard_views.xml",
         "wizards/fms_emergency_override_wizard_views.xml",
         # These two must load last — they reference actions from all files above
         "views/fms_overview_views.xml",

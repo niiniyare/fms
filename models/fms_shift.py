@@ -790,22 +790,18 @@ class FMSShift(models.Model):
             raise ValidationError(
                 f"Cannot start closing a shift that is '{self.state}'."
             )
-        # FC Cash gate: block transition to 'closing' if any attendant has unresolved variance.
-        # This mirrors the hard gate in action_close_shift but surfaces the problem earlier.
+        # FC Cash gate: if any attendant has unresolved variance, open resolution wizard.
         self.attendant_cash_ids.invalidate_recordset(['fc_variance', 'fc_captured', 'fc_collected'])
-        failing = [
-            f"  • {c.attendant_id.name}: {self.company_id.currency_id.name} {c.fc_variance:,.2f}"
-            for c in self.attendant_cash_ids
-            if abs(c.fc_variance) > 0.01
-        ]
-        if failing:
-            lines = "\n".join(failing)
-            raise ValidationError(
-                "Cannot move to Closing — FC Cash variance is not zero for:\n"
-                f"{lines}\n\n"
-                "Resolve all attendant variances (post invoices, record drops, or write off) "
-                "before starting the closing process."
-            )
+        has_variance = any(abs(c.fc_variance) > 0.01 for c in self.attendant_cash_ids)
+        if has_variance:
+            return {
+                'type': 'ir.actions.act_window',
+                'name': 'Resolve FC Cash Variances',
+                'res_model': 'fms.shift.recon.wizard',
+                'view_mode': 'form',
+                'target': 'new',
+                'context': {'default_shift_id': self.id},
+            }
         self.write({
             'state': 'closing',
             'closing_meter_date': fields.Datetime.now(),

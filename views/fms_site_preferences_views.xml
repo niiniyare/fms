@@ -74,6 +74,17 @@
                     <group string="Operational">
                         <field name="auto_sync_attendants"/>
                         <field name="auto_open_next_shift"/>
+                        <field name="require_pos_reconciliation"/>
+                    </group>
+
+                    <group string="Variance Resolution">
+                        <field name="staff_advance_account_id"/>
+                        <field name="allow_variance_writeoff"/>
+                        <field name="variance_writeoff_account_id"
+                               invisible="not allow_variance_writeoff"/>
+                        <field name="max_writeoff_amount"
+                               invisible="not allow_variance_writeoff"
+                               string="Write-Off Threshold (±)"/>
                     </group>
                 </sheet>
             </form>
