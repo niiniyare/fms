@@ -601,6 +601,42 @@ class FMSShift(models.Model):
 
         self._sync_attendant_cash_lines()
 
+        # ── Snapshot fc_line opening qty from stock.quant ─────────────────────
+        self._snapshot_fc_opening_qty()
+
+    def _snapshot_fc_opening_qty(self):
+        """
+        Snapshot stock.quant quantities at the forecourt holding location(s)
+        into fc_line.opening_qty for all goods-type fc_lines on this shift.
+
+        Called once on action_open_shift(). Idempotent — skips lines that
+        already have opening_qty set (non-zero).
+
+        Uses sudo() because stock.quant may require inventory manager rights
+        while the shift supervisor only has FMS permissions.
+        """
+        self.ensure_one()
+        goods_lines = self.fc_line_ids.filtered(lambda l: l.line_type == 'goods')
+        if not goods_lines:
+            return
+
+        forecourt_locs = self.env['stock.location'].sudo().search([
+            ('fms_is_forecourt', '=', True),
+            ('company_id', '=', self.company_id.id),
+        ])
+        if not forecourt_locs:
+            return
+
+        for line in goods_lines:
+            if line.opening_qty:
+                continue  # already set — skip (idempotent)
+            quants = self.env['stock.quant'].sudo().search([
+                ('product_id', '=', line.product_id.id),
+                ('location_id', 'in', forecourt_locs.ids),
+            ])
+            qty = sum(quants.mapped('quantity'))
+            line.sudo().write({'opening_qty': qty})
+
     def _get_previous_shift(self):
         """Return the most-recently closed shift for this company, or False."""
         return self.search([
