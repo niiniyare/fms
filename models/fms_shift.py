@@ -304,7 +304,7 @@ class FMSShift(models.Model):
                     JOIN account_journal j ON j.id = ap.journal_id
                     WHERE ap.fms_shift_id = %s
                       AND ap.fms_payment_context = 'customer_receipt'
-                      AND ap.state = 'posted'
+                      AND ap.state IN ('in_process', 'paid')
                       AND ap.payment_type = 'inbound'
                 """, (shift.id,))
                 row = self.env.cr.fetchone()

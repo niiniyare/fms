@@ -1206,7 +1206,7 @@ class FMSReportAttendantCashBreakdown(models.Model):
                             WHERE ap.fms_shift_id = ac.shift_id
                               AND ap.fms_attendant_id = ac.attendant_id
                               AND ap.fms_payment_context = 'customer_receipt'
-                              AND ap.state = 'posted'
+                              AND ap.state IN ('in_process', 'paid')
                               AND ap.payment_type = 'inbound'
                         ), 0)                                                          AS customer_receipts,
                         COALESCE((
@@ -1215,7 +1215,7 @@ class FMSReportAttendantCashBreakdown(models.Model):
                             WHERE ap.fms_shift_id = ac.shift_id
                               AND (ap.fms_attendant_id = ac.attendant_id OR ap.fms_attendant_id IS NULL)
                               AND ap.fms_payment_context = 'cash_float'
-                              AND ap.state = 'posted'
+                              AND ap.state IN ('in_process', 'paid')
                         ), 0)                                                          AS float_received,
                         COALESCE((
                             SELECT SUM(ap.amount)
@@ -1223,7 +1223,7 @@ class FMSReportAttendantCashBreakdown(models.Model):
                             WHERE ap.fms_shift_id = ac.shift_id
                               AND (ap.fms_attendant_id = ac.attendant_id OR ap.fms_attendant_id IS NULL)
                               AND ap.fms_payment_context IN ('cash_drop', 'cash_pickup')
-                              AND ap.state = 'posted'
+                              AND ap.state IN ('in_process', 'paid')
                         ), 0)                                                          AS cash_drops,
                         COALESCE(ac.mpesa_amount, 0)                                   AS mpesa,
                         COALESCE(ac.card_amount, 0)                                    AS card,
@@ -1234,7 +1234,7 @@ class FMSReportAttendantCashBreakdown(models.Model):
                             WHERE ap.fms_shift_id = ac.shift_id
                               AND ap.fms_attendant_id = ac.attendant_id
                               AND ap.fms_payment_context = 'vendor_payment'
-                              AND ap.state = 'posted'
+                              AND ap.state IN ('in_process', 'paid')
                         ), 0)                                                          AS vendor_payments,
                         COALESCE((
                             SELECT SUM(ap.amount)
@@ -1242,7 +1242,7 @@ class FMSReportAttendantCashBreakdown(models.Model):
                             WHERE ap.fms_shift_id = ac.shift_id
                               AND ap.fms_attendant_id = ac.attendant_id
                               AND ap.fms_payment_context = 'expense'
-                              AND ap.state = 'posted'
+                              AND ap.state IN ('in_process', 'paid')
                         ), 0)                                                          AS expenses,
                         COALESCE(ac.cash_collected, 0)                                 AS cash_declared,
                         COALESCE(ac.total_in, 0)                                       AS expected_cash,

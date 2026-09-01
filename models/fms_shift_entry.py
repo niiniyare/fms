@@ -479,7 +479,7 @@ class FMSShiftAttendantCash(models.Model):
                     FROM account_payment
                     WHERE fms_shift_id = %s
                       AND fms_attendant_id = %s
-                      AND state = 'posted'
+                      AND state IN ('in_process', 'paid')
                       AND fms_payment_context IN ('cash_float', 'customer_receipt')
                 """, (shift.id, att_id))
                 floats_and_cust = self.env.cr.fetchone()[0] or 0.0
@@ -497,7 +497,7 @@ class FMSShiftAttendantCash(models.Model):
                     WHERE fms_shift_id = %s
                       AND fms_attendant_id = %s
                       AND move_type IN ('out_invoice', 'out_receipt')
-                      AND state = 'posted'
+                      AND state IN ('in_process', 'paid')
                 """, (shift.id, att_id))
                 invoice_receipt_total = self.env.cr.fetchone()[0] or 0.0
 
@@ -509,7 +509,7 @@ class FMSShiftAttendantCash(models.Model):
                     FROM account_payment
                     WHERE fms_shift_id = %s
                       AND fms_attendant_id = %s
-                      AND state = 'posted'
+                      AND state IN ('in_process', 'paid')
                       AND fms_payment_context IN ('cash_drop', 'expense')
                 """, (shift.id, att_id))
                 drops_and_expenses = self.env.cr.fetchone()[0] or 0.0
