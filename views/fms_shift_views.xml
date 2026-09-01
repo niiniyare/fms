@@ -80,9 +80,19 @@
 
                     <!-- ── FC Cash status bar (always visible when open/closing/closed) ── -->
                     <group invisible="state == 'draft'" class="o_group_col_4">
-                        <group string="Meter Sales">
+                        <group string="Fuel Sales">
                             <field name="total_meter_sales" readonly="1"
-                                   string="Total Fuel Sales"
+                                   string="Fuel Sales"
+                                   widget="monetary"/>
+                        </group>
+                        <group string="Non Fuel Sales">
+                            <field name="total_fc_sales" readonly="1"
+                                   string="Non Fuel Sales"
+                                   widget="monetary"/>
+                        </group>
+                        <group string="Total Sales">
+                            <field name="total_all_sales" readonly="1"
+                                   string="Total Sales"
                                    widget="monetary"/>
                         </group>
                         <group string="FC Cash Variance">
