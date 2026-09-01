@@ -296,6 +296,43 @@ class FMSShift(models.Model):
         'attendant_cash_ids.vendor_payment_amount',
     )
     def _compute_commercial_summary(self):
+        shift_ids = [s.id for s in self if isinstance(s.id, int)]
+
+        # Batch SQL — one query per table across all shifts, not one per shift
+        payment_data = {}   # shift_id -> (cash_recv, digital_recv)
+        credit_data = {}    # shift_id -> credit_sales
+
+        AccountPayment = self.env['account.payment']
+        has_payment_fms = shift_ids and 'fms_shift_id' in AccountPayment._fields
+        if has_payment_fms:
+            self.env.cr.execute("""
+                SELECT ap.fms_shift_id,
+                       COALESCE(SUM(CASE WHEN j.type = 'cash' THEN ap.amount ELSE 0 END), 0),
+                       COALESCE(SUM(CASE WHEN j.type = 'bank' THEN ap.amount ELSE 0 END), 0)
+                FROM account_payment ap
+                JOIN account_journal j ON j.id = ap.journal_id
+                WHERE ap.fms_shift_id = ANY(%s)
+                  AND ap.fms_payment_context = 'customer_receipt'
+                  AND ap.state IN ('in_process', 'paid')
+                  AND ap.payment_type = 'inbound'
+                GROUP BY ap.fms_shift_id
+            """, (shift_ids,))
+            for sid, cash, digital in self.env.cr.fetchall():
+                payment_data[sid] = (float(cash), float(digital))
+
+            AccountMove = self.env['account.move']
+            if 'fms_shift_id' in AccountMove._fields:
+                self.env.cr.execute("""
+                    SELECT fms_shift_id, COALESCE(SUM(amount_untaxed), 0)
+                    FROM account_move
+                    WHERE fms_shift_id = ANY(%s)
+                      AND move_type = 'out_invoice'
+                      AND state = 'posted'
+                    GROUP BY fms_shift_id
+                """, (shift_ids,))
+                for sid, amt in self.env.cr.fetchall():
+                    credit_data[sid] = float(amt)
+
         for shift in self:
             fuel_sales = 0.0
             nonfuel_sales = 0.0
@@ -304,47 +341,13 @@ class FMSShift(models.Model):
                     fuel_sales += ps.elec_cash_sold
                 else:
                     nonfuel_sales += ps.allocated_amount or 0.0
-            # Service lines have no product_sales entry — add directly
             nonfuel_sales += sum(
                 l.sales_amount for l in shift.fc_line_ids if l.line_type == 'service'
             )
 
-            # Cash vs digital breakdown — requires fms_accounting (account.payment extension)
-            cash_recv = 0.0
-            digital_recv = 0.0
-            credit_sales = 0.0
-            AccountPayment = self.env['account.payment']
-            if 'fms_shift_id' in AccountPayment._fields:
-                self.env.cr.execute("""
-                    SELECT
-                        SUM(CASE WHEN j.type = 'cash' THEN ap.amount ELSE 0 END) AS cash_recv,
-                        SUM(CASE WHEN j.type = 'bank' THEN ap.amount ELSE 0 END) AS digital_recv
-                    FROM account_payment ap
-                    JOIN account_journal j ON j.id = ap.journal_id
-                    WHERE ap.fms_shift_id = %s
-                      AND ap.fms_payment_context = 'customer_receipt'
-                      AND ap.state IN ('in_process', 'paid')
-                      AND ap.payment_type = 'inbound'
-                """, (shift.id,))
-                row = self.env.cr.fetchone()
-                if row:
-                    cash_recv = row[0] or 0.0
-                    digital_recv = row[1] or 0.0
+            cash_recv, digital_recv = payment_data.get(shift.id, (0.0, 0.0))
+            credit_sales = credit_data.get(shift.id, 0.0)
 
-                # Credit sales: posted out_invoice lines linked to shift (AR)
-                AccountMove = self.env['account.move']
-                if 'fms_shift_id' in AccountMove._fields:
-                    self.env.cr.execute("""
-                        SELECT COALESCE(SUM(am.amount_untaxed), 0)
-                        FROM account_move am
-                        WHERE am.fms_shift_id = %s
-                          AND am.move_type = 'out_invoice'
-                          AND am.state = 'posted'
-                    """, (shift.id,))
-                    row = self.env.cr.fetchone()
-                    credit_sales = row[0] if row else 0.0
-
-            # Expected cash from attendant lines
             opening_float = sum(shift.attendant_cash_ids.mapped('float_amount'))
             cash_drops = sum(shift.attendant_cash_ids.mapped('cash_drop_amount'))
             expenses = sum(shift.attendant_cash_ids.mapped('expense_amount'))
@@ -946,15 +949,19 @@ class FMSShift(models.Model):
         if not forecourt_locs:
             return
 
-        for line in goods_lines:
-            if line.opening_qty:
-                continue  # already set — skip (idempotent)
+        unset_lines = goods_lines.filtered(lambda l: not l.opening_qty)
+        if unset_lines:
+            product_ids = unset_lines.mapped('product_id').ids
             quants = self.env['stock.quant'].sudo().search([
-                ('product_id', '=', line.product_id.id),
+                ('product_id', 'in', product_ids),
                 ('location_id', 'in', forecourt_locs.ids),
             ])
-            qty = sum(quants.mapped('quantity'))
-            line.sudo().write({'opening_qty': qty})
+            qty_map = {}
+            for q in quants:
+                qty_map[q.product_id.id] = qty_map.get(q.product_id.id, 0.0) + q.quantity
+            for line in unset_lines:
+                qty = qty_map.get(line.product_id.id, 0.0)
+                line.sudo().write({'opening_qty': qty})
 
     def _get_previous_shift(self):
         """Return the most-recently closed shift for this company, or False."""
@@ -1018,30 +1025,35 @@ class FMSShift(models.Model):
                 ('fms_is_fuel_tank', '=', True),
                 ('active', '=', True),
             ])
+
+            # Batch: all quants for these tanks in one query
+            tank_ids = tanks.ids
+            quants = self.env['stock.quant'].sudo().search([
+                ('location_id', 'in', tank_ids),
+                ('company_id', 'in', company_ids),
+            ])
+            quant_map = {}
+            for q in quants:
+                key = (q.location_id.id, q.product_id.id)
+                quant_map[key] = quant_map.get(key, 0.0) + q.quantity
+
+            # Batch: previous shift's dip logs for all tanks
+            prev_dip_map = {}
+            if prev:
+                prev_dips = self.env['fms.dip_log'].search([
+                    ('shift_id', '=', prev.id),
+                    ('location_id', 'in', tank_ids),
+                ])
+                for log in prev_dips:
+                    prev_dip_map[log.location_id.id] = log.closing_volume
+
             dip_entries = []
             for tank in tanks:
-                # Book stock = current stock.quant quantity for this tank
                 book_stock = 0.0
                 if tank.fms_fuel_product_id:
-                    quant = self.env['stock.quant'].search([
-                        ('location_id', '=', tank.id),
-                        ('product_id', '=', tank.fms_fuel_product_id.id),
-                        ('company_id', 'in', company_ids),
-                    ], limit=1)
-                    book_stock = quant.quantity if quant else 0.0
+                    book_stock = quant_map.get((tank.id, tank.fms_fuel_product_id.id), 0.0)
 
-                # Opening = previous shift's closing dip log
-                # Fallback: stock.quant (first shift ever, or after manual adjustment)
-                opening_vol = 0.0
-                if prev:
-                    log = self.env['fms.dip_log'].search([
-                        ('shift_id', '=', prev.id),
-                        ('location_id', '=', tank.id),
-                    ], limit=1)
-                    if log:
-                        opening_vol = log.closing_volume
-                if not opening_vol:
-                    opening_vol = book_stock
+                opening_vol = prev_dip_map.get(tank.id, 0.0) or book_stock
 
                 dip_entries.append({
                     'shift_id':        self.id,

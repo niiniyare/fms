@@ -107,9 +107,33 @@ class FMSShiftMeterEntry(models.Model):
 
     @api.depends('qty_sold_elec', 'product_id', 'product_id.list_price', 'shift_id.date')
     def _compute_amount(self):
+        # Cache price period per shift date — one search per unique date, not per meter entry
+        period_cache = {}  # date -> fms.price.period recordset (or False)
+        price_cache = {}   # (date, product_id) -> pump_price
+
         for e in self:
-            price = e._get_shift_price()
-            e.amount_elec = e.qty_sold_elec * price
+            shift_date = e.shift_id.date if e.shift_id else None
+            if not e.product_id:
+                e.amount_elec = 0.0
+                continue
+
+            if shift_date and shift_date not in period_cache:
+                period_cache[shift_date] = self.env['fms.price.period'].search([
+                    ('date_start', '<=', shift_date),
+                    ('date_end',   '>=', shift_date),
+                    ('active', '=', True),
+                ], limit=1)
+
+            period = period_cache.get(shift_date)
+            cache_key = (shift_date, e.product_id.id)
+            if cache_key not in price_cache:
+                if period:
+                    line = period.price_line_ids.filtered(lambda l: l.product_id == e.product_id)
+                    price_cache[cache_key] = line[0].pump_price if line else e.product_id.list_price or 0.0
+                else:
+                    price_cache[cache_key] = e.product_id.list_price or 0.0
+
+            e.amount_elec = e.qty_sold_elec * price_cache[cache_key]
 
     def _get_shift_price(self):
         """Return pump price from active price period for shift date, or product list_price."""
@@ -457,38 +481,81 @@ class FMSShiftAttendantCash(models.Model):
         'shift_id.fc_line_ids.line_type',
     )
     def _compute_fc_variance(self):
-        # Check fms_accounting columns exist before querying
+        # Column-existence checks run once per compute call, not per record
         self.env.cr.execute("""
-            SELECT 1 FROM information_schema.columns
-            WHERE table_name = 'account_payment' AND column_name = 'fms_shift_id' LIMIT 1
+            SELECT
+                MAX(CASE WHEN table_name = 'account_payment' AND column_name = 'fms_shift_id' THEN 1 ELSE 0 END),
+                MAX(CASE WHEN table_name = 'account_move'    AND column_name = 'fms_shift_id' THEN 1 ELSE 0 END),
+                MAX(CASE WHEN table_name = 'hr_expense'      AND column_name = 'fms_shift_id' THEN 1 ELSE 0 END)
+            FROM information_schema.columns
+            WHERE table_name IN ('account_payment', 'account_move', 'hr_expense')
+              AND column_name = 'fms_shift_id'
         """)
-        has_payment_fms = bool(self.env.cr.fetchone())
+        row = self.env.cr.fetchone() or (0, 0, 0)
+        has_payment_fms, has_move_fms, has_hr_expense_fms = bool(row[0]), bool(row[1]), bool(row[2])
 
-        self.env.cr.execute("""
-            SELECT 1 FROM information_schema.columns
-            WHERE table_name = 'account_move' AND column_name = 'fms_shift_id' LIMIT 1
-        """)
-        has_move_fms = bool(self.env.cr.fetchone())
+        valid = self.filtered(lambda r: r.shift_id and r.attendant_id and isinstance(r.shift_id.id, int))
+        for rec in self - valid:
+            for f in ('fc_captured', 'fc_collected', 'fc_variance', 'fc_meter_sales',
+                      'fc_nonfuel_sales', 'fc_float_amount', 'fc_cust_receipt',
+                      'fc_invoice_amount', 'fc_receipt_amount', 'fc_drop_amount', 'fc_expense_amount'):
+                rec[f] = 0.0
 
-        self.env.cr.execute("""
-            SELECT 1 FROM information_schema.columns
-            WHERE table_name = 'hr_expense' AND column_name = 'fms_shift_id' LIMIT 1
-        """)
-        has_hr_expense_fms = bool(self.env.cr.fetchone())
+        if not valid:
+            return
 
-        for rec in self:
-            _null = not rec.shift_id or not rec.attendant_id or not isinstance(rec.shift_id.id, int)
-            if _null:
-                for f in ('fc_captured','fc_collected','fc_variance','fc_meter_sales',
-                          'fc_nonfuel_sales','fc_float_amount','fc_cust_receipt',
-                          'fc_invoice_amount','fc_receipt_amount','fc_drop_amount','fc_expense_amount'):
-                    rec[f] = 0.0
-                continue
+        shift_ids = list({r.shift_id.id for r in valid})
 
+        # Batch account_payment: (shift_id, attendant_id, context) -> amount
+        pay_agg = {}
+        if has_payment_fms:
+            self.env.cr.execute("""
+                SELECT fms_shift_id, COALESCE(fms_attendant_id, 0), fms_payment_context,
+                       COALESCE(SUM(amount), 0)
+                FROM account_payment
+                WHERE fms_shift_id = ANY(%s)
+                  AND state IN ('in_process', 'paid')
+                  AND fms_payment_context IN ('cash_float', 'customer_receipt', 'cash_drop', 'expense')
+                GROUP BY fms_shift_id, fms_attendant_id, fms_payment_context
+            """, (shift_ids,))
+            for sid, aid, ctx, amt in self.env.cr.fetchall():
+                pay_agg[(sid, aid, ctx)] = float(amt)
+
+        # Batch account_move: (shift_id, attendant_id, move_type) -> amount
+        move_agg = {}
+        if has_move_fms:
+            self.env.cr.execute("""
+                SELECT fms_shift_id, COALESCE(fms_attendant_id, 0), move_type,
+                       COALESCE(SUM(amount_total), 0)
+                FROM account_move
+                WHERE fms_shift_id = ANY(%s)
+                  AND move_type IN ('out_invoice', 'out_receipt')
+                  AND state = 'posted'
+                GROUP BY fms_shift_id, fms_attendant_id, move_type
+            """, (shift_ids,))
+            for sid, aid, mtype, amt in self.env.cr.fetchall():
+                move_agg[(sid, aid, mtype)] = float(amt)
+
+        # Batch hr_expense: (shift_id, attendant_id) -> amount
+        exp_agg = {}
+        if has_hr_expense_fms:
+            self.env.cr.execute("""
+                SELECT e.fms_shift_id, COALESCE(e.fms_attendant_id, 0),
+                       COALESCE(SUM(e.total_amount), 0)
+                FROM hr_expense e
+                JOIN hr_expense_sheet s ON s.id = e.sheet_id
+                WHERE e.fms_shift_id = ANY(%s)
+                  AND s.state IN ('post', 'done')
+                GROUP BY e.fms_shift_id, e.fms_attendant_id
+            """, (shift_ids,))
+            for sid, aid, amt in self.env.cr.fetchall():
+                exp_agg[(sid, aid)] = float(amt)
+
+        for rec in valid:
             shift = rec.shift_id
             att_id = rec.attendant_id.id
+            sid = shift.id
 
-            # ── DR: Captured ──────────────────────────────────────────────────
             meter_sales = sum(
                 e.elec_cash_sold for e in shift.meter_entry_ids if e.attendant_id.id == att_id
             )
@@ -496,70 +563,17 @@ class FMSShiftAttendantCash(models.Model):
                 l.sales_amount for l in shift.fc_line_ids if l.attendant_id.id == att_id
             )
 
-            float_amt = cust_receipt = 0.0
-            if has_payment_fms:
-                self.env.cr.execute("""
-                    SELECT fms_payment_context, COALESCE(SUM(amount), 0)
-                    FROM account_payment
-                    WHERE fms_shift_id = %s AND fms_attendant_id = %s
-                      AND state IN ('in_process', 'paid')
-                      AND fms_payment_context IN ('cash_float', 'customer_receipt')
-                    GROUP BY fms_payment_context
-                """, (shift.id, att_id))
-                for ctx, amt in self.env.cr.fetchall():
-                    if ctx == 'cash_float':
-                        float_amt = float(amt)
-                    else:
-                        cust_receipt = float(amt)
-
+            float_amt = pay_agg.get((sid, att_id, 'cash_float'), 0.0)
+            cust_receipt = pay_agg.get((sid, att_id, 'customer_receipt'), 0.0)
             captured = meter_sales + fc_sales + float_amt + cust_receipt
 
-            # ── CR: Collected ─────────────────────────────────────────────────
-            invoice_amt = receipt_amt = 0.0
-            if has_move_fms:
-                self.env.cr.execute("""
-                    SELECT move_type, COALESCE(SUM(amount_total), 0)
-                    FROM account_move
-                    WHERE fms_shift_id = %s AND fms_attendant_id = %s
-                      AND move_type IN ('out_invoice', 'out_receipt')
-                      AND state = 'posted'
-                    GROUP BY move_type
-                """, (shift.id, att_id))
-                for mtype, amt in self.env.cr.fetchall():
-                    if mtype == 'out_invoice':
-                        invoice_amt = float(amt)
-                    else:
-                        receipt_amt = float(amt)
-
-            drop_amt = expense_amt = 0.0
-            if has_payment_fms:
-                self.env.cr.execute("""
-                    SELECT fms_payment_context, COALESCE(SUM(amount), 0)
-                    FROM account_payment
-                    WHERE fms_shift_id = %s AND fms_attendant_id = %s
-                      AND state IN ('in_process', 'paid')
-                      AND fms_payment_context IN ('cash_drop', 'expense')
-                    GROUP BY fms_payment_context
-                """, (shift.id, att_id))
-                for ctx, amt in self.env.cr.fetchall():
-                    if ctx == 'cash_drop':
-                        drop_amt = float(amt)
-                    else:
-                        expense_amt = float(amt)
-
-            # Also count hr.expense records posted via forecourt expense form
-            if has_hr_expense_fms:
-                self.env.cr.execute("""
-                    SELECT COALESCE(SUM(e.total_amount), 0)
-                    FROM hr_expense e
-                    JOIN hr_expense_sheet s ON s.id = e.sheet_id
-                    WHERE e.fms_shift_id = %s
-                      AND e.fms_attendant_id = %s
-                      AND s.state IN ('post', 'done')
-                """, (shift.id, att_id))
-                row = self.env.cr.fetchone()
-                if row:
-                    expense_amt += float(row[0])
+            invoice_amt = move_agg.get((sid, att_id, 'out_invoice'), 0.0)
+            receipt_amt = move_agg.get((sid, att_id, 'out_receipt'), 0.0)
+            drop_amt = pay_agg.get((sid, att_id, 'cash_drop'), 0.0)
+            expense_amt = (
+                pay_agg.get((sid, att_id, 'expense'), 0.0)
+                + exp_agg.get((sid, att_id), 0.0)
+            )
 
             # When no GL drop payments exist, fall back to cash_collected (manual entry)
             # so the gate sees the variance even without fms_accounting installed.
@@ -568,17 +582,17 @@ class FMSShiftAttendantCash(models.Model):
 
             collected = invoice_amt + receipt_amt + drop_amt + expense_amt
 
-            rec.fc_meter_sales   = meter_sales
-            rec.fc_nonfuel_sales = fc_sales
-            rec.fc_float_amount  = float_amt
-            rec.fc_cust_receipt  = cust_receipt
+            rec.fc_meter_sales    = meter_sales
+            rec.fc_nonfuel_sales  = fc_sales
+            rec.fc_float_amount   = float_amt
+            rec.fc_cust_receipt   = cust_receipt
             rec.fc_invoice_amount = invoice_amt
             rec.fc_receipt_amount = receipt_amt
-            rec.fc_drop_amount   = drop_amt
+            rec.fc_drop_amount    = drop_amt
             rec.fc_expense_amount = expense_amt
-            rec.fc_captured      = captured
-            rec.fc_collected     = collected
-            rec.fc_variance      = captured - collected
+            rec.fc_captured       = captured
+            rec.fc_collected      = collected
+            rec.fc_variance       = captured - collected
 
     # ── Compute: Meter-based reported sales ──────────────────────────────────
 
@@ -614,49 +628,78 @@ class FMSShiftAttendantCash(models.Model):
             PayMethod.search([('name', 'ilike', 'account')])
             | PayMethod.search([('name', 'ilike', 'credit')])
         )
+        mpesa_ids = set(mpesa_methods.ids)
+        card_ids  = set(card_methods.ids)
+        ar_ids    = set(ar_methods.ids)
 
         PosOrder = self.env['pos.order']
         has_employee_field = 'employee_id' in PosOrder._fields
 
+        # Group records by shift to batch POS queries per shift, not per attendant
+        shifts_map = {}
         for rec in self:
-            sessions = rec.shift_id.pos_session_ids
-            attendant = rec.attendant_id
+            if rec.shift_id and rec.attendant_id and rec.shift_id.pos_session_ids:
+                shifts_map.setdefault(rec.shift_id.id, []).append(rec)
 
+        # Build per-shift payment breakdown: (shift_id, attendant_id) -> (mpesa, card, ar)
+        agg = {}   # (shift_id, attendant_key) -> [mpesa, card, ar]
+
+        for shift_id, recs in shifts_map.items():
+            shift = recs[0].shift_id
+            session_ids = shift.pos_session_ids.ids
+
+            # One order search per shift (not per attendant)
+            all_orders = PosOrder.search([('session_id', 'in', session_ids)])
+            if not all_orders:
+                continue
+
+            # One payment search per shift
+            all_payments = self.env['pos.payment'].search([
+                ('pos_order_id', 'in', all_orders.ids)
+            ])
+
+            # Index payments by order_id
+            pay_by_order = {}
+            for p in all_payments:
+                pay_by_order.setdefault(p.pos_order_id.id, []).append(p)
+
+            # Distribute orders to attendants
+            for order in all_orders:
+                if has_employee_field:
+                    att_key = order.employee_id.id if order.employee_id else 0
+                else:
+                    att_key = order.cashier_id.id if order.cashier_id else 0
+
+                if not att_key:
+                    continue
+                bucket = agg.setdefault((shift_id, att_key), [0.0, 0.0, 0.0])
+                for p in pay_by_order.get(order.id, []):
+                    mid = p.payment_method_id.id
+                    if mid in mpesa_ids:
+                        bucket[0] += p.amount
+                    elif mid in card_ids:
+                        bucket[1] += p.amount
+                    elif mid in ar_ids:
+                        bucket[2] += p.amount
+
+        for rec in self:
+            sessions = rec.shift_id.pos_session_ids if rec.shift_id else False
+            attendant = rec.attendant_id
             if not sessions or not attendant:
                 rec.mpesa_amount = 0.0
                 rec.card_amount  = 0.0
                 rec.ar_amount    = 0.0
                 continue
 
-            # Build order domain — prefer employee_id, fall back to user
             if has_employee_field:
-                orders = PosOrder.search([
-                    ('session_id', 'in', sessions.ids),
-                    ('employee_id', '=', attendant.id),
-                ])
+                att_key = attendant.id
             else:
-                orders = PosOrder.search([
-                    ('session_id', 'in', sessions.ids),
-                    ('cashier_id', '=', attendant.user_id.id),
-                ]) if attendant.user_id else PosOrder
+                att_key = attendant.user_id.id if attendant.user_id else 0
 
-            if orders:
-                payments = self.env['pos.payment'].search([
-                    ('pos_order_id', 'in', orders.ids),
-                ])
-                rec.mpesa_amount = sum(
-                    p.amount for p in payments if p.payment_method_id in mpesa_methods
-                )
-                rec.card_amount = sum(
-                    p.amount for p in payments if p.payment_method_id in card_methods
-                )
-                rec.ar_amount = sum(
-                    p.amount for p in payments if p.payment_method_id in ar_methods
-                )
-            else:
-                rec.mpesa_amount = 0.0
-                rec.card_amount  = 0.0
-                rec.ar_amount    = 0.0
+            bucket = agg.get((rec.shift_id.id, att_key), [0.0, 0.0, 0.0])
+            rec.mpesa_amount = bucket[0]
+            rec.card_amount  = bucket[1]
+            rec.ar_amount    = bucket[2]
 
     # ── Compute: Direct Sales Receipts (C2.6) ────────────────────────────────────
     # account.move out_receipt linked to this shift+attendant, posted.
