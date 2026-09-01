@@ -66,11 +66,13 @@ class FMSUATBase(FMSGLMixin, TransactionCase):
         # Fuel products
         self.diesel = self.env['product.product'].create({
             'name': 'UAT-Diesel', 'fms_is_fuel': True, 'list_price': 220.0,
+            'is_storable': True,
             'fms_revenue_account_id': self.revenue_account.id,
             'fms_cogs_account_id': self.cogs_account.id,
         })
         self.super_fuel = self.env['product.product'].create({
             'name': 'UAT-Super', 'fms_is_fuel': True, 'list_price': 215.0,
+            'is_storable': True,
             'fms_revenue_account_id': self.revenue_account.id,
             'fms_cogs_account_id': self.cogs_account.id,
         })
@@ -104,6 +106,7 @@ class FMSUATBase(FMSGLMixin, TransactionCase):
         # Disable auto-open by default so tests don't trigger extra shifts
         prefs = self.env['fms.site.preferences'].get_for_company()
         prefs.auto_open_next_shift = False
+        prefs.default_dip_variance_meniscus = 50.0  # small threshold so 200L variance fails
 
     def _make_shift(self, date='2026-06-15', label='1_day', supervisor=True):
         """Create a shift in draft state. Pass supervisor=False to omit supervisor_id."""

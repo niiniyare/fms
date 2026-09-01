@@ -86,6 +86,7 @@ class FMSGLBase(TransactionCase):
             'name': 'GL-Diesel',
             'fms_is_fuel': True,
             'list_price': 200.0,
+            'is_storable': True,
             'fms_revenue_account_id': self.revenue_account.id,
             'fms_cogs_account_id': self.cogs_account.id,
         })

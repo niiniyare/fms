@@ -26,6 +26,7 @@ class FMSGateBase(FMSGLMixin, TransactionCase):
         # Use pre_assigned mode so attendant-per-nozzle gate doesn't fire before gate tests
         prefs = self.env['fms.site.preferences'].get_for_company()
         prefs.attendant_assignment_mode = 'pre_assigned'
+        prefs.default_dip_variance_meniscus = 50.0  # small threshold so 100L variance fails
         self.supervisor = self.env['hr.employee'].create({'name': 'Gate-Supervisor'})
         self.attendant1 = self.env['hr.employee'].create({
             'name': 'Gate-Attendant-1', 'fms_is_attendant': True,
@@ -35,6 +36,7 @@ class FMSGateBase(FMSGLMixin, TransactionCase):
         })
         self.product = self.env['product.product'].create({
             'name': 'Gate-Diesel', 'fms_is_fuel': True, 'list_price': 200.0,
+            'is_storable': True,
         })
         self.wire_product_accounts(self.product)
         self.pump = self.env['fms.pump'].create({'name': 'Gate-Pump1', 'order': 20})
@@ -153,25 +155,28 @@ class TestGate2AttendantBalances(FMSGateBase):
         shift._gate_check_attendant_balances()  # must not raise
 
     def test_gate2_fails_for_single_nonzero(self):
+        # Non-POS: individual attendant variance checked by Gate 4 (fc_cash)
         shift = self._make_closing_shift()
         self._add_cash(shift, self.attendant1, cash_collected=100.0)
         with self.assertRaises(ValidationError) as ctx:
-            shift._gate_check_attendant_balances()
-        self.assertIn('GATE 3', str(ctx.exception))
+            shift._gate_check_fc_cash()
+        self.assertIn('GATE 4', str(ctx.exception))
 
     def test_gate2_names_failing_attendants(self):
+        # Non-POS: Gate 4 includes attendant names in error
         shift = self._make_closing_shift()
         self._add_cash(shift, self.attendant1, cash_collected=250.0)
         with self.assertRaises(ValidationError) as ctx:
-            shift._gate_check_attendant_balances()
+            shift._gate_check_fc_cash()
         self.assertIn('Gate-Attendant-1', str(ctx.exception))
 
     def test_gate2_names_all_failing_attendants(self):
+        # Non-POS: Gate 4 lists all failing attendants
         shift = self._make_closing_shift()
         self._add_cash(shift, self.attendant1, cash_collected=100.0)
         self._add_cash(shift, self.attendant2, cash_collected=200.0)
         with self.assertRaises(ValidationError) as ctx:
-            shift._gate_check_attendant_balances()
+            shift._gate_check_fc_cash()
         msg = str(ctx.exception)
         self.assertIn('Gate-Attendant-1', msg)
         self.assertIn('Gate-Attendant-2', msg)

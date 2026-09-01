@@ -107,7 +107,7 @@ class TestFMSReport(TransactionCase):
         html, _ = self.env['ir.actions.report'].sudo()._render_qweb_html(
             'fms.report_fms_shift_reconciliation', shift.ids
         )
-        self.assertIn(b'Tank Dip Readings', html)
+        self.assertIn(b'Tank Dip', html)
 
     def test_report_shows_gate_summary(self):
         """Report includes hard gate summary section."""

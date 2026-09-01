@@ -9,8 +9,11 @@ State machine: draft → open → closing → closed
 Reference: FMS_Complete_Specification_Technical_Guide.md, Sections 7 & 8.1
 """
 
+import logging
 from odoo import models, fields, api
 from odoo.exceptions import ValidationError
+
+_logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -1105,6 +1108,7 @@ class FMSShift(models.Model):
                 'target': 'new',
                 'context': {'default_shift_id': self.id},
             }
+        self._refresh_product_sales()
         self.write({
             'state': 'closing',
             'closing_meter_date': fields.Datetime.now(),
@@ -2478,8 +2482,6 @@ class FMSShift(models.Model):
         Returns the created account.move or False if nothing to post.
         """
         self.ensure_one()
-        import logging
-        _logger = logging.getLogger(__name__)
 
         # Idempotency: return existing entry rather than creating a duplicate
         if self.sales_journal_entry_id:
@@ -2617,8 +2619,6 @@ class FMSShift(models.Model):
 
         Allocation lines that already have a journal_entry_id are skipped (idempotent).
         """
-        import logging
-        _logger = logging.getLogger(__name__)
 
         journal = self._get_fms_journal()
 
@@ -2683,8 +2683,6 @@ class FMSShift(models.Model):
           - Tank has no fms_fuel_product_id configured
           - Product has no storable type (service products don't move stock)
         """
-        import logging
-        _logger = logging.getLogger(__name__)
         self.ensure_one()
 
         # Already posted — skip (idempotency)

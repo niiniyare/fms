@@ -228,6 +228,26 @@ class FMSShiftDipEntry(models.Model):
 
     notes = fields.Char('Notes')
 
+    qty_change = fields.Float(
+        'Stock Change (L)', digits=(16, 2),
+        compute='_compute_dip_derived', store=False,
+        help="closing_volume − opening_volume (negative = net sales).",
+    )
+    variance_pct = fields.Float(
+        'Variance %', digits=(16, 4),
+        compute='_compute_dip_derived', store=False,
+        help="abs(qty_change) / closing_volume × 100. Zero when closing_volume is 0.",
+    )
+
+    @api.depends('opening_volume', 'closing_volume')
+    def _compute_dip_derived(self):
+        for entry in self:
+            entry.qty_change = entry.closing_volume - entry.opening_volume
+            if entry.closing_volume:
+                entry.variance_pct = abs(entry.qty_change) / entry.closing_volume * 100.0
+            else:
+                entry.variance_pct = 0.0
+
     @api.constrains('closing_volume')
     def _check_closing_volume_capacity(self):
         for e in self:
@@ -540,6 +560,11 @@ class FMSShiftAttendantCash(models.Model):
                 row = self.env.cr.fetchone()
                 if row:
                     expense_amt += float(row[0])
+
+            # When no GL drop payments exist, fall back to cash_collected (manual entry)
+            # so the gate sees the variance even without fms_accounting installed.
+            if drop_amt == 0.0:
+                drop_amt = rec.cash_collected or 0.0
 
             collected = invoice_amt + receipt_amt + drop_amt + expense_amt
 
