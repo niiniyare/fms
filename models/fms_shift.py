@@ -217,11 +217,6 @@ class FMSShift(models.Model):
         'Total Non Fuel Sales', compute='_compute_total_fc_sales', store=False,
         digits=(16, 2),
     )
-    total_all_sales = fields.Float(
-        'Total Sales (Fuel + Non Fuel)', compute='_compute_total_fc_sales', store=False,
-        digits=(16, 2),
-    )
-
     @api.depends(
         'meter_entry_ids.elec_cash_sold',
         'attendant_cash_ids.total_in',
@@ -239,11 +234,10 @@ class FMSShift(models.Model):
             raw = sum(shift.attendant_cash_ids.mapped('fc_variance'))
             shift.fc_cash_balance_total = raw - shift.fc_variance_writeoff
 
-    @api.depends('fc_line_ids.sales_amount', 'meter_entry_ids.elec_cash_sold')
+    @api.depends('fc_line_ids.sales_amount')
     def _compute_total_fc_sales(self):
         for shift in self:
             shift.total_fc_sales = sum(shift.fc_line_ids.mapped('sales_amount'))
-            shift.total_all_sales = shift.total_meter_sales + shift.total_fc_sales
 
     # ------------------------------------------------------------------
     # Full commercial reconciliation summary (Spec §8 + §11)

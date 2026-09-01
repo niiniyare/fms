@@ -1159,22 +1159,22 @@ class FMSReportAttendantCashBreakdown(models.Model):
     attendant_name  = fields.Char('Attendant (SQL)',               readonly=True)
 
     # ── Revenue sources ───────────────────────────────────────────────
-    meter_sales         = fields.Float('Meter Sales (KES)',        readonly=True, digits=(16, 2))
-    customer_receipts   = fields.Float('Customer Receipts (KES)', readonly=True, digits=(16, 2))
-    float_received      = fields.Float('Float Received (KES)',    readonly=True, digits=(16, 2))
-    cash_drops          = fields.Float('Cash Drops (KES)',         readonly=True, digits=(16, 2))
-    mpesa               = fields.Float('MPesa (KES)',              readonly=True, digits=(16, 2))
-    card                = fields.Float('Card (KES)',               readonly=True, digits=(16, 2))
-    ar_credit           = fields.Float('AR / Credit (KES)',        readonly=True, digits=(16, 2))
+    meter_sales         = fields.Float('Meter Sales',        readonly=True, digits=(16, 2))
+    customer_receipts   = fields.Float('Customer Receipts', readonly=True, digits=(16, 2))
+    float_received      = fields.Float('Float Received',    readonly=True, digits=(16, 2))
+    cash_drops          = fields.Float('Cash Drops',         readonly=True, digits=(16, 2))
+    mpesa               = fields.Float('MPesa',              readonly=True, digits=(16, 2))
+    card                = fields.Float('Card',               readonly=True, digits=(16, 2))
+    ar_credit           = fields.Float('AR / Credit',        readonly=True, digits=(16, 2))
 
     # ── Outgoings ─────────────────────────────────────────────────────
-    vendor_payments     = fields.Float('Vendor Payments (KES)',    readonly=True, digits=(16, 2))
-    expenses            = fields.Float('Expenses (KES)',           readonly=True, digits=(16, 2))
+    vendor_payments     = fields.Float('Vendor Payments',    readonly=True, digits=(16, 2))
+    expenses            = fields.Float('Expenses',           readonly=True, digits=(16, 2))
 
     # ── Declared vs expected ──────────────────────────────────────────
-    cash_declared       = fields.Float('Cash Declared (KES)',      readonly=True, digits=(16, 2))
-    expected_cash       = fields.Float('Expected Cash (KES)',      readonly=True, digits=(16, 2))
-    variance            = fields.Float('Variance (KES)',           readonly=True, digits=(16, 2))
+    cash_declared       = fields.Float('Cash Declared',      readonly=True, digits=(16, 2))
+    expected_cash       = fields.Float('Expected Cash',      readonly=True, digits=(16, 2))
+    variance            = fields.Float('Variance',           readonly=True, digits=(16, 2))
     is_balanced         = fields.Boolean('Balanced',               readonly=True)
 
     def init(self):
@@ -1310,35 +1310,35 @@ class FMSReportCashReconciliation(models.Model):
     attendant_name = fields.Char('Attendant (SQL)',                    readonly=True)
 
     # ── Inflows ───────────────────────────────────────────────────────────────
-    meter_cash_sales   = fields.Float('Meter Cash Sales (KES)',   readonly=True, digits=(16, 2),
+    meter_cash_sales   = fields.Float('Meter Cash Sales',   readonly=True, digits=(16, 2),
         help="elec_cash_sold from pump meters — expected cash from fuel dispensed.")
-    direct_cash_sales  = fields.Float('Direct Cash Sales (KES)',  readonly=True, digits=(16, 2),
+    direct_cash_sales  = fields.Float('Direct Cash Sales',  readonly=True, digits=(16, 2),
         help="Posted out_receipt (cash journal) for non-fuel products (carwash, LPG, misc).")
-    customer_receipts  = fields.Float('Customer Receipts (KES)', readonly=True, digits=(16, 2),
+    customer_receipts  = fields.Float('Customer Receipts', readonly=True, digits=(16, 2),
         help="account.payment inbound, fms_payment_context=customer_receipt, posted.")
-    float_in           = fields.Float('Float Received (KES)',     readonly=True, digits=(16, 2),
+    float_in           = fields.Float('Float Received',     readonly=True, digits=(16, 2),
         help="Cash floats issued to this attendant.")
 
     # ── Outflows (reduce physical cash holding) ───────────────────────────────
-    digital_payments   = fields.Float('Digital Payments (KES)',  readonly=True, digits=(16, 2),
+    digital_payments   = fields.Float('Digital Payments',  readonly=True, digits=(16, 2),
         help="MPesa + Card + digital receipts — no physical cash exchange.")
-    credit_sales       = fields.Float('Credit Sales (KES)',      readonly=True, digits=(16, 2),
+    credit_sales       = fields.Float('Credit Sales',      readonly=True, digits=(16, 2),
         help="AR sales (out_invoice or out_receipt on credit) — no physical cash.")
-    cash_drops         = fields.Float('Cash Drops (KES)',        readonly=True, digits=(16, 2),
+    cash_drops         = fields.Float('Cash Drops',        readonly=True, digits=(16, 2),
         help="Mid-shift drops to safe — reduces expected holding.")
-    expenses_paid      = fields.Float('Expenses Paid (KES)',     readonly=True, digits=(16, 2),
+    expenses_paid      = fields.Float('Expenses Paid',     readonly=True, digits=(16, 2),
         help="Expenses paid from shift cash.")
-    vendor_payments    = fields.Float('Vendor Payments (KES)',   readonly=True, digits=(16, 2),
+    vendor_payments    = fields.Float('Vendor Payments',   readonly=True, digits=(16, 2),
         help="Vendor payments made from shift cash.")
 
     # ── Expected vs declared ──────────────────────────────────────────────────
-    expected_cash  = fields.Float('Expected Cash (KES)',  readonly=True, digits=(16, 2),
+    expected_cash  = fields.Float('Expected Cash',  readonly=True, digits=(16, 2),
         help="Inflows minus non-cash outflows = physical cash the attendant should hold.")
-    declared_cash  = fields.Float('Declared Cash (KES)', readonly=True, digits=(16, 2),
+    declared_cash  = fields.Float('Declared Cash', readonly=True, digits=(16, 2),
         help="cash_collected — what the attendant physically handed over.")
-    variance       = fields.Float('Variance (KES)',       readonly=True, digits=(16, 2),
+    variance       = fields.Float('Variance',       readonly=True, digits=(16, 2),
         help="expected_cash - declared_cash. Must be 0.")
-    refunds        = fields.Float('Refunds (KES)',         readonly=True, digits=(16, 2),
+    refunds        = fields.Float('Refunds',         readonly=True, digits=(16, 2),
         help="Posted credit notes (out_refund) linked to this shift + attendant.")
     variance_pct   = fields.Float('Variance %',           readonly=True, digits=(16, 2),
         help="variance / expected_cash * 100. Null-safe.")

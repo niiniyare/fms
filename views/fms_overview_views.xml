@@ -80,7 +80,7 @@
                         <button type="action" name="%(action_fms_shift)d"
                                 class="o_stat_button" icon="fa-money">
                             <div class="o_stat_info">
-                                <span class="o_stat_text">Yesterday (KES)</span>
+                                <span class="o_stat_text">Yesterday Sales</span>
                                 <span class="o_stat_value">
                                     <field name="yesterday_sales_kes"
                                            options="{'digits': [16, 0]}"/>

@@ -100,12 +100,12 @@
                     <!-- ── FC Cash status bar (always visible when open/closing/closed) ── -->
                     <group invisible="state == 'draft'" class="o_group_col_4">
                         <group string="Fuel Sales">
-                            <field name="total_meter_sales" readonly="1"
+                            <field name="total_fuel_sales" readonly="1"
                                    string="Fuel Sales"
                                    widget="monetary"/>
                         </group>
                         <group string="Non Fuel Sales">
-                            <field name="total_fc_sales" readonly="1"
+                            <field name="total_nonfuel_sales" readonly="1"
                                    string="Non Fuel Sales"
                                    widget="monetary"/>
                         </group>
@@ -141,7 +141,7 @@
                         ═══════════════════════════════════════════ -->
                         <page string="Meters" name="meters">
                             <field name="meter_entry_ids"
-                                   readonly="state in ('closed',)"
+                                   readonly="state == 'closed'"
                                    context="{'default_shift_id': id}">
                                 <list editable="bottom" string="Pump Meter Readings">
                                     <field name="pump_id"/>
@@ -166,7 +166,7 @@
                                     <field name="rtt_volume"
                                            string="RTT (L)" optional="show"/>
                                     <field name="elec_cash_sold" readonly="1"
-                                           string="Cash Sold" sum="Total (KES)"/>
+                                           string="Cash Sold" sum="Total"/>
                                     <field name="qty_sold_elec" readonly="1"
                                            string="Vol Sold (L)" sum="Litres"
                                            optional="show"/>
@@ -184,7 +184,7 @@
                                     <field name="product_id" string="Product"/>
                                     <field name="meter_volume" string="Vol Sold (L)"
                                            sum="Total Litres"/>
-                                    <field name="elec_cash_sold" string="Cash (KES)"
+                                    <field name="elec_cash_sold" string="Cash"
                                            sum="Total Cash"/>
                                     <field name="meter_revenue" string="Vol × Price"
                                            optional="show" sum="Revenue"/>
@@ -197,7 +197,7 @@
                                 <list string="Meter — By Attendant"
                                       create="false" delete="false" edit="false">
                                     <field name="attendant_id" string="Attendant"/>
-                                    <field name="reported_sales" string="Fuel Sales (KES)"
+                                    <field name="reported_sales" string="Fuel Sales"
                                            sum="Total"/>
                                 </list>
                             </field>
@@ -208,7 +208,7 @@
                         ═══════════════════════════════════════════ -->
                         <page string="Dips" name="dips">
                             <field name="dip_entry_ids"
-                                   readonly="state in ('closed',)"
+                                   readonly="state == 'closed'"
                                    context="{'default_shift_id': id}">
                                 <list editable="bottom" string="Tank Dip Readings">
                                     <field name="location_id" string="Tank"
@@ -255,19 +255,26 @@
                                     <field name="product_id" string="Product / Service"
                                            options="{'no_create': True}"/>
                                     <field name="line_type" string="Type"
-                                           readonly="1" optional="show"/>
+                                           readonly="1"/>
                                     <field name="opening_qty" string="Opening"
-                                           readonly="1" optional="show"/>
+                                           readonly="1"
+                                           invisible="line_type == 'service'"
+                                           optional="show"/>
                                     <field name="delivery_qty" string="Received"
+                                           invisible="line_type == 'service'"
                                            optional="show"/>
                                     <field name="closing_qty" string="Closing"
+                                           invisible="line_type == 'service'"
                                            optional="show"/>
                                     <field name="qty_sold" string="Qty Sold"
-                                           readonly="1" optional="show" sum="Qty Sold"/>
+                                           readonly="1"
+                                           invisible="line_type == 'service'"
+                                           optional="show" sum="Qty Sold"/>
                                     <field name="price_unit" string="Price"
+                                           invisible="line_type == 'service'"
                                            optional="show"/>
-                                    <field name="amount" string="Svc Amount"
-                                           optional="show"/>
+                                    <field name="amount" string="Amount"
+                                           invisible="line_type == 'goods'"/>
                                     <field name="sales_amount" string="Sales Amount"
                                            readonly="1" sum="Total Sales"/>
                                 </list>
@@ -332,7 +339,7 @@
                         ═══════════════════════════════════════════ -->
                         <page string="Floats / Drops" name="floats_drops">
                             <field name="cash_movement_ids"
-                                   readonly="state in ('closed',)"
+                                   readonly="state == 'closed'"
                                    context="{'default_shift_id': id}">
                                 <list editable="bottom" string="Floats and Drops"
                                       decoration-info="float_amount &gt; 0"

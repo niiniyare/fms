@@ -953,7 +953,7 @@
                 <field name="elec_vs_man_abs" string="|Var| (L)" optional="hide"/>
                 <field name="man_gate_ok" widget="boolean" string="±1L OK"
                        decoration-danger="not man_gate_ok"/>
-                <field name="elec_cash_sold" string="Elec Cash (KES)" sum="Cash Total" optional="show"/>
+                <field name="elec_cash_sold" string="Elec Cash" sum="Cash Total" optional="show"/>
                 <field name="shift_state" string="Shift State" optional="show"/>
             </list>
         </field>
