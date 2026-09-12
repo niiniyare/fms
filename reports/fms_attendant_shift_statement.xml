@@ -49,7 +49,7 @@
                                     <t t-esc="cash.attendant_id.name"/>
                                 </strong>
                                 <span class="text-muted ms-3">
-                                    ID: <t t-esc="cash.attendant_id.employee_number or cash.attendant_id.barcode or '—'"/>
+                                    ID: <t t-esc="cash.attendant_id.identification_id or cash.attendant_id.barcode or '—'"/>
                                 </span>
                             </div>
 

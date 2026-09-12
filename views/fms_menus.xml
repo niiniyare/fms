@@ -195,6 +195,15 @@
               groups="fms.group_fms_supervisor"
               sequence="130"/>
 
+    <menuitem id="menu_fms_mis_reports"
+              name="Financial Reports (MIS)"
+              parent="menu_fms_reporting"
+              action="mis_builder.mis_report_instance_view_action"
+              groups="fms.group_fms_accountant"
+              sequence="200"/>
+
+
+
     <!-- ════════════════════════════════════════
          CONFIGURATION
     ════════════════════════════════════════ -->
