@@ -1687,3 +1687,119 @@ class TestFinancialInvariants(HardeningBase):
         })
         self.assertAlmostEqual(e.qty_sold_elec, 0.0, places=2,
                                msg="RTT equal to gross = zero customer sale")
+
+
+# ---------------------------------------------------------------------------
+# H21: RTT + stock consumption — INVARIANT 2 & 4
+# ---------------------------------------------------------------------------
+
+class TestRTTStockConsumption(HardeningBase):
+    """
+    INVARIANT 2: One net litre sold = one stock consumption.
+    RTT volume reduces qty_sold_elec → stock.move uses net quantity only.
+    """
+
+    def test_stock_consumption_uses_net_qty_after_rtt(self):
+        """Stock move quantity = gross - rtt_volume (not gross)."""
+        self._seed_stock(self.tank_d, self.diesel, 5000.0)
+        shift = self.env['fms.shift'].create({
+            'date': '2026-09-15', 'label': '1_day', 'supervisor_id': self.supervisor.id,
+        })
+        shift.action_open_shift()
+        e = shift.meter_entry_ids.filtered(lambda x: x.nozzle_id == self.nozzle_d)
+        e.sudo().write({
+            'opening_elec_volume': 0.0, 'closing_elec_volume': 1000.0,
+            'opening_elec_cash': 0.0, 'closing_elec_cash': 222800.0,
+            'rtt_volume': 20.0, 'rtt_cash': 4456.0,
+            'attendant_id': self.attendant1.id,
+        })
+        self.assertAlmostEqual(e.qty_sold_elec, 980.0, places=1,
+                               msg="qty_sold_elec must be net 980L")
+
+        # Run stock consumption only
+        shift.action_start_closing()
+        shift._post_stock_consumption()
+
+        # Verify stock.move created with 980L, not 1000L
+        move = self.env['stock.move'].sudo().search([
+            ('origin', '=', f'FMS/{shift.display_name}'),
+            ('product_id', '=', self.diesel.id),
+            ('state', '=', 'done'),
+        ], limit=1)
+        self.assertTrue(move, "Stock move must exist after _post_stock_consumption")
+        self.assertAlmostEqual(move.quantity, 980.0, delta=0.5,
+                               msg="Stock move must use net 980L, not gross 1000L")
+
+    def test_rtt_does_not_create_extra_stock_move(self):
+        """RTT must not trigger an additional stock.move. Only one move per product."""
+        self._seed_stock(self.tank_d, self.diesel, 5000.0)
+        shift = self.env['fms.shift'].create({
+            'date': '2026-09-15', 'label': '1_day', 'supervisor_id': self.supervisor.id,
+        })
+        shift.action_open_shift()
+        e = shift.meter_entry_ids.filtered(lambda x: x.nozzle_id == self.nozzle_d)
+        e.sudo().write({
+            'opening_elec_volume': 0.0, 'closing_elec_volume': 500.0,
+            'opening_elec_cash': 0.0, 'closing_elec_cash': 111400.0,
+            'rtt_volume': 10.0, 'rtt_cash': 2228.0,
+            'attendant_id': self.attendant1.id,
+        })
+        shift.action_start_closing()
+        shift._post_stock_consumption()
+
+        moves = self.env['stock.move'].sudo().search([
+            ('origin', '=', f'FMS/{shift.display_name}'),
+            ('product_id', '=', self.diesel.id),
+            ('state', '=', 'done'),
+        ])
+        self.assertEqual(len(moves), 1, "Exactly one stock move per product — RTT is not a second move")
+
+
+# ---------------------------------------------------------------------------
+# H22: Wetstock formula with RTT
+# ---------------------------------------------------------------------------
+
+class TestWetsockRTT(HardeningBase):
+    """
+    RTT increases effective closing stock (returned fuel stays in tank).
+    Formula: shift_var = closing_dip - (opening + delivery - qty_sold_elec)
+    where qty_sold_elec = gross - rtt_volume (already correct).
+    """
+
+    def test_wetstock_formula_with_rtt(self):
+        """With RTT, theoretical closing = opening - net_sales (RTT volume stays in tank)."""
+        # Opening: 5000L, gross dispensed: 1000L, RTT: 20L, net sold: 980L
+        # Theoretical closing: 5000 - 980 = 4020L
+        # If actual dip = 4020L → variance = 0
+        shift = self.env['fms.shift'].create({
+            'date': '2026-09-15', 'label': '1_day', 'supervisor_id': self.supervisor.id,
+        })
+        shift.action_open_shift()
+        e = shift.meter_entry_ids.filtered(lambda x: x.nozzle_id == self.nozzle_d)
+        e.sudo().write({
+            'opening_elec_volume': 0.0, 'closing_elec_volume': 1000.0,
+            'opening_elec_cash': 0.0, 'closing_elec_cash': 222800.0,
+            'rtt_volume': 20.0, 'rtt_cash': 4456.0,
+            'attendant_id': self.attendant1.id,
+        })
+
+        # Dip entry: opening=5000, closing=4020 (correctly accounts for 980L net sold)
+        dip = shift.dip_entry_ids.filtered(lambda d: d.location_id == self.tank_d)
+        dip_vals = {'opening_volume': 5000.0, 'closing_volume': 4020.0}
+        if dip:
+            dip.sudo().write(dip_vals)
+        else:
+            self.env['fms.shift.dip.entry'].create(
+                dict(dip_vals, shift_id=shift.id, location_id=self.tank_d.id)
+            )
+
+        dip = shift.dip_entry_ids.filtered(lambda d: d.location_id == self.tank_d)
+        self.assertTrue(dip, "Dip entry must exist")
+        result = shift._compute_dip_variance_data(dip)
+        # meter_sales should be 980L (net after RTT)
+        self.assertAlmostEqual(result['meter_sales'], 980.0, delta=1.0,
+                               msg="Wetstock formula must use net meter sales after RTT")
+        # shift_variance: closing(4020) - (opening(5000) + delivery(0) - meter_sales(980))
+        # = 4020 - (5000 - 980) = 4020 - 4020 = 0
+        self.assertAlmostEqual(result['shift_variance'], 0.0, delta=1.0,
+                               msg="Zero variance when dip matches net theoretical closing")
