@@ -832,14 +832,29 @@ class FMSShift(models.Model):
         planned_close = planned_open + timedelta(hours=duration)
         return planned_open, planned_close
 
+    # Fields that are allowed to be written on a closed shift by the close process itself.
+    # These are set atomically as part of action_close_shift / _apply_emergency_override.
+    _CLOSE_ALLOWED_FIELDS = frozenset({
+        'state', 'sales_journal_entry_id',
+        # Mail / chatter fields written by Odoo core
+        'message_main_attachment_id',
+    })
+
     def write(self, vals):
-        if 'state' in vals and vals['state'] != 'closed':
-            for shift in self:
-                if shift.state == 'closed':
-                    raise ValidationError(
-                        "Closed shift %s cannot be re-opened or modified directly. "
-                        "Use the emergency override workflow." % shift.display_name
-                    )
+        editing_closed = [s for s in self if s.state == 'closed']
+        if editing_closed:
+            disallowed = set(vals.keys()) - self._CLOSE_ALLOWED_FIELDS
+            # Allow writes that only contain fields the close process sets
+            # or writes that are changing state TO closed (the close itself)
+            closing_now = 'state' in vals and vals['state'] == 'closed'
+            if disallowed and not closing_now:
+                names = ', '.join(s.display_name for s in editing_closed)
+                raise ValidationError(
+                    "Closed shift(s) [%s] cannot be modified. "
+                    "Fields attempted: %s. "
+                    "Use the emergency override workflow for authorised corrections."
+                    % (names, ', '.join(sorted(disallowed)))
+                )
         return super().write(vals)
 
     def unlink(self):
