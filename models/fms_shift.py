@@ -446,7 +446,13 @@ class FMSShift(models.Model):
         # net > 0: station short (attendants owe) → DR Write-off expense, CR Clearing
         # net < 0: station surplus (attendants over-deposited) → DR Clearing, CR Write-off income
         writeoff_account = self.fc_writeoff_account_id
-        clearing_account = journal.default_account_id or writeoff_account
+        # Use the FMS clearing account from site preferences, not the journal default
+        prefs_for_wo = self.env['fms.site.preferences'].get_for_company(self.company_id)
+        clearing_account = (
+            (prefs_for_wo and prefs_for_wo.clearing_account_id)
+            or journal.default_account_id
+            or writeoff_account
+        )
 
         if net > 0:
             debit_account, credit_account = writeoff_account, clearing_account
@@ -1831,6 +1837,10 @@ class FMSShift(models.Model):
         location = dip_entry.location_id
         company_ids = self.env.companies.ids
 
+        # Flush ORM cache so stored computed fields (qty_sold_elec) are in the DB
+        # before the raw SQL query reads them.
+        self.env.flush_all()
+
         # Meter sales for this product this shift
         self.env.cr.execute("""
             SELECT COALESCE(SUM(qty_sold_elec), 0.0)
@@ -2548,9 +2558,18 @@ class FMSShift(models.Model):
         """
         self.ensure_one()
 
-        # Idempotency: return existing entry rather than creating a duplicate
+        # Idempotency: return existing entry. Check the field first, then search
+        # by ref as a safety net for cases where the field was not yet persisted
+        # (e.g., called twice within a savepoint before write() completes).
         if self.sales_journal_entry_id:
             return self.sales_journal_entry_id
+        existing = self.env['account.move'].sudo().search([
+            ('ref', '=', f'FMS Shift: {self.display_name}'),
+            ('state', '=', 'posted'),
+            ('company_id', '=', self.company_id.id),
+        ], limit=1)
+        if existing:
+            return existing
 
         # Use elec_cash_sold (cash meter) as the authoritative revenue figure.
         # vol×price (amount_elec) is theoretical; the cash meter is what the

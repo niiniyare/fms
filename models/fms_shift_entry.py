@@ -482,15 +482,21 @@ class FMSShiftAttendantCash(models.Model):
         'shift_id.fc_line_ids.line_type',
     )
     def _compute_fc_variance(self):
-        # Column-existence checks run once per compute call, not per record
+        # Column-existence checks — use pg_attribute instead of information_schema
+        # (pg_attribute is ~10× faster and avoids ORM-invisible schema updates).
         self.env.cr.execute("""
             SELECT
-                MAX(CASE WHEN table_name = 'account_payment' AND column_name = 'fms_shift_id' THEN 1 ELSE 0 END),
-                MAX(CASE WHEN table_name = 'account_move'    AND column_name = 'fms_shift_id' THEN 1 ELSE 0 END),
-                MAX(CASE WHEN table_name = 'hr_expense'      AND column_name = 'fms_shift_id' THEN 1 ELSE 0 END)
-            FROM information_schema.columns
-            WHERE table_name IN ('account_payment', 'account_move', 'hr_expense')
-              AND column_name = 'fms_shift_id'
+                MAX(CASE WHEN c.relname = 'account_payment' THEN 1 ELSE 0 END),
+                MAX(CASE WHEN c.relname = 'account_move'    THEN 1 ELSE 0 END),
+                MAX(CASE WHEN c.relname = 'hr_expense'      THEN 1 ELSE 0 END)
+            FROM pg_attribute a
+            JOIN pg_class c ON c.oid = a.attrelid
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+            WHERE c.relname IN ('account_payment', 'account_move', 'hr_expense')
+              AND a.attname = 'fms_shift_id'
+              AND a.attnum > 0
+              AND NOT a.attisdropped
+              AND n.nspname = 'public'
         """)
         row = self.env.cr.fetchone() or (0, 0, 0)
         has_payment_fms, has_move_fms, has_hr_expense_fms = bool(row[0]), bool(row[1]), bool(row[2])
