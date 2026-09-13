@@ -12,3 +12,4 @@ from . import test_fms_008
 from . import test_fin_series
 from . import test_h8_security
 from . import test_phase1_regression
+from . import test_cash_allocation

@@ -700,6 +700,26 @@
         <field name="perm_unlink" eval="1"/>
     </record>
 
+    <!-- ── fms.shift.cash.allocation ────────────────────────────────────── -->
+    <record id="access_fms_shift_cash_allocation_attendant_read" model="ir.model.access">
+        <field name="name">fms.shift.cash.allocation attendant read</field>
+        <field name="model_id" ref="model_fms_shift_cash_allocation"/>
+        <field name="group_id" ref="group_fms_attendant"/>
+        <field name="perm_read"   eval="1"/>
+        <field name="perm_write"  eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+    <record id="access_fms_shift_cash_allocation_supervisor" model="ir.model.access">
+        <field name="name">fms.shift.cash.allocation supervisor full</field>
+        <field name="model_id" ref="model_fms_shift_cash_allocation"/>
+        <field name="group_id" ref="group_fms_supervisor"/>
+        <field name="perm_read"   eval="1"/>
+        <field name="perm_write"  eval="1"/>
+        <field name="perm_create" eval="1"/>
+        <field name="perm_unlink" eval="1"/>
+    </record>
+
     <!-- ── fms.shift.cash.movement ─────────────────────────────────────── -->
     <record id="access_fms_shift_cash_movement_supervisor" model="ir.model.access">
         <field name="name">fms.shift.cash.movement supervisor full</field>

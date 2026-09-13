@@ -843,9 +843,16 @@ class FMSShift(models.Model):
     def write(self, vals):
         editing_closed = [s for s in self if s.state == 'closed']
         if editing_closed:
+            # Block attempts to change state away from 'closed' (re-opening)
+            if 'state' in vals and vals['state'] != 'closed':
+                names = ', '.join(s.display_name for s in editing_closed)
+                raise ValidationError(
+                    "Closed shift(s) [%s] cannot be re-opened via direct write. "
+                    "Use the emergency override workflow for authorised corrections."
+                    % names
+                )
+            # Block non-allowed field writes unless this is the close transition itself
             disallowed = set(vals.keys()) - self._CLOSE_ALLOWED_FIELDS
-            # Allow writes that only contain fields the close process sets
-            # or writes that are changing state TO closed (the close itself)
             closing_now = 'state' in vals and vals['state'] == 'closed'
             if disallowed and not closing_now:
                 names = ', '.join(s.display_name for s in editing_closed)
@@ -1469,10 +1476,20 @@ class FMSShift(models.Model):
             # to value the adjustment against already-consumed stock, doubling COGS.
             self._post_stock_consumption()
             self._sync_stock_quant_from_dips()
+            # Cash allocation must run after state is written so the allocation
+            # records can reference a closed shift; run outside the savepoint so
+            # a soft failure here doesn't roll back the close.
             vals = {'state': 'closed'}
             if sales_move:
                 vals['sales_journal_entry_id'] = sales_move.id
             self.write(vals)
+
+        # Cash allocation audit trail (non-blocking; GL already posted above)
+        try:
+            from odoo.addons.fms.models.fms_shift_cash_allocation import _compute_cash_allocation
+            _compute_cash_allocation(self)
+        except Exception:
+            _logger.exception("FMS: cash allocation compute failed for shift %s — continuing.", self.display_name)
 
         # Auto-open next shift if site preferences say so
         prefs = self.env['fms.site.preferences'].get_for_company(self.company_id)
@@ -1550,6 +1567,12 @@ class FMSShift(models.Model):
             if sales_move:
                 vals['sales_journal_entry_id'] = sales_move.id
             self.write(vals)
+
+        try:
+            from odoo.addons.fms.models.fms_shift_cash_allocation import _compute_cash_allocation
+            _compute_cash_allocation(self)
+        except Exception:
+            _logger.exception("FMS: cash allocation compute failed for shift %s — continuing.", self.display_name)
 
         self.message_post(
             body=(
@@ -2856,4 +2879,5 @@ class FMSShift(models.Model):
             move._action_confirm()
             move._action_assign()
             move._set_quantity_done(qty)
+            move.picked = True  # Odoo 18: _action_done skips unpicked moves
             move.with_context(cancel_backorder=True)._action_done()

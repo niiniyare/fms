@@ -45,9 +45,9 @@ Reference: Complete specification in FMS_Complete_Specification_Technical_Guide.
         "stock",
         "point_of_sale",
         "hr",
-        "web_dark_mode",
-        "web_responsive",
     ],
+    # Optional UI theme modules — install separately if available
+    "external_dependencies": {},
     "data": [
         # Security
         "security/fms_groups.xml",
