@@ -1447,6 +1447,7 @@ class FMSShift(models.Model):
             self._write_meter_logs()
             self._write_dip_logs()
             sales_move = self._post_sales_journal()
+            self._post_nonfuel_fc_lines_journal()
             # Consumption MUST precede quant sync: stock.move reduces quant from
             # opening stock, then action_apply_inventory() adjusts the remainder
             # to match the physical closing dip. Reversing the order causes AVCO
@@ -1522,13 +1523,14 @@ class FMSShift(models.Model):
             'gate_failures': '\n\n'.join(gate_failures) if gate_failures else 'No gate failures detected at override time.',
         })
 
-        # Post GL and close
+        # Post GL and close (same sequence as normal close)
         with self.env.cr.savepoint():
             self._write_meter_logs()
             self._write_dip_logs()
-            self._sync_stock_quant_from_dips()
             sales_move = self._post_sales_journal()
+            self._post_nonfuel_fc_lines_journal()
             self._post_stock_consumption()
+            self._sync_stock_quant_from_dips()
             vals = {'state': 'closed'}
             if sales_move:
                 vals['sales_journal_entry_id'] = sales_move.id
@@ -2691,6 +2693,75 @@ class FMSShift(models.Model):
             })
             move.action_post()
             alloc.sudo().write({'journal_entry_id': move.id})
+
+    def _post_nonfuel_fc_lines_journal(self):
+        """
+        Post a GL entry for non-fuel forecourt (fc_line) sales that are NOT
+        captured via POS (i.e. manually entered goods/service lines).
+
+        One account.move per fc_line with sales_amount > 0 and no existing entry.
+
+        Journal entry per line:
+          DR  Cash Clearing account         (sales_amount)
+          CR  Product income account        (sales_amount)
+
+        Income account priority:
+          1. product.property_account_income_id (direct override)
+          2. product.categ_id.property_account_income_categ_id (category default)
+
+        Idempotent: fc_lines with journal_entry_id set are skipped.
+        Lines with no income account configured are warned and skipped.
+        """
+        self.ensure_one()
+        journal = self._get_fms_journal()
+        clearing_account = self._get_clearing_account()
+
+        for line in self.fc_line_ids:
+            if line.journal_entry_id:
+                continue  # already posted
+            if abs(line.sales_amount) < 0.01:
+                continue  # nothing to post
+
+            product = line.product_id
+            income_acc = (
+                product.property_account_income_id
+                or product.categ_id.property_account_income_categ_id
+            ) if product else None
+
+            if not income_acc:
+                _logger.warning(
+                    "FMS-fc-line: product '%s' has no income account — GL skipped for fc_line %s",
+                    product.name if product else '?', line.id,
+                )
+                continue
+
+            label = (
+                f"FC {line.get_line_type_display() if hasattr(line, 'get_line_type_display') else line.line_type}: "
+                f"{product.name} — {self.display_name}"
+            )
+            move = self.env['account.move'].sudo().create({
+                'move_type': 'entry',
+                'journal_id': journal.id,
+                'date': self.date,
+                'company_id': self.company_id.id,
+                'ref': label,
+                'line_ids': [
+                    (0, 0, {
+                        'account_id': clearing_account.id,
+                        'name': label,
+                        'debit': line.sales_amount,
+                        'credit': 0.0,
+                    }),
+                    (0, 0, {
+                        'account_id': income_acc.id,
+                        'name': label,
+                        'debit': 0.0,
+                        'credit': line.sales_amount,
+                    }),
+                ],
+            })
+            move.action_post()
+            line.sudo().write({'journal_entry_id': move.id})
 
     def _post_stock_consumption(self):
         """

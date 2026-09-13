@@ -83,6 +83,13 @@ class FmsShiftFcLine(models.Model):
         related='shift_id.company_id', store=True, readonly=True,
     )
 
+    # ── GL tracking ───────────────────────────────────────────────────────────
+
+    journal_entry_id = fields.Many2one(
+        'account.move', 'GL Entry', readonly=True, copy=False,
+        help="Posted when the shift closes. DR Cash Clearing | CR product income account.",
+    )
+
     # ── Computes ──────────────────────────────────────────────────────────────
 
     @api.depends('opening_qty', 'delivery_qty', 'closing_qty', 'line_type')
