@@ -1276,3 +1276,414 @@ class TestRevenueJournalInvariants(HardeningBase):
         # Net = 222800 - 4456 = 218344
         self.assertAlmostEqual(total_cr, 218344.0, delta=1.0,
                                msg="Revenue journal must use net elec_cash_sold")
+
+
+# ---------------------------------------------------------------------------
+# H17: POS session close enforcement — [E610]
+# ---------------------------------------------------------------------------
+
+class TestPOSSessionCloseEnforcement(HardeningBase):
+    """
+    Test A: fuel product with clearing income account → POS close succeeds
+    Test B: fuel product with revenue income account → POS close blocked [E610]
+    Test C: non-fuel product with revenue income account → POS close succeeds
+    Test D: mixed fuel+non-fuel, fuel=clearing, non-fuel=revenue → POS close succeeds
+    """
+
+    def _make_pos_session(self, config_name='Test-POS-Enf'):
+        pos_config = self.env['pos.config'].create({'name': config_name})
+        session = self.env['pos.session'].create({
+            'config_id': pos_config.id,
+            'user_id': self.env.user.id,
+        })
+        return pos_config, session
+
+    def _add_order_line(self, session, product, qty=1, price=100.0):
+        """Create a posted POS order for the session."""
+        order = self.env['pos.order'].create({
+            'session_id': session.id,
+            'company_id': self.env.company.id,
+            'partner_id': False,
+            'lines': [(0, 0, {
+                'product_id': product.id,
+                'qty': qty,
+                'price_unit': price,
+                'price_subtotal': qty * price,
+                'price_subtotal_incl': qty * price,
+            })],
+            'amount_total': qty * price,
+            'amount_tax': 0.0,
+            'amount_paid': qty * price,
+            'amount_return': 0.0,
+        })
+        return order
+
+    def test_A_fuel_clearing_account_pos_close_passes(self):
+        """Test A: fuel with clearing income → _fms_validate_fuel_revenue_config does not raise."""
+        self.diesel.property_account_income_id = self.clearing.id  # asset_current = safe
+        _, session = self._make_pos_session('Test-POS-A')
+        self._add_order_line(session, self.diesel, qty=100, price=222.80)
+        # Must not raise
+        session._fms_validate_fuel_revenue_config()
+
+    def test_B_fuel_revenue_account_pos_close_blocked(self):
+        """Test B: fuel with revenue income → [E610] raised."""
+        self.diesel.property_account_income_id = self.revenue_acc.id  # income = bad
+        _, session = self._make_pos_session('Test-POS-B')
+        self._add_order_line(session, self.diesel, qty=100, price=222.80)
+        try:
+            session._fms_validate_fuel_revenue_config()
+            self.fail("Expected UserError [E610] for fuel revenue account")
+        except Exception as exc:
+            self.assertIn('E610', str(exc.args[0]))
+            self.assertIn('H-Diesel', str(exc.args[0]))
+
+    def test_C_nonfuel_revenue_account_pos_close_passes(self):
+        """Test C: non-fuel with revenue income account → gate does not raise."""
+        carwash = self.env['product.product'].create({
+            'name': 'H-Carwash-Enforcement',
+            'fms_is_fuel': False,
+            'property_account_income_id': self.revenue_acc.id,
+        })
+        _, session = self._make_pos_session('Test-POS-C')
+        self._add_order_line(session, carwash, qty=1, price=500.0)
+        # Non-fuel → gate skips
+        session._fms_validate_fuel_revenue_config()
+
+    def test_D_mixed_session_fuel_clearing_nonfuel_revenue(self):
+        """Test D: fuel=clearing, non-fuel=revenue in same session → gate passes."""
+        self.diesel.property_account_income_id = self.clearing.id
+        carwash = self.env['product.product'].create({
+            'name': 'H-Carwash-D',
+            'fms_is_fuel': False,
+            'property_account_income_id': self.revenue_acc.id,
+        })
+        _, session = self._make_pos_session('Test-POS-D')
+        self._add_order_line(session, self.diesel, qty=50, price=222.80)
+        self._add_order_line(session, carwash, qty=1, price=800.0)
+        # Fuel has clearing account → must not raise
+        session._fms_validate_fuel_revenue_config()
+
+
+# ---------------------------------------------------------------------------
+# H18: RTT validation constraints — [E620]
+# ---------------------------------------------------------------------------
+
+class TestRTTValidation(HardeningBase):
+
+    def _make_entry(self, rtt_vol=0.0, rtt_cash=0.0, close_vol=1000.0, close_cash=222800.0):
+        shift = self.env['fms.shift'].create({
+            'date': '2026-09-15', 'label': '1_day', 'supervisor_id': self.supervisor.id,
+        })
+        shift.action_open_shift()
+        e = shift.meter_entry_ids.filtered(lambda x: x.nozzle_id == self.nozzle_d)
+        vals = {
+            'opening_elec_volume': 0.0, 'closing_elec_volume': close_vol,
+            'opening_elec_cash': 0.0, 'closing_elec_cash': close_cash,
+            'rtt_volume': rtt_vol, 'rtt_cash': rtt_cash,
+        }
+        if e:
+            e.sudo().write(vals)
+        return shift, (e or None)
+
+    def test_negative_rtt_volume_blocked(self):
+        """[E620] rtt_volume < 0 must raise ValidationError."""
+        shift, _ = self._make_entry(rtt_vol=0.0)
+        entry = shift.meter_entry_ids.filtered(lambda x: x.nozzle_id == self.nozzle_d)
+        try:
+            entry.sudo().write({'rtt_volume': -5.0})
+            entry._check_rtt_validity()
+            self.fail("Expected ValidationError for negative rtt_volume")
+        except ValidationError as exc:
+            self.assertIn('E620', str(exc.args[0]))
+
+    def test_negative_rtt_cash_blocked(self):
+        """[E620] rtt_cash < 0 must raise ValidationError."""
+        shift, _ = self._make_entry(rtt_vol=0.0)
+        entry = shift.meter_entry_ids.filtered(lambda x: x.nozzle_id == self.nozzle_d)
+        try:
+            entry.sudo().write({'rtt_cash': -100.0})
+            entry._check_rtt_validity()
+            self.fail("Expected ValidationError for negative rtt_cash")
+        except ValidationError as exc:
+            self.assertIn('E620', str(exc.args[0]))
+
+    def test_rtt_volume_exceeds_gross_blocked(self):
+        """[E620] rtt_volume > gross_volume blocked."""
+        shift, _ = self._make_entry(close_vol=100.0)
+        entry = shift.meter_entry_ids.filtered(lambda x: x.nozzle_id == self.nozzle_d)
+        try:
+            entry.sudo().write({'rtt_volume': 200.0})  # > 100L gross
+            entry._check_rtt_validity()
+            self.fail("Expected ValidationError for rtt_volume > gross")
+        except ValidationError as exc:
+            self.assertIn('E620', str(exc.args[0]))
+
+    def test_rtt_cash_exceeds_gross_cash_blocked(self):
+        """[E620] rtt_cash > gross_cash_movement blocked."""
+        shift, _ = self._make_entry(close_vol=100.0, close_cash=22280.0)
+        entry = shift.meter_entry_ids.filtered(lambda x: x.nozzle_id == self.nozzle_d)
+        try:
+            entry.sudo().write({'rtt_cash': 99999.0})  # > 22280 gross cash
+            entry._check_rtt_validity()
+            self.fail("Expected ValidationError for rtt_cash > gross_cash")
+        except ValidationError as exc:
+            self.assertIn('E620', str(exc.args[0]))
+
+    def test_valid_rtt_passes(self):
+        """Valid RTT values (within bounds) must not raise."""
+        shift, _ = self._make_entry(rtt_vol=10.0, rtt_cash=2228.0,
+                                    close_vol=1000.0, close_cash=222800.0)
+        entry = shift.meter_entry_ids.filtered(lambda x: x.nozzle_id == self.nozzle_d)
+        # Must not raise
+        entry._check_rtt_validity()
+
+    def test_rtt_equals_gross_passes(self):
+        """RTT = 100% of gross volume is extreme but technically valid."""
+        shift, _ = self._make_entry(rtt_vol=100.0, rtt_cash=22280.0,
+                                    close_vol=100.0, close_cash=22280.0)
+        entry = shift.meter_entry_ids.filtered(lambda x: x.nozzle_id == self.nozzle_d)
+        entry._check_rtt_validity()
+
+
+# ---------------------------------------------------------------------------
+# H19: Cash allocation edge cases (extended)
+# ---------------------------------------------------------------------------
+
+class TestCashAllocationEdgeCases(HardeningBase):
+
+    def _run_alloc(self, diesel_rev, petrol_rev=0.0, cash=0.0, mpesa=0.0, card=0.0,
+                   diesel_price=222.80, petrol_price=210.0):
+        """Helper: create shift with given revenue + declared amounts, run allocation."""
+        from odoo.addons.fms.models.fms_shift_cash_allocation import _compute_cash_allocation
+        shift = self.env['fms.shift'].create({
+            'date': '2026-09-15', 'label': '1_day', 'supervisor_id': self.supervisor.id,
+        })
+        shift.action_open_shift()
+
+        if diesel_rev > 0:
+            e = shift.meter_entry_ids.filtered(lambda x: x.nozzle_id == self.nozzle_d)
+            vol = diesel_rev / diesel_price
+            vals = {
+                'attendant_id': self.attendant1.id,
+                'opening_elec_volume': 0.0, 'closing_elec_volume': vol,
+                'opening_elec_cash': 0.0, 'closing_elec_cash': diesel_rev,
+            }
+            if e:
+                e.sudo().write(vals)
+
+        if petrol_rev > 0:
+            e = shift.meter_entry_ids.filtered(lambda x: x.nozzle_id == self.nozzle_p)
+            vol = petrol_rev / petrol_price
+            vals = {
+                'attendant_id': self.attendant1.id,
+                'opening_elec_volume': 0.0, 'closing_elec_volume': vol,
+                'opening_elec_cash': 0.0, 'closing_elec_cash': petrol_rev,
+            }
+            if e:
+                e.sudo().write(vals)
+
+        cl = self.env['fms.shift.attendant.cash'].search(
+            [('shift_id', '=', shift.id), ('attendant_id', '=', self.attendant1.id)], limit=1
+        )
+        if not cl:
+            cl = self.env['fms.shift.attendant.cash'].create(
+                {'shift_id': shift.id, 'attendant_id': self.attendant1.id}
+            )
+        write_vals = {'cash_collected': cash}
+        if mpesa:
+            write_vals['mpesa_amount'] = mpesa
+        if card:
+            write_vals['card_amount'] = card
+        cl.sudo().write(write_vals)
+
+        _compute_cash_allocation(shift)
+        return shift
+
+    def _allocs(self, shift):
+        return self.env['fms.shift.cash.allocation'].search([('shift_id', '=', shift.id)])
+
+    def test_edge_zero_revenue_no_allocation(self):
+        """Zero revenue → no allocation records created."""
+        shift = self._run_alloc(diesel_rev=0.0, cash=0.0)
+        self.assertEqual(len(self._allocs(shift)), 0)
+
+    def test_edge_exact_match_single_product(self):
+        """Cash exactly equals diesel revenue → diesel fully covered, uncovered=0."""
+        rev = 22280.0
+        shift = self._run_alloc(diesel_rev=rev, cash=rev)
+        allocs = self._allocs(shift)
+        diesel_alloc = allocs.filtered(lambda a: a.product_id == self.diesel)
+        self.assertTrue(diesel_alloc)
+        self.assertAlmostEqual(diesel_alloc.uncovered, 0.0, delta=0.01)
+
+    def test_edge_partial_first_product(self):
+        """Cash < diesel revenue → diesel partially covered, petrol uncovered entirely."""
+        shift = self._run_alloc(diesel_rev=22280.0, petrol_rev=10500.0, cash=10000.0)
+        allocs = self._allocs(shift)
+        total_covered = sum(allocs.mapped('cash_allocated'))
+        self.assertAlmostEqual(total_covered, 10000.0, delta=0.01)
+        # Cash must go to diesel first (fuel priority)
+        diesel_alloc = allocs.filtered(lambda a: a.product_id == self.diesel)
+        self.assertAlmostEqual(diesel_alloc.cash_allocated, 10000.0, delta=0.01)
+
+    def test_edge_overflow_into_second_product(self):
+        """Cash covers diesel fully and overflows into petrol."""
+        diesel_rev = 22280.0
+        petrol_rev = 10500.0
+        total_cash = diesel_rev + 5000.0  # 5000 more than diesel alone
+        shift = self._run_alloc(diesel_rev=diesel_rev, petrol_rev=petrol_rev, cash=total_cash)
+        allocs = self._allocs(shift)
+        diesel_alloc = allocs.filtered(lambda a: a.product_id == self.diesel)
+        petrol_alloc = allocs.filtered(lambda a: a.product_id == self.petrol)
+        self.assertAlmostEqual(diesel_alloc.cash_allocated, diesel_rev, delta=0.01)
+        self.assertAlmostEqual(petrol_alloc.cash_allocated, 5000.0, delta=0.01)
+
+    def test_edge_amount_greater_than_all_sales(self):
+        """Cash > total revenue: allocated up to revenue, excess is NOT invented as sales."""
+        diesel_rev = 22280.0
+        excess_cash = diesel_rev + 5000.0
+        shift = self._run_alloc(diesel_rev=diesel_rev, cash=excess_cash)
+        allocs = self._allocs(shift)
+        diesel_alloc = allocs.filtered(lambda a: a.product_id == self.diesel)
+        # Cash allocated capped at product revenue — no invented sales
+        self.assertAlmostEqual(diesel_alloc.cash_allocated, diesel_rev, delta=0.01)
+
+    def test_edge_digital_covers_all_no_cash_needed(self):
+        """M-Pesa covers 100% revenue, declared cash=0: no uncovered."""
+        rev = 22280.0
+        shift = self._run_alloc(diesel_rev=rev, cash=0.0, mpesa=rev)
+        allocs = self._allocs(shift)
+        diesel_alloc = allocs.filtered(lambda a: a.product_id == self.diesel)
+        self.assertAlmostEqual(diesel_alloc.digital_allocated, rev, delta=0.01)
+        self.assertAlmostEqual(diesel_alloc.uncovered, 0.0, delta=0.01)
+
+    def test_edge_repeated_allocation_idempotent(self):
+        """Running _compute_cash_allocation twice produces same result, no duplicates."""
+        from odoo.addons.fms.models.fms_shift_cash_allocation import _compute_cash_allocation
+        shift = self._run_alloc(diesel_rev=22280.0, cash=22280.0)
+        count1 = len(self._allocs(shift))
+        _compute_cash_allocation(shift)  # second run
+        count2 = len(self._allocs(shift))
+        self.assertEqual(count1, count2, "Second allocation run must not duplicate records")
+
+    def test_edge_spec_case_c_exact(self):
+        """Spec Case C: Diesel 1000L × 222.80, M-Pesa 218344, Cash 8000."""
+        # diesel_rev = 218344 (net, after 20L RTT @ 4456)
+        # petrol_rev = some amount
+        diesel_net = 980 * 222.80  # 218344
+        petrol_rev = 10000.0
+        mpesa = 980 * 222.80 * 0.98   # covers 98% of diesel
+        remaining_diesel = diesel_net - mpesa
+        cash = 8000.0
+        shift = self._run_alloc(diesel_rev=diesel_net, petrol_rev=petrol_rev,
+                                cash=cash, mpesa=mpesa)
+        allocs = self._allocs(shift)
+        diesel_alloc = allocs.filtered(lambda a: a.product_id == self.diesel)
+        petrol_alloc = allocs.filtered(lambda a: a.product_id == self.petrol)
+        # Diesel: digital covers 98%, remaining 2% covered by cash
+        self.assertAlmostEqual(diesel_alloc.uncovered, 0.0, delta=1.0)
+        # Petrol: remaining cash (8000 - remaining_diesel) goes to petrol
+        expected_petrol_cash = cash - remaining_diesel
+        self.assertAlmostEqual(petrol_alloc.cash_allocated, max(0, expected_petrol_cash), delta=1.0)
+
+    def test_edge_rounding_precision(self):
+        """Allocation with fractional amounts must not create float precision errors."""
+        rev = 333.33
+        shift = self._run_alloc(diesel_rev=rev, cash=rev)
+        allocs = self._allocs(shift)
+        total_coverage = sum(a.digital_allocated + a.cash_allocated for a in allocs)
+        # Total coverage must equal total revenue within currency rounding
+        self.assertAlmostEqual(total_coverage, rev, delta=0.05)
+
+
+# ---------------------------------------------------------------------------
+# H20: Financial invariant tests (executable)
+# ---------------------------------------------------------------------------
+
+class TestFinancialInvariants(HardeningBase):
+    """
+    Executable tests for the 14 financial invariants specified in the directive.
+    """
+
+    def test_invariant_1_one_fuel_sale_one_revenue(self):
+        """INVARIANT 1: One fuel sale = one revenue recognition."""
+        shift = self._make_shift(diesel_vol=100.0)
+        shift.action_start_closing()
+        move = shift._post_sales_journal()
+        # Call again — idempotent, no second move
+        move2 = shift._post_sales_journal()
+        self.assertEqual(move, move2, "Second call must return same move, not create a new one")
+        # Exactly one account.move with this shift's ref
+        existing = self.env['account.move'].search([
+            ('ref', 'like', f'FMS Shift:'),
+            ('state', '=', 'posted'),
+            ('company_id', '=', self.env.company.id),
+        ])
+        shift_move = existing.filtered(lambda m: m.ref == f'FMS Shift: {shift.display_name}')
+        self.assertEqual(len(shift_move), 1, "Exactly one revenue move per shift")
+
+    def test_invariant_5_net_throughput_equals_gross_minus_rtt(self):
+        """INVARIANT 5: net_throughput = gross_meter - rtt."""
+        shift = self.env['fms.shift'].create({
+            'date': '2026-09-15', 'label': '1_day', 'supervisor_id': self.supervisor.id,
+        })
+        shift.action_open_shift()
+        e = shift.meter_entry_ids.filtered(lambda x: x.nozzle_id == self.nozzle_d)
+        e.sudo().write({
+            'opening_elec_volume': 0.0, 'closing_elec_volume': 1000.0,
+            'rtt_volume': 20.0,
+        })
+        self.assertAlmostEqual(e.qty_sold_elec, 980.0, places=1)
+
+    def test_invariant_4_rtt_does_not_create_cash_shortage_when_rtt_cash_set(self):
+        """INVARIANT 4: RTT does not create artificial cash shortage when rtt_cash is set."""
+        shift = self.env['fms.shift'].create({
+            'date': '2026-09-15', 'label': '1_day', 'supervisor_id': self.supervisor.id,
+        })
+        shift.action_open_shift()
+        e = shift.meter_entry_ids.filtered(lambda x: x.nozzle_id == self.nozzle_d)
+        e.sudo().write({
+            'opening_elec_volume': 0.0, 'closing_elec_volume': 1000.0,
+            'opening_elec_cash': 0.0, 'closing_elec_cash': 222800.0,
+            'rtt_volume': 20.0, 'rtt_cash': 4456.0,
+            'attendant_id': self.attendant1.id,
+        })
+        # Net cash = 222800 - 4456 = 218344. No artificial shortage.
+        self.assertAlmostEqual(e.elec_cash_sold, 218344.0, places=0)
+
+    def test_invariant_9_shift_close_idempotent(self):
+        """INVARIANT 9: Closed shift blocks second close attempt."""
+        shift = self._make_shift(diesel_vol=100.0)
+        self._force_close(shift)
+        try:
+            shift.action_close_shift()
+            self.fail("Expected ValidationError on second close")
+        except (ValidationError, UserError):
+            pass
+
+    def test_invariant_10_closed_history_not_silently_rewritten(self):
+        """INVARIANT 10: Closed shift meter entries cannot be written."""
+        shift = self._make_shift(diesel_vol=100.0)
+        self._force_close(shift)
+        entry = shift.meter_entry_ids[:1]
+        try:
+            entry.write({'closing_elec_volume': 999.0})
+            self.fail("Expected ValidationError for write on closed shift")
+        except ValidationError:
+            pass
+
+    def test_invariant_3_rtt_is_not_a_sale(self):
+        """INVARIANT 3: RTT volume is never customer sales quantity."""
+        shift = self.env['fms.shift'].create({
+            'date': '2026-09-15', 'label': '1_day', 'supervisor_id': self.supervisor.id,
+        })
+        shift.action_open_shift()
+        e = shift.meter_entry_ids.filtered(lambda x: x.nozzle_id == self.nozzle_d)
+        # 20L gross, 20L RTT = 0L net sale
+        e.sudo().write({
+            'opening_elec_volume': 0.0, 'closing_elec_volume': 20.0,
+            'rtt_volume': 20.0,
+        })
+        self.assertAlmostEqual(e.qty_sold_elec, 0.0, places=2,
+                               msg="RTT equal to gross = zero customer sale")

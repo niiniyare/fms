@@ -188,11 +188,55 @@ class FMSShiftMeterEntry(models.Model):
     def _check_elec_cash_non_negative(self):
         for entry in self:
             if entry.elec_cash_sold < 0:
+                cur = entry.shift_id.company_id.currency_id.name
                 raise ValidationError(
-                    f"Nozzle {entry.nozzle_id.name or entry.id}: "
-                    f"Cash meter reading produces a negative cash sale "
-                    f"({entry.shift_id.company_id.currency_id.name} {entry.elec_cash_sold:,.2f}). "
-                    "Check closing vs opening cash meter readings."
+                    f"[E650] Invalid Meter Reading — Nozzle {entry.nozzle_id.name or entry.id}\n\n"
+                    f"Cash meter reading produces a negative net cash sale: {cur} {entry.elec_cash_sold:,.2f}\n\n"
+                    f"Values:\n"
+                    f"  Closing cash: {cur} {entry.closing_elec_cash:,.2f}\n"
+                    f"  Opening cash: {cur} {entry.opening_elec_cash:,.2f}\n"
+                    f"  RTT cash:     {cur} {entry.rtt_cash:,.2f}\n\n"
+                    "Action: Check closing vs opening cash meter readings, and verify RTT cash value."
+                )
+
+    @api.constrains('rtt_volume', 'rtt_cash', 'qty_sold_elec', 'elec_cash_sold',
+                    'closing_elec_volume', 'opening_elec_volume',
+                    'closing_elec_cash', 'opening_elec_cash')
+    def _check_rtt_validity(self):
+        for entry in self:
+            nozzle = entry.nozzle_id.name or str(entry.id)
+            cur = entry.shift_id.company_id.currency_id.name
+
+            if entry.rtt_volume < 0:
+                raise ValidationError(
+                    f"[E620] Invalid RTT — Nozzle {nozzle}\n\n"
+                    f"RTT volume cannot be negative. Got: {entry.rtt_volume:.2f} L\n\n"
+                    "Action: Enter a non-negative RTT volume."
+                )
+
+            if entry.rtt_cash < 0:
+                raise ValidationError(
+                    f"[E620] Invalid RTT — Nozzle {nozzle}\n\n"
+                    f"RTT cash cannot be negative. Got: {cur} {entry.rtt_cash:,.2f}\n\n"
+                    "Action: Enter a non-negative RTT cash value."
+                )
+
+            gross_vol = entry.closing_elec_volume - (entry.opening_elec_volume or 0.0)
+            if entry.rtt_volume > gross_vol + 0.001:
+                raise ValidationError(
+                    f"[E620] Invalid RTT — Nozzle {nozzle}\n\n"
+                    f"RTT volume ({entry.rtt_volume:.2f} L) exceeds gross meter movement "
+                    f"({gross_vol:.2f} L).\n\n"
+                    "RTT cannot be more than what was dispensed. Check readings."
+                )
+
+            gross_cash = entry.closing_elec_cash - (entry.opening_elec_cash or 0.0)
+            if entry.rtt_cash > gross_cash + 0.001:
+                raise ValidationError(
+                    f"[E620] Invalid RTT — Nozzle {nozzle}\n\n"
+                    f"RTT cash ({cur} {entry.rtt_cash:,.2f}) exceeds gross cash movement "
+                    f"({cur} {gross_cash:,.2f}).\n\n"
+                    "RTT cash value cannot exceed what the cash totalizer recorded. Check readings."
                 )
 
     def write(self, vals):

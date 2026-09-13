@@ -1422,6 +1422,16 @@ class FMSShift(models.Model):
                 )
                 raise
 
+            # Detect already-posted POS fuel revenue (session closed before FMS enforcement).
+            try:
+                self._gate_check_pos_already_posted_fuel_revenue()
+            except ValidationError as exc:
+                self.message_post(
+                    body=f"<b>Close attempt failed (POS already posted fuel revenue)</b> by {self.env.user.name}:<br/>{exc.args[0]}",
+                    subtype_xmlid='mail.mt_note',
+                )
+                raise
+
             # Supervisor required when money is involved
             if not self.supervisor_id:
                 raise ValidationError(
@@ -1543,6 +1553,7 @@ class FMSShift(models.Model):
         gate_failures = []
         for gate_fn in (
             self._gate_check_pos_revenue_config,
+            self._gate_check_pos_already_posted_fuel_revenue,
             self._gate_check_meter_elec_vs_manual,
             self._gate_check_meter_elec_vs_cash,
             self._gate_check_volume_reconciliation,
@@ -2144,10 +2155,77 @@ class FMSShift(models.Model):
 
         if conflicts:
             raise ValidationError(
-                "GATE (POS Revenue Config) FAILED — fuel products will double-post revenue:\n\n"
+                "[E610] GATE (POS Revenue Config) FAILED — fuel products will double-post revenue:\n\n"
                 + "\n".join(conflicts)
                 + "\n\nFMS is the authoritative revenue owner. POS must be configured to post "
                 "fuel sales to a clearing account, not a revenue account."
+            )
+
+    def _gate_check_pos_already_posted_fuel_revenue(self):
+        """
+        [E611] Detect if a linked POS session has ALREADY posted fuel revenue.
+
+        The POS session close enforcement (_fms_validate_fuel_revenue_config) blocks
+        bad configuration BEFORE POS posts. But if a session was closed before FMS
+        enforcement was in place, or via a bypass, POS may have already posted fuel
+        revenue to a revenue account.
+
+        This gate detects that situation and blocks FMS shift close, requiring an
+        explicit accounting correction before FMS can post its own revenue.
+
+        Skips if no POS sessions are linked.
+        """
+        if not self.pos_session_ids:
+            return
+
+        fuel_products = self.meter_entry_ids.filtered(
+            lambda e: e.product_id and e.product_id.fms_is_fuel
+        ).mapped('product_id')
+        if not fuel_products:
+            return
+
+        # Collect revenue accounts for FMS fuel products
+        fuel_revenue_accounts = set()
+        for product in fuel_products:
+            try:
+                income = product.with_company(self.company_id)._get_product_accounts().get('income')
+            except Exception:
+                income = None
+            if income and income.account_type in ('income', 'income_other'):
+                fuel_revenue_accounts.add(income.id)
+
+        if not fuel_revenue_accounts:
+            return  # No fuel products have revenue accounts configured — no duplication possible
+
+        # Check POS session moves for credits to fuel revenue accounts
+        conflicts = []
+        for session in self.pos_session_ids:
+            if not session.move_id:
+                continue  # Session not yet closed / no move
+            for line in session.move_id.line_ids:
+                if (line.credit > 0.01
+                        and line.account_id.id in fuel_revenue_accounts):
+                    conflicts.append(
+                        f"  • POS Session {session.name}: "
+                        f"already credited {self.company_id.currency_id.name} {line.credit:,.2f} "
+                        f"to {line.account_id.name} for product {line.product_id.name or '(unknown)'}"
+                    )
+
+        if conflicts:
+            raise ValidationError(
+                "[E611] POS Fuel Revenue Already Posted\n\n"
+                "A linked POS session has already posted fuel revenue to a revenue account.\n"
+                "If FMS now posts its own revenue entry, fuel revenue will be duplicated.\n\n"
+                "Already-posted POS fuel revenue:\n"
+                + "\n".join(conflicts)
+                + "\n\n"
+                "Required action:\n"
+                "  1. Have your accountant create a correcting journal entry to reverse\n"
+                "     the POS fuel revenue lines from the affected session(s).\n"
+                "  2. Reconfigure fuel products to use the FMS Cash Clearing account\n"
+                "     as their income account (prevents recurrence).\n"
+                "  3. Then close this shift.\n\n"
+                "Do NOT close this shift until the duplicate revenue is removed."
             )
 
     def _gate_check_meter_elec_vs_manual(self):
