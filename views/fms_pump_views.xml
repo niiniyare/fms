@@ -33,6 +33,7 @@
                         <group>
                             <field name="code" placeholder="e.g. UX1"/>
                             <field name="order"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
                         </group>
                         <group>
                             <field name="active"/>

@@ -26,6 +26,12 @@ class FMSPump(models.Model):
                        help="Short unique code used on reports (e.g. UX1, DX2).")
     order = fields.Integer('Display Order', required=True, default=1)
     active = fields.Boolean(default=True)
+    company_id = fields.Many2one(
+        'res.company', 'Company', required=True, ondelete='cascade',
+        default=lambda self: self.env.company,
+        help="Pumps are scoped per company. A multi-company installation must "
+             "create pumps separately for each station company.",
+    )
 
     nozzle_ids = fields.One2many('fms.pump.nozzle', 'pump_id', 'Nozzles')
 
@@ -36,8 +42,8 @@ class FMSPump(models.Model):
             pump.nozzle_count = len(pump.nozzle_ids)
 
     _sql_constraints = [
-        ('name_unique', 'UNIQUE(name)', 'Pump name must be unique.'),
-        ('code_unique', 'UNIQUE(code)', 'Pump code must be unique.'),
+        ('name_company_unique', 'UNIQUE(name, company_id)', 'Pump name must be unique per company.'),
+        ('code_company_unique', 'UNIQUE(code, company_id)', 'Pump code must be unique per company.'),
     ]
 
     @api.model_create_multi
