@@ -1412,6 +1412,16 @@ class FMSShift(models.Model):
                 )
                 raise
 
+            # POS revenue duplication guard — must run before _post_sales_journal.
+            try:
+                self._gate_check_pos_revenue_config()
+            except ValidationError as exc:
+                self.message_post(
+                    body=f"<b>Close attempt failed (POS revenue config)</b> by {self.env.user.name}:<br/>{exc.args[0]}",
+                    subtype_xmlid='mail.mt_note',
+                )
+                raise
+
             # Supervisor required when money is involved
             if not self.supervisor_id:
                 raise ValidationError(
@@ -1532,6 +1542,7 @@ class FMSShift(models.Model):
         # Collect what gates would have failed (same sequence as action_close_shift)
         gate_failures = []
         for gate_fn in (
+            self._gate_check_pos_revenue_config,
             self._gate_check_meter_elec_vs_manual,
             self._gate_check_meter_elec_vs_cash,
             self._gate_check_volume_reconciliation,
@@ -2083,6 +2094,60 @@ class FMSShift(models.Model):
                 f"{lines}\n\n"
                 "Fix these in Forecourt → Configuration → GL Account Setup Check, "
                 "then try closing again."
+            )
+
+    def _gate_check_pos_revenue_config(self):
+        """
+        POS REVENUE GUARD: Fuel products must not independently post revenue through both POS and FMS.
+
+        FMS is the authoritative revenue owner for fuel sales (posts DR Clearing | CR Revenue
+        from meter readings). When a POS session closes, Odoo also posts a journal entry crediting
+        the product's income account. If that income account is a revenue account, the same fuel
+        sale is recognized twice.
+
+        Operators must configure fuel products so their income account (the account POS credits
+        when the session closes) is a clearing/transit account — NOT a revenue account.
+
+        Raises ValidationError listing each conflicting product and the corrective action.
+        """
+        if not self.pos_session_ids:
+            return
+
+        fuel_entries = self.meter_entry_ids.filtered(
+            lambda e: e.product_id and e.product_id.fms_is_fuel and e.elec_cash_sold > 0.01
+        )
+        if not fuel_entries:
+            return
+
+        conflicts = []
+        for product in fuel_entries.mapped('product_id'):
+            # POS income account: product-level first, then category fallback
+            pos_income = (
+                product.property_account_income_id
+                or (product.categ_id and product.categ_id.property_account_income_categ_id)
+            )
+            fms_revenue = product.fms_revenue_account_id
+
+            if not pos_income or not fms_revenue:
+                continue
+
+            # Duplication occurs when POS posts to a revenue-type account
+            # (account_type = 'income' or 'income_other' in Odoo 18)
+            if pos_income.account_type in ('income', 'income_other'):
+                conflicts.append(
+                    f"  • {product.name}: POS income account '{pos_income.name}' "
+                    f"(type={pos_income.account_type}) is a revenue account. "
+                    f"FMS will also post to '{fms_revenue.name}'. Revenue will be duplicated.\n"
+                    f"    Fix: Set this product's income account to the FMS Cash Clearing account "
+                    f"(or any non-revenue clearing/transit account)."
+                )
+
+        if conflicts:
+            raise ValidationError(
+                "GATE (POS Revenue Config) FAILED — fuel products will double-post revenue:\n\n"
+                + "\n".join(conflicts)
+                + "\n\nFMS is the authoritative revenue owner. POS must be configured to post "
+                "fuel sales to a clearing account, not a revenue account."
             )
 
     def _gate_check_meter_elec_vs_manual(self):

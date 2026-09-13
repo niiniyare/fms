@@ -69,6 +69,12 @@ class FMSShiftMeterEntry(models.Model):
         help="Litres returned to tank (test pumping, nozzle priming, calibration). "
              "Deducted from effective qty sold.",
     )
+    rtt_cash = fields.Float(
+        'RTT Cash Value', digits=(16, 2),
+        help="Monetary value of RTT as reported by pump controller or entered by operator. "
+             "Deducted from electronic cash totalizer to give net sales cash. "
+             "Do NOT compute as rtt_volume × today's price — use the actual transaction value.",
+    )
 
     # ── Computed quantities ───────────────────────────────────────────────────
     qty_sold_elec = fields.Float(
@@ -97,13 +103,16 @@ class FMSShiftMeterEntry(models.Model):
         'closing_elec_volume', 'opening_elec_volume',
         'closing_elec_cash', 'opening_elec_cash',
         'closing_man_mech', 'opening_man_mech',
-        'rtt_volume',
+        'rtt_volume', 'rtt_cash',
     )
     def _compute_qty(self):
         for e in self:
             e.qty_sold_elec  = (e.closing_elec_volume - (e.opening_elec_volume or 0.0)) - (e.rtt_volume or 0.0)
-            e.elec_cash_sold = e.closing_elec_cash   - (e.opening_elec_cash   or 0.0)
-            e.qty_sold_man   = e.closing_man_mech    - (e.opening_man_mech    or 0.0)
+            # RTT cash deducted from totalizer: pump hardware counts ALL dispensed fuel
+            # including RTT. Subtract the actual RTT monetary value (entered by operator)
+            # so elec_cash_sold = net sales cash only, with no artificial FC variance.
+            e.elec_cash_sold = e.closing_elec_cash - (e.opening_elec_cash or 0.0) - (e.rtt_cash or 0.0)
+            e.qty_sold_man   = e.closing_man_mech  - (e.opening_man_mech  or 0.0)
 
     @api.depends('qty_sold_elec', 'product_id', 'product_id.list_price', 'shift_id.date')
     def _compute_amount(self):
@@ -219,6 +228,7 @@ class FMSShiftMeterEntry(models.Model):
             'opening_man_mech':    self.opening_man_mech,
             'closing_man_mech':    self.closing_man_mech,
             'rtt_volume':          self.rtt_volume,
+            'rtt_cash':            self.rtt_cash,
         })
 
 
@@ -482,24 +492,11 @@ class FMSShiftAttendantCash(models.Model):
         'shift_id.fc_line_ids.line_type',
     )
     def _compute_fc_variance(self):
-        # Column-existence checks — use pg_attribute instead of information_schema
-        # (pg_attribute is ~10× faster and avoids ORM-invisible schema updates).
-        self.env.cr.execute("""
-            SELECT
-                MAX(CASE WHEN c.relname = 'account_payment' THEN 1 ELSE 0 END),
-                MAX(CASE WHEN c.relname = 'account_move'    THEN 1 ELSE 0 END),
-                MAX(CASE WHEN c.relname = 'hr_expense'      THEN 1 ELSE 0 END)
-            FROM pg_attribute a
-            JOIN pg_class c ON c.oid = a.attrelid
-            JOIN pg_namespace n ON n.oid = c.relnamespace
-            WHERE c.relname IN ('account_payment', 'account_move', 'hr_expense')
-              AND a.attname = 'fms_shift_id'
-              AND a.attnum > 0
-              AND NOT a.attisdropped
-              AND n.nspname = 'public'
-        """)
-        row = self.env.cr.fetchone() or (0, 0, 0)
-        has_payment_fms, has_move_fms, has_hr_expense_fms = bool(row[0]), bool(row[1]), bool(row[2])
+        # Use ORM field registry for optional-module column existence — no SQL needed.
+        # These fields are only present when fms_accounting is installed.
+        has_payment_fms = 'fms_shift_id' in self.env['account.payment']._fields
+        has_move_fms    = 'fms_shift_id' in self.env['account.move']._fields
+        has_hr_expense_fms = 'fms_shift_id' in self.env['hr.expense']._fields
 
         valid = self.filtered(lambda r: r.shift_id and r.attendant_id and isinstance(r.shift_id.id, int))
         for rec in self - valid:

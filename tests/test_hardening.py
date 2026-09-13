@@ -730,12 +730,11 @@ class TestRTTBehavior(HardeningBase):
         self.assertAlmostEqual(entry.qty_sold_elec, 980.0, places=2,
                                msg="qty_sold_elec = gross - RTT = 1000 - 20 = 980")
 
-    def test_rtt_does_not_reduce_elec_cash_sold(self):
+    def test_rtt_volume_alone_does_not_reduce_elec_cash_sold(self):
         """
-        By design: elec_cash_sold is the hardware cash totalizer reading.
-        RTT does NOT reduce the cash totalizer — that is a hardware constraint.
-        The RTT cash is reconciled via FC variance resolution.
-        This test documents the known behavior.
+        rtt_volume alone does not reduce elec_cash_sold.
+        Only rtt_cash (explicitly entered) reduces cash.
+        When rtt_cash is not set, elec_cash_sold = gross cash totalizer movement.
         """
         shift = self.env['fms.shift'].create({
             'date': '2026-09-15', 'label': '1_day', 'supervisor_id': self.supervisor.id,
@@ -756,9 +755,9 @@ class TestRTTBehavior(HardeningBase):
                      pump_id=self.pump.id, product_id=self.diesel.id)
             )
         entry.invalidate_recordset(['qty_sold_elec', 'elec_cash_sold'])
-        # Cash totalizer shows GROSS (hardware reads all dispensed including RTT)
+        # No rtt_cash set → elec_cash_sold = gross cash movement (rtt_cash defaults to 0.0)
         self.assertAlmostEqual(entry.elec_cash_sold, gross_cash, places=2,
-                               msg="elec_cash_sold = gross hardware reading (not adjusted for RTT)")
+                               msg="elec_cash_sold = gross when rtt_cash not provided")
         # Volume IS adjusted
         self.assertAlmostEqual(entry.qty_sold_elec, 980.0, places=2)
 
@@ -1015,3 +1014,265 @@ class TestStockMoveIdempotency(HardeningBase):
             [('shift_id', '=', shift.id)]
         )
         self.assertEqual(count1, count2, "Dip logs must not duplicate on repeated calls")
+
+
+# ---------------------------------------------------------------------------
+# H14: RTT cash deduction — INVARIANT 4
+# ---------------------------------------------------------------------------
+
+class TestRTTCash(HardeningBase):
+
+    def _make_shift_with_rtt(self, vol=1000.0, rtt_vol=20.0, rtt_cash=4456.0,
+                              gross_cash=222800.0):
+        """Create a shift with RTT: gross vol dispensed, rtt returned, cash meter unchanged."""
+        shift = self.env['fms.shift'].create({
+            'date': '2026-09-15', 'label': '1_day', 'supervisor_id': self.supervisor.id,
+        })
+        shift.action_open_shift()
+        vals = {
+            'attendant_id': self.attendant1.id,
+            'opening_elec_volume': 0.0, 'closing_elec_volume': vol,
+            'opening_elec_cash': 0.0, 'closing_elec_cash': gross_cash,
+            'rtt_volume': rtt_vol, 'rtt_cash': rtt_cash,
+        }
+        entry = shift.meter_entry_ids.filtered(lambda e: e.nozzle_id == self.nozzle_d)
+        if entry:
+            entry.sudo().write(vals)
+        else:
+            self.env['fms.shift.meter.entry'].create(
+                dict(vals, shift_id=shift.id, pump_id=self.pump.id,
+                     nozzle_id=self.nozzle_d.id, product_id=self.diesel.id)
+            )
+        return shift
+
+    def _get_diesel_entry(self, shift):
+        return shift.meter_entry_ids.filtered(lambda e: e.nozzle_id == self.nozzle_d)[0]
+
+    def test_rtt_volume_deducted_from_qty(self):
+        """INVARIANT 5: qty_sold_elec = gross_volume - rtt_volume."""
+        shift = self._make_shift_with_rtt(vol=1000.0, rtt_vol=20.0)
+        entry = self._get_diesel_entry(shift)
+        self.assertAlmostEqual(entry.qty_sold_elec, 980.0, places=1)
+
+    def test_rtt_cash_deducted_from_elec_cash(self):
+        """INVARIANT 4: elec_cash_sold = gross_cash - rtt_cash (no artificial FC variance)."""
+        shift = self._make_shift_with_rtt(
+            vol=1000.0, rtt_vol=20.0, rtt_cash=4456.0, gross_cash=222800.0
+        )
+        entry = self._get_diesel_entry(shift)
+        # gross_cash=222800, rtt_cash=4456 → net=218344
+        self.assertAlmostEqual(entry.elec_cash_sold, 218344.0, places=0)
+
+    def test_zero_rtt_cash_no_change(self):
+        """Zero RTT cash leaves elec_cash_sold unchanged from gross cash movement."""
+        shift = self._make_shift_with_rtt(
+            vol=1000.0, rtt_vol=0.0, rtt_cash=0.0, gross_cash=222800.0
+        )
+        entry = self._get_diesel_entry(shift)
+        self.assertAlmostEqual(entry.elec_cash_sold, 222800.0, places=0)
+
+    def test_rtt_cash_persisted_to_meter_log(self):
+        """rtt_cash must be copied to immutable meter_log on shift close."""
+        shift = self._make_shift_with_rtt(
+            vol=1000.0, rtt_vol=20.0, rtt_cash=4456.0, gross_cash=222800.0
+        )
+        shift.action_start_closing()
+        shift._write_meter_logs()
+        # Find the log for the diesel nozzle specifically
+        log = self.env['fms.meter_log'].sudo().search(
+            [('shift_id', '=', shift.id), ('nozzle_id', '=', self.nozzle_d.id)], limit=1
+        )
+        self.assertTrue(log, "Meter log must be created on close")
+        self.assertAlmostEqual(log.rtt_cash, 4456.0, places=0)
+
+    def test_meter_log_rtt_cash_deducted(self):
+        """fms.meter_log elec_cash_sold must also use rtt_cash deduction."""
+        shift = self._make_shift_with_rtt(
+            vol=1000.0, rtt_vol=20.0, rtt_cash=4456.0, gross_cash=222800.0
+        )
+        shift.action_start_closing()
+        shift._write_meter_logs()
+        log = self.env['fms.meter_log'].sudo().search(
+            [('shift_id', '=', shift.id), ('nozzle_id', '=', self.nozzle_d.id)], limit=1
+        )
+        self.assertTrue(log)
+        self.assertAlmostEqual(log.elec_cash_sold, 218344.0, places=0)
+
+    def test_rtt_cash_allocation_uses_net_sales(self):
+        """INVARIANT 6: Cash allocation uses net elec_cash_sold (after rtt_cash deduction)."""
+        shift = self._make_shift_with_rtt(
+            vol=1000.0, rtt_vol=20.0, rtt_cash=4456.0, gross_cash=222800.0
+        )
+        # Give enough declared cash to cover net sales
+        cl = self.env['fms.shift.attendant.cash'].search(
+            [('shift_id', '=', shift.id), ('attendant_id', '=', self.attendant1.id)], limit=1
+        )
+        if not cl:
+            cl = self.env['fms.shift.attendant.cash'].create(
+                {'shift_id': shift.id, 'attendant_id': self.attendant1.id}
+            )
+        cl.sudo().write({'cash_collected': 218344.0})
+
+        from odoo.addons.fms.models.fms_shift_cash_allocation import _compute_cash_allocation
+        _compute_cash_allocation(shift)
+
+        allocs = self.env['fms.shift.cash.allocation'].search([('shift_id', '=', shift.id)])
+        self.assertTrue(allocs, "Allocation records must be created")
+        total_revenue = sum(allocs.mapped('product_revenue'))
+        # Revenue must be net: 218344, not gross 222800
+        self.assertAlmostEqual(total_revenue, 218344.0, delta=1.0)
+
+    def test_multi_attendant_rtt_isolation(self):
+        """Multiple attendants with RTT on different nozzles must not cross-contaminate."""
+        shift = self.env['fms.shift'].create({
+            'date': '2026-09-15', 'label': '1_day', 'supervisor_id': self.supervisor.id,
+        })
+        shift.action_open_shift()
+
+        def _write_or_create(nozzle, product, attendant, close_vol, close_cash, rtt_vol, rtt_cash):
+            vals = {
+                'attendant_id': attendant.id,
+                'opening_elec_volume': 0.0, 'closing_elec_volume': close_vol,
+                'opening_elec_cash': 0.0, 'closing_elec_cash': close_cash,
+                'rtt_volume': rtt_vol, 'rtt_cash': rtt_cash,
+            }
+            e = shift.meter_entry_ids.filtered(lambda x: x.nozzle_id == nozzle)
+            if e:
+                e.sudo().write(vals)
+            else:
+                self.env['fms.shift.meter.entry'].create(
+                    dict(vals, shift_id=shift.id, pump_id=self.pump.id,
+                         nozzle_id=nozzle.id, product_id=product.id)
+                )
+
+        # Attendant A: Diesel 500L gross, RTT 10L, cash=111400, rtt_cash=2228
+        _write_or_create(self.nozzle_d, self.diesel, self.attendant1,
+                         500.0, 111400.0, 10.0, 2228.0)
+        # Attendant B: Petrol 500L gross, RTT 5L, cash=105000, rtt_cash=1050
+        _write_or_create(self.nozzle_p, self.petrol, self.attendant2,
+                         500.0, 105000.0, 5.0, 1050.0)
+
+        d_entry = shift.meter_entry_ids.filtered(lambda e: e.nozzle_id == self.nozzle_d)
+        p_entry = shift.meter_entry_ids.filtered(lambda e: e.nozzle_id == self.nozzle_p)
+        # Diesel net: 500-10=490L, cash: 111400-2228=109172
+        self.assertAlmostEqual(d_entry.qty_sold_elec, 490.0, places=1)
+        self.assertAlmostEqual(d_entry.elec_cash_sold, 109172.0, places=0)
+        # Petrol net: 500-5=495L, cash: 105000-1050=103950
+        self.assertAlmostEqual(p_entry.qty_sold_elec, 495.0, places=1)
+        self.assertAlmostEqual(p_entry.elec_cash_sold, 103950.0, places=0)
+
+
+# ---------------------------------------------------------------------------
+# H15: POS revenue duplication guard
+# ---------------------------------------------------------------------------
+
+class TestPOSRevenueGuard(HardeningBase):
+
+    def _make_pos_method(self, fms_type='cash'):
+        return self.env['pos.payment.method'].create({
+            'name': f'Test-{fms_type}',
+            'fms_payment_type': fms_type,
+            'split_transactions': False,
+        })
+
+    def test_no_pos_session_gate_skipped(self):
+        """_gate_check_pos_revenue_config is a no-op when no POS sessions linked."""
+        shift = self._make_shift(diesel_vol=100.0)
+        # Must not raise — no POS sessions
+        shift._gate_check_pos_revenue_config()
+
+    def test_pos_fuel_with_clearing_account_passes(self):
+        """POS fuel product income account = clearing → no duplication → gate passes."""
+        # Set diesel's income account to clearing (asset_current = transit/clearing)
+        self.diesel.property_account_income_id = self.clearing.id
+        shift = self._make_shift(diesel_vol=100.0)
+        # Fake a POS session link (just set the M2M, no real session needed for gate)
+        pos_config = self.env['pos.config'].create({'name': 'Test-POS'})
+        session = self.env['pos.session'].create({'config_id': pos_config.id, 'user_id': self.env.user.id})
+        shift.sudo().write({'pos_session_ids': [(4, session.id)]})
+        # Gate must pass — clearing account is not a revenue account
+        shift._gate_check_pos_revenue_config()
+
+    def test_pos_fuel_with_revenue_account_blocked(self):
+        """POS fuel product income account = revenue → duplication risk → gate blocks."""
+        # Set diesel's income account to a revenue account (same type as fms_revenue_account_id)
+        self.diesel.property_account_income_id = self.revenue_acc.id
+        shift = self._make_shift(diesel_vol=100.0)
+        # Link a POS session
+        pos_config = self.env['pos.config'].create({'name': 'Test-POS2'})
+        session = self.env['pos.session'].create({'config_id': pos_config.id, 'user_id': self.env.user.id})
+        shift.sudo().write({'pos_session_ids': [(4, session.id)]})
+        # Gate must raise
+        try:
+            shift._gate_check_pos_revenue_config()
+            self.fail("Expected ValidationError for POS revenue duplication")
+        except ValidationError as exc:
+            self.assertIn('H-Diesel', str(exc.args[0]))
+            self.assertIn('income', str(exc.args[0]).lower())
+
+    def test_pos_nonfuel_product_ignored_by_gate(self):
+        """Gate only checks fuel products — non-fuel with revenue account does not raise."""
+        carwash = self.env['product.product'].create({
+            'name': 'H-Carwash', 'fms_is_fuel': False,
+            'property_account_income_id': self.revenue_acc.id,
+        })
+        shift = self.env['fms.shift'].create({
+            'date': '2026-09-15', 'label': '1_day', 'supervisor_id': self.supervisor.id,
+        })
+        shift.action_open_shift()
+        pos_config = self.env['pos.config'].create({'name': 'Test-POS3'})
+        session = self.env['pos.session'].create({'config_id': pos_config.id, 'user_id': self.env.user.id})
+        shift.sudo().write({'pos_session_ids': [(4, session.id)]})
+        # No fuel meter entries → gate skips
+        shift._gate_check_pos_revenue_config()
+
+
+# ---------------------------------------------------------------------------
+# H16: Revenue idempotency + journal direction
+# ---------------------------------------------------------------------------
+
+class TestRevenueJournalInvariants(HardeningBase):
+
+    def test_revenue_journal_dr_clearing_cr_revenue(self):
+        """INVARIANT 1: FMS sales journal = DR Clearing | CR Revenue (not reversed)."""
+        shift = self._make_shift(diesel_vol=100.0)
+        shift.action_start_closing()
+        move = shift._post_sales_journal()
+        self.assertTrue(move, "Sales journal must be created")
+        dr_lines = move.line_ids.filtered(lambda l: l.debit > 0)
+        cr_lines = move.line_ids.filtered(lambda l: l.credit > 0)
+        self.assertTrue(dr_lines, "Journal must have a debit line")
+        self.assertTrue(cr_lines, "Journal must have a credit line")
+        dr_accounts = dr_lines.mapped('account_id.account_type')
+        cr_accounts = cr_lines.mapped('account_id.account_type')
+        # DR must be clearing (asset_current), CR must be income
+        self.assertTrue(
+            any(t == 'asset_current' for t in dr_accounts),
+            f"DR account type must be asset_current (clearing). Got: {dr_accounts}"
+        )
+        self.assertTrue(
+            any(t in ('income', 'income_other') for t in cr_accounts),
+            f"CR account type must be income. Got: {cr_accounts}"
+        )
+
+    def test_revenue_amount_uses_net_elec_cash(self):
+        """Revenue journal amount = net elec_cash_sold (after rtt_cash deduction)."""
+        shift = self.env['fms.shift'].create({
+            'date': '2026-09-15', 'label': '1_day', 'supervisor_id': self.supervisor.id,
+        })
+        shift.action_open_shift()
+        self.env['fms.shift.meter.entry'].create({
+            'shift_id': shift.id, 'pump_id': self.pump.id,
+            'nozzle_id': self.nozzle_d.id, 'product_id': self.diesel.id,
+            'attendant_id': self.attendant1.id,
+            'opening_elec_volume': 0.0, 'closing_elec_volume': 1000.0,
+            'opening_elec_cash': 0.0, 'closing_elec_cash': 222800.0,
+            'rtt_volume': 20.0, 'rtt_cash': 4456.0,
+        })
+        shift.action_start_closing()
+        move = shift._post_sales_journal()
+        self.assertTrue(move)
+        total_cr = sum(move.line_ids.mapped('credit'))
+        # Net = 222800 - 4456 = 218344
+        self.assertAlmostEqual(total_cr, 218344.0, delta=1.0,
+                               msg="Revenue journal must use net elec_cash_sold")
