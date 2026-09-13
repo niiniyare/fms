@@ -26,9 +26,9 @@
                     </block>
 
                     <block title="Gates &amp; Reconciliation" name="fms_gates">
-                        <setting string="Dip Variance Meniscus (%)"
-                                 help="Maximum allowed tank dip variance as % of closing volume. Shifts cannot close if exceeded.">
-                            <field name="fms_meniscus_pct"/>
+                        <setting string="Dip Variance Meniscus (L)"
+                                 help="Maximum absolute tank dip variance in litres before Gate 5 blocks shift close. Default: 50 L.">
+                            <field name="fms_meniscus_l"/>
                         </setting>
                         <setting string="Elec vs Cash Threshold (L)"
                                  help="Maximum variance between electronic and cash meter readings per nozzle.">

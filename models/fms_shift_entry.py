@@ -316,6 +316,7 @@ class FMSShiftDipEntry(models.Model):
         }
         if variance_data:
             vals.update({
+                'delivery_qty':         variance_data.get('delivery', 0.0),
                 'meter_sales_snapshot': variance_data.get('meter_sales', 0.0),
                 'shift_variance':       variance_data.get('shift_variance', 0.0),
                 'shift_var_amount':     variance_data.get('shift_var_amount', 0.0),
@@ -622,15 +623,30 @@ class FMSShiftAttendantCash(models.Model):
     )
     def _compute_from_pos(self):
         PayMethod = self.env['pos.payment.method']
-        mpesa_methods = PayMethod.search([('name', 'ilike', 'mpesa')])
-        card_methods  = PayMethod.search([('name', 'ilike', 'card')])
-        ar_methods    = (
-            PayMethod.search([('name', 'ilike', 'account')])
-            | PayMethod.search([('name', 'ilike', 'credit')])
-        )
-        mpesa_ids = set(mpesa_methods.ids)
-        card_ids  = set(card_methods.ids)
-        ar_ids    = set(ar_methods.ids)
+        all_methods = PayMethod.search([])
+
+        # Primary: use explicit fms_payment_type if set on the method
+        # Fallback: name-based detection for methods without an explicit type
+        mpesa_ids = set()
+        card_ids  = set()
+        ar_ids    = set()
+        for m in all_methods:
+            pt = m.fms_payment_type
+            if pt == 'mpesa':
+                mpesa_ids.add(m.id)
+            elif pt == 'card':
+                card_ids.add(m.id)
+            elif pt in ('credit', 'bank'):
+                ar_ids.add(m.id)
+            elif not pt:
+                # No explicit type — fall back to name matching
+                name_lower = (m.name or '').lower()
+                if 'mpesa' in name_lower or 'mobile' in name_lower:
+                    mpesa_ids.add(m.id)
+                elif 'card' in name_lower or 'pdq' in name_lower or 'visa' in name_lower:
+                    card_ids.add(m.id)
+                elif 'account' in name_lower or 'credit' in name_lower or 'ar' == name_lower:
+                    ar_ids.add(m.id)
 
         PosOrder = self.env['pos.order']
         has_employee_field = 'employee_id' in PosOrder._fields
@@ -911,3 +927,38 @@ class FMSShiftAttendantCash(models.Model):
     def unlink(self):
         self._check_shift_open()
         return super().unlink()
+
+
+class FMSPosPaymentMethod(models.Model):
+    """
+    Extend pos.payment.method with an explicit FMS payment type.
+
+    Previously, FMS classified payment methods by searching for 'mpesa', 'card', etc.
+    in the method name — fragile and breaks on rename. This field provides an explicit,
+    stable classification. Name-matching remains as a fallback for unclassified methods.
+
+    Values:
+      cash   — physical cash (default; no explicit type needed)
+      mpesa  — M-Pesa or other mobile money
+      card   — credit/debit card / PDQ terminal
+      bank   — bank transfer / EFT
+      credit — customer credit / AR (on-account)
+      cheque — cheque payment
+      other  — any other digital payment method
+    """
+
+    _inherit = 'pos.payment.method'
+
+    fms_payment_type = fields.Selection([
+        ('cash',   'Cash'),
+        ('mpesa',  'M-Pesa / Mobile Money'),
+        ('card',   'Card / PDQ'),
+        ('bank',   'Bank Transfer'),
+        ('credit', 'Customer Credit / AR'),
+        ('cheque', 'Cheque'),
+        ('other',  'Other Digital'),
+    ], string='FMS Payment Type',
+        help="Explicit FMS classification. When set, overrides name-based detection. "
+             "Leave blank for Cash (the default). Set on every non-cash method to prevent "
+             "breakage if the method name is ever changed.",
+    )

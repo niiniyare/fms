@@ -1418,8 +1418,10 @@ class FMSShift(models.Model):
                 self._gate_check_stock_variance,
                 # G8: Meter vs invoice+receipt
                 self._gate_check_meter_vs_sales,
-                # G9-G15: FIN-009 + GATE-002 additional gates
-                self._gate_check_customer_receipts,
+                # G10-G15: FIN-009 + GATE-002 additional gates
+                # G9 (_gate_check_customer_receipts) removed: shift-scoped receipt vs
+                # invoice comparison incorrectly blocks legitimate cross-shift customer
+                # payments. Standard Odoo AR reconciliation handles over-payment detection.
                 self._gate_check_float_reconciliation,
                 self._gate_check_expense_posting,
                 self._gate_check_vendor_payment_posting,
@@ -1444,11 +1446,13 @@ class FMSShift(models.Model):
         with self.env.cr.savepoint():
             self._write_meter_logs()
             self._write_dip_logs()
-            self._sync_stock_quant_from_dips()
             sales_move = self._post_sales_journal()
-            # Residual allocation journals removed — FC-line multi-product entries
-            # handle the money side. Dip stock variance gate (Gate 5) unchanged.
+            # Consumption MUST precede quant sync: stock.move reduces quant from
+            # opening stock, then action_apply_inventory() adjusts the remainder
+            # to match the physical closing dip. Reversing the order causes AVCO
+            # to value the adjustment against already-consumed stock, doubling COGS.
             self._post_stock_consumption()
+            self._sync_stock_quant_from_dips()
             vals = {'state': 'closed'}
             if sales_move:
                 vals['sales_journal_entry_id'] = sales_move.id
@@ -1497,7 +1501,6 @@ class FMSShift(models.Model):
             self._gate_check_fc_cash,
             self._gate_check_stock_variance,
             self._gate_check_meter_vs_sales,
-            self._gate_check_customer_receipts,
             self._gate_check_float_reconciliation,
             self._gate_check_expense_posting,
             self._gate_check_vendor_payment_posting,
@@ -1619,8 +1622,8 @@ class FMSShift(models.Model):
          "Tank dip variance exceeds meniscus. Verify dip readings or post adjustment."),
         ("G8 Meter vs Invoices",         "_gate_check_meter_vs_sales",
          "Meter sales must match posted invoices + receipts. Check unposted documents."),
-        ("G9 Customer Receipts",         "_gate_check_customer_receipts",
-         "Post all pending customer receipt payments linked to this shift."),
+        # G9 removed: shift-scoped receipt vs invoice comparison blocked legitimate
+        # cross-shift customer payments. Standard Odoo AR reconciliation covers this.
         ("G10 Float Reconciliation",     "_gate_check_float_reconciliation",
          "All floats issued must be dropped or carried. Account for outstanding floats."),
         ("G11 Expense Posting",          "_gate_check_expense_posting",
@@ -1745,18 +1748,25 @@ class FMSShift(models.Model):
         Gate 4 checks the net sum; Gate 3 checks each attendant individually.
         """
         self.ensure_one()
-        # No POS sessions → fc_variance system is the single source of truth.
-        # Net FC Cash (after write-off) is enforced by Gate 4. Gate 3 defers
-        # to that check so per-attendant variance absorbed by a shift-level
-        # write-off is not double-counted here.
-        if not self.pos_session_ids:
-            return
-        self.attendant_cash_ids.invalidate_recordset(['balance', 'total_in', 'total_out'])
-        failing = [
-            f"  • {c.attendant_id.name}: {self.company_id.currency_id.name} {c.balance:,.2f}"
-            for c in self.attendant_cash_ids
-            if abs(c.balance) > 0.01
-        ]
+        cur = self.company_id.currency_id.name
+        if self.pos_session_ids:
+            # POS workflow: use balance (reported_sales − collected/digital)
+            self.attendant_cash_ids.invalidate_recordset(['balance', 'total_in', 'total_out'])
+            failing = [
+                f"  • {c.attendant_id.name}: {cur} {c.balance:,.2f}"
+                for c in self.attendant_cash_ids
+                if abs(c.balance) > 0.01
+            ]
+        else:
+            # Non-POS (FMS-only) workflow: gate 4 checks the net shift total after write-off;
+            # gate 3 checks each individual attendant's fc_variance so a single person's
+            # shortfall cannot hide behind a different attendant's surplus.
+            self.attendant_cash_ids.invalidate_recordset(['fc_variance', 'fc_captured', 'fc_collected'])
+            failing = [
+                f"  • {c.attendant_id.name}: {cur} {c.fc_variance:,.2f}"
+                for c in self.attendant_cash_ids
+                if abs(c.fc_variance) > 0.01
+            ]
         if failing:
             lines = "\n".join(failing)
             raise ValidationError(
@@ -1846,6 +1856,7 @@ class FMSShift(models.Model):
 
         return {
             'meter_sales':     meter_sales,
+            'delivery':        delivery,
             'shift_variance':  shift_var,
             'shift_var_amount': shift_var_amount,
             'month_variance':  month_var,

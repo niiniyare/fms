@@ -177,3 +177,58 @@ class FMSDipLog(models.Model):
         raise ValidationError(
             "Dip logs cannot be deleted — they form part of the EPRA audit trail."
         )
+
+
+class FMSMeterLogRTTCorrection(models.Model):
+    """
+    Additive RTT correction record — never mutates the original meter log.
+
+    When a post-close RTT correction is required, the wizard creates one of
+    these records linked to the original fms.meter_log. The net RTT for any
+    log is:  original.rtt_volume  +  SUM(corrections.rtt_volume).
+
+    The original log remains immutable (EPRA compliance). This record is
+    itself append-only: write() and unlink() are blocked after creation.
+    """
+
+    _name = 'fms.meter_log.rtt_correction'
+    _description = 'Meter Log RTT Correction (Immutable)'
+    _order = 'meter_log_id, create_date'
+
+    meter_log_id = fields.Many2one(
+        'fms.meter_log', 'Original Meter Log',
+        required=True, ondelete='restrict', index=True, readonly=True,
+    )
+    shift_id = fields.Many2one(
+        'fms.shift', related='meter_log_id.shift_id',
+        store=True, readonly=True, index=True,
+    )
+    rtt_volume = fields.Float(
+        'RTT Correction (L)', required=True, readonly=True, digits=(16, 2),
+        help="Positive = additional RTT (reduces net meter sales). "
+             "Negative = RTT reversal (increases net meter sales).",
+    )
+    rtt_amount = fields.Float(
+        'RTT Amount', readonly=True, digits=(16, 2),
+        help="Monetary value of the RTT correction (volume × price at correction date).",
+    )
+    reason = fields.Char('Reason', required=True, readonly=True)
+    journal_entry_id = fields.Many2one(
+        'account.move', 'GL Entry', readonly=True,
+        help="Revenue reversal posted when this correction was created.",
+    )
+    recorded_date = fields.Datetime('Recorded At', default=fields.Datetime.now, readonly=True)
+    recorded_user_id = fields.Many2one(
+        'res.users', 'Recorded By',
+        default=lambda self: self.env.user, readonly=True,
+    )
+
+    def write(self, vals):
+        raise ValidationError(
+            "RTT corrections are immutable. Create a new correction to adjust."
+        )
+
+    def unlink(self):
+        raise ValidationError(
+            "RTT corrections cannot be deleted — they form part of the EPRA audit trail."
+        )

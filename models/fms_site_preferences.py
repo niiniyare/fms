@@ -19,9 +19,10 @@ class FMSSitePreferences(models.Model):
 
     # ── Gate 5: Dip variance meniscus (absolute litres) ──────────────────────
     default_dip_variance_meniscus = fields.Float(
-        'Dip Variance Meniscus (L)', default=1000.0, digits=(10, 2),
+        'Dip Variance Meniscus (L)', default=50.0, digits=(10, 2),
         help="Maximum absolute tank dip variance in litres before Gate 5 blocks shift close. "
-             "Default: ±1000 L. Supervisor must investigate or post a stock adjustment if exceeded.",
+             "Default: ±50 L (≈0.5% of a 10,000 L tank). Supervisor must investigate "
+             "or post a stock adjustment if exceeded.",
     )
     meniscus_pct = fields.Float(
         'Variance Meniscus (%) [deprecated]', default=0.5, digits=(5, 2),
@@ -71,9 +72,10 @@ class FMSSitePreferences(models.Model):
     )
     clearing_account_id = fields.Many2one(
         'account.account', 'Cash Clearing Account',
-        domain=[('account_type', '=', 'asset_receivable')],
+        domain=[('account_type', '=', 'asset_current')],
         help="Debited on shift close for total cash sales (before banking). "
-             "Must contain 'clearing' in its name if left blank (auto-detected).",
+             "Must be a current-asset (transit) account — NOT a receivable. "
+             "Using asset_receivable here corrupts AR aging and partner reconciliation.",
     )
     sales_journal_id = fields.Many2one(
         'account.journal', 'Forecourt Sales Journal',

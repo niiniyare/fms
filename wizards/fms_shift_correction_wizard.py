@@ -207,11 +207,16 @@ class FmsShiftCorrectionWizard(models.TransientModel):
             ],
         })
         move.action_post()
-        # Update the meter_log rtt_volume for audit visibility (log is read-only in UI
-        # but correction wizard has the authority to update it).
+        # Record an immutable RTT correction instead of mutating the original log.
+        # The original fms.meter_log remains unchanged (EPRA compliance).
+        # Reporting code sums original.rtt_volume + SUM(corrections.rtt_volume).
         if self.meter_log_id:
-            self.env.cr.execute(
-                "UPDATE fms_meter_log SET rtt_volume = COALESCE(rtt_volume,0) + %s WHERE id = %s",
-                (self.rtt_volume, self.meter_log_id.id),
-            )
+            self.env['fms.meter_log.rtt_correction'].sudo().create({
+                'meter_log_id': self.meter_log_id.id,
+                'rtt_volume': self.rtt_volume,
+                'rtt_amount': amount,
+                'reason': self.reason,
+                'journal_entry_id': move.id,
+                'recorded_user_id': self.env.user.id,
+            })
         return move

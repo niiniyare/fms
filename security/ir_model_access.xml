@@ -227,6 +227,28 @@
         <field name="perm_unlink" eval="0"/>
     </record>
 
+    <!-- ── fms.meter_log.rtt_correction (immutable) ────────────────────── -->
+    <!-- Created only by the correction wizard (supervisor group). Read for all FMS users. -->
+    <record id="access_fms_meter_log_rtt_correction_attendant" model="ir.model.access">
+        <field name="name">fms.meter_log.rtt_correction attendant read</field>
+        <field name="model_id" ref="model_fms_meter_log_rtt_correction"/>
+        <field name="group_id" ref="group_fms_attendant"/>
+        <field name="perm_read"   eval="1"/>
+        <field name="perm_write"  eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <record id="access_fms_meter_log_rtt_correction_supervisor" model="ir.model.access">
+        <field name="name">fms.meter_log.rtt_correction supervisor</field>
+        <field name="model_id" ref="model_fms_meter_log_rtt_correction"/>
+        <field name="group_id" ref="group_fms_supervisor"/>
+        <field name="perm_read"   eval="1"/>
+        <field name="perm_write"  eval="0"/>
+        <field name="perm_create" eval="1"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
     <!-- fms.site.preferences -->
     <record id="access_fms_site_preferences_supervisor" model="ir.model.access">
         <field name="name">fms.site.preferences supervisor</field>

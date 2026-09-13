@@ -4,15 +4,18 @@ from odoo import models, fields, api
 class FMSConfigSettings(models.TransientModel):
     _inherit = 'res.config.settings'
 
-    # ── Gate thresholds ───────────────────────────────────────────────────────
-    fms_meniscus_pct = fields.Float(
-        'Dip Variance Meniscus (%)',
-        config_parameter='fms.meniscus_pct',
-        default=0.5,
+    # ── Gate thresholds — proxied through fms.site.preferences ───────────────
+    # Previously stored via config_parameter='fms.xxx' (ir.config_parameter),
+    # but gates read from prefs.elec_vs_cash_threshold_l / prefs.default_dip_variance_meniscus.
+    # Storing in a separate table meant Settings UI changes had zero effect on gate behavior.
+    fms_meniscus_l = fields.Float(
+        'Dip Variance Meniscus (L)',
+        compute='_compute_fms_prefs', inverse='_set_fms_prefs', store=False,
+        default=50.0,
     )
     fms_elec_vs_cash_threshold_l = fields.Float(
         'Elec vs Cash Threshold (L)',
-        config_parameter='fms.elec_vs_cash_threshold_l',
+        compute='_compute_fms_prefs', inverse='_set_fms_prefs', store=False,
         default=5.0,
     )
 
@@ -21,39 +24,35 @@ class FMSConfigSettings(models.TransientModel):
         ('8',  '8 hours  — 3 shifts/day'),
         ('12', '12 hours — 2 shifts/day'),
         ('24', '24 hours — 1 shift/day'),
-    ], string='Shift Duration', config_parameter='fms.shift_duration_hrs', default='8')
+    ], string='Shift Duration',
+        compute='_compute_fms_prefs', inverse='_set_fms_prefs', store=False)
 
     # ── POS / gate behaviour ──────────────────────────────────────────────────
     fms_require_pos_reconciliation = fields.Boolean(
         'Require POS Reconciliation',
-        config_parameter='fms.require_pos_reconciliation',
-        default=True,
+        compute='_compute_fms_prefs', inverse='_set_fms_prefs', store=False,
     )
     fms_auto_open_next_shift = fields.Boolean(
         'Auto-open Next Shift on Close',
-        config_parameter='fms.auto_open_next_shift',
-        default=True,
+        compute='_compute_fms_prefs', inverse='_set_fms_prefs', store=False,
     )
     fms_auto_sync_attendants = fields.Boolean(
         'Auto-sync Attendant Lines on Closing',
-        config_parameter='fms.auto_sync_attendants',
-        default=True,
+        compute='_compute_fms_prefs', inverse='_set_fms_prefs', store=False,
     )
     fms_allow_multiple_disputed = fields.Boolean(
         'Allow Multiple Disputed Shifts',
-        config_parameter='fms.allow_multiple_disputed',
-        default=False,
+        compute='_compute_fms_prefs', inverse='_set_fms_prefs', store=False,
     )
 
     # ── Attendant mode ────────────────────────────────────────────────────────
     fms_attendant_assignment_mode = fields.Selection([
         ('per_nozzle',   'Per Nozzle'),
         ('pre_assigned', 'Pre-Assigned'),
-    ], string='Attendant Assignment', config_parameter='fms.attendant_assignment_mode',
-        default='per_nozzle')
+    ], string='Attendant Assignment',
+        compute='_compute_fms_prefs', inverse='_set_fms_prefs', store=False)
 
-    # ── GL / journals (stored on fms.site.preferences, not ir.config_parameter)
-    # These proxy through to the site prefs record for the current company.
+    # ── GL / journals (stored on fms.site.preferences) ───────────────────────
     fms_prefs_id = fields.Many2one(
         'fms.site.preferences', compute='_compute_fms_prefs', store=False)
 
@@ -63,7 +62,7 @@ class FMSConfigSettings(models.TransientModel):
         compute='_compute_fms_prefs', inverse='_set_fms_prefs', store=False)
     fms_clearing_account_id = fields.Many2one(
         'account.account', 'Cash Clearing Account',
-        domain=[('account_type', '=', 'asset_receivable')],
+        domain=[('account_type', '=', 'asset_current')],
         compute='_compute_fms_prefs', inverse='_set_fms_prefs', store=False)
     fms_default_revenue_account_id = fields.Many2one(
         'account.account', 'Default Fuel Revenue Account',
@@ -83,6 +82,14 @@ class FMSConfigSettings(models.TransientModel):
             rec.fms_clearing_account_id = prefs.clearing_account_id
             rec.fms_default_revenue_account_id = prefs.default_revenue_account_id
             rec.fms_default_cogs_account_id = prefs.default_cogs_account_id
+            rec.fms_meniscus_l = prefs.default_dip_variance_meniscus
+            rec.fms_elec_vs_cash_threshold_l = prefs.elec_vs_cash_threshold_l
+            rec.fms_shift_duration_hrs = prefs.shift_duration_hrs
+            rec.fms_require_pos_reconciliation = prefs.require_pos_reconciliation
+            rec.fms_auto_open_next_shift = prefs.auto_open_next_shift
+            rec.fms_auto_sync_attendants = prefs.auto_sync_attendants
+            rec.fms_allow_multiple_disputed = prefs.allow_multiple_disputed
+            rec.fms_attendant_assignment_mode = prefs.attendant_assignment_mode
 
     def _set_fms_prefs(self):
         for rec in self:
@@ -92,4 +99,12 @@ class FMSConfigSettings(models.TransientModel):
                 'clearing_account_id': rec.fms_clearing_account_id.id,
                 'default_revenue_account_id': rec.fms_default_revenue_account_id.id,
                 'default_cogs_account_id': rec.fms_default_cogs_account_id.id,
+                'default_dip_variance_meniscus': rec.fms_meniscus_l,
+                'elec_vs_cash_threshold_l': rec.fms_elec_vs_cash_threshold_l,
+                'shift_duration_hrs': rec.fms_shift_duration_hrs,
+                'require_pos_reconciliation': rec.fms_require_pos_reconciliation,
+                'auto_open_next_shift': rec.fms_auto_open_next_shift,
+                'auto_sync_attendants': rec.fms_auto_sync_attendants,
+                'allow_multiple_disputed': rec.fms_allow_multiple_disputed,
+                'attendant_assignment_mode': rec.fms_attendant_assignment_mode,
             })
