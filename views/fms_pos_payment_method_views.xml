@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        Extend the POS payment method form to expose fms_payment_type.
+
+        Operators must classify every non-cash payment method with an explicit
+        FMS type. Without this, _compute_from_pos falls back to name-based
+        detection which breaks on rename.
+    -->
+    <record id="view_fms_pos_payment_method_form" model="ir.ui.view">
+        <field name="name">pos.payment.method.fms_type</field>
+        <field name="model">pos.payment.method</field>
+        <field name="inherit_id" ref="point_of_sale.view_pos_payment_method_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='name']" position="after">
+                <field name="fms_payment_type"
+                       string="FMS Payment Type"
+                       help="FMS classification for attendant reconciliation. Set on non-cash methods."/>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>
